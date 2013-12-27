@@ -51,7 +51,6 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using UnityEngine;
-using Toolbar;
 
 namespace Chatterer
 {
@@ -201,7 +200,7 @@ namespace Chatterer
         //GUI
         private bool gui_running = false;
         private int skin_index = 1;     //selected skin
-        // private bool ui_icons_loaded = false;  // [Disabled] using blizzy78's Toolbar plugin
+        private bool ui_icons_loaded;
         protected Rect ui_icon_pos; //position set later according to ui_icons_loaded
         private bool gui_styles_set = false;
         private bool hide_all_windows = true;
@@ -212,7 +211,7 @@ namespace Chatterer
         private int sel_beep_page = 1;
         private int num_beep_pages;
         private int prev_num_pages;
-        private IButton chatterer_toolbar_button; //integration with blizzy78's Toolbar plugin
+        private ToolbarButtonWrapper chatterer_toolbar_button; //integration with blizzy78's Toolbar plugin
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -340,7 +339,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.5.9devBuild";
+        private string this_version = "0.5.9.002";
         private string main_window_title = "Chatterer ";
         private string latest_version = "";
         private bool recvd_latest_version = false;
@@ -431,20 +430,34 @@ namespace Chatterer
         internal chatterer() 
         {
             //integration with blizzy78's Toolbar plugin
-            chatterer_toolbar_button = ToolbarManager.Instance.add("Chatterer", "UI");
-            chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
-            chatterer_toolbar_button.ToolTip = "Open/Close Chatterer UI";
-            chatterer_toolbar_button.Visibility = new GameScenesVisibility(GameScenes.FLIGHT);
-            chatterer_toolbar_button.OnClick += (e) =>
+            if (ToolbarButtonWrapper.ToolbarManagerPresent)
             {
-                hide_all_windows = !hide_all_windows;
-                if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked");
-            };            
+                ui_icons_loaded = false; // Disabling default Chatterer icon
+                if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found !, disabling default Chatterer icon");
+
+                chatterer_toolbar_button = ToolbarButtonWrapper.TryWrapToolbarButton("Chatterer", "UI");
+                chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
+                chatterer_toolbar_button.ToolTip = "Open/Close Chatterer UI";
+                chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
+                chatterer_toolbar_button.AddButtonClickHandler((e) =>
+                {
+                    hide_all_windows = !hide_all_windows;
+                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked");
+                });
+            }
+            else
+            {
+                ui_icons_loaded = true; // blizzy78's Toolbar plugin not present : enabling default Chatterer icon
+                if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin not found, enabling default Chatterer icon");
+            }
         }
 
         internal void OnDestroy() 
         {
-            chatterer_toolbar_button.Destroy();
+            if (chatterer_toolbar_button != null)
+            {
+                chatterer_toolbar_button.Destroy();
+            }
         }
 
         private void start_GUI()
@@ -550,19 +563,19 @@ namespace Chatterer
 
             if (gui_styles_set == false) set_gui_styles();  //run this once to set a few GUIStyles
 
-            //icon [Disabled] using blizzy78's Toolbar plugin
-            //if (ui_icons_loaded)
-            //{
-            //    ui_icon = ui_icon_off;
-            //    if (mute_all == false) ui_icon = ui_icon_on;
+            //icon ([Disabled] if using blizzy78's Toolbar plugin)
+            if (ui_icons_loaded)
+            {
+                ui_icon = ui_icon_off;
+                if (mute_all == false) ui_icon = ui_icon_on;
 
-            //    if (GUI.Button(ui_icon_pos, ui_icon, new GUIStyle())) hide_all_windows = !hide_all_windows;
-            //}
-            //else
-            //{
-            //    if (GUI.Button(ui_icon_pos, "Chatterer", GUI.skin.button)) hide_all_windows = !hide_all_windows;
-            //}
-
+                if (GUI.Button(ui_icon_pos, ui_icon, new GUIStyle())) hide_all_windows = !hide_all_windows;
+            }
+            else if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
+            {
+                if (GUI.Button(ui_icon_pos, "Chatterer", GUI.skin.button)) hide_all_windows = !hide_all_windows;
+            }
+            
             int window_id = window_base_id;
 
             //main window
@@ -631,15 +644,15 @@ namespace Chatterer
             //Show "Settings"
             if (GUILayout.Button("Settings")) menu = "settings";
 
-            //Mute button // Disabled, Mute cause NULL REFERENCE EXCEPTION replacing with "Close UI" for now
-            
+            ////Mute button // Disabled, Mute cause NULL REFERENCE EXCEPTION replacing with "Close UI" for now
+
             //string muted = "Mute";
             //if (mute_all) muted = "Muted";
 
             //if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) mute_all = !mute_all;
 
-            string muted = "Close";
-            if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) hide_all_windows = !hide_all_windows;
+            string closeUI = "Close";
+            if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false))) hide_all_windows = !hide_all_windows;
             
             GUILayout.EndHorizontal();
 
@@ -1532,16 +1545,19 @@ namespace Chatterer
 
             GUILayout.EndHorizontal();
 
-            ////Change icon position
-            //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //if (changing_icon_pos == false)
-            //{
-            //    _content.text = "Change icon position";
-            //    _content.tooltip = "Move icon anywhere on the screen";
-            //    if (GUILayout.Button(_content)) changing_icon_pos = true;
-            //}
-            //else GUILayout.Label("Click anywhere to set new icon position");
-            //GUILayout.EndHorizontal();
+            //Change icon position
+            if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
+            {
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                if (changing_icon_pos == false)
+                {
+                    _content.text = "Change icon position";
+                    _content.tooltip = "Move icon anywhere on the screen";
+                    if (GUILayout.Button(_content)) changing_icon_pos = true;
+                }
+                else GUILayout.Label("Click anywhere to set new icon position");
+                GUILayout.EndHorizontal();
+            }            
         }
 
         private void testing_gui(int window_id)
@@ -3339,41 +3355,40 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] load_shared_settings() END");
         }
 
-        //Load small icon [Disabled] using blizzy78's Toolbar plugin
-        //private void load_icons()
-        //{
-        //    string path_icon_on = "Chatterer/Textures/chatterer_icon_on";
-        //    string path_icon_off = "Chatterer/Textures/chatterer_icon_off";
+        //Load small icon ([Disabled] if using blizzy78's Toolbar plugin)
+        private void load_icons()
+        {
+            string path_icon_on = "Chatterer/Textures/chatterer_icon_on";
+            string path_icon_off = "Chatterer/Textures/chatterer_icon_off";
 
-        //    if (GameDatabase.Instance.ExistsTexture(path_icon_on) && GameDatabase.Instance.ExistsTexture(path_icon_off))
-        //    {
-        //        if (debugging) Debug.Log("[CHATR] icon textures exist, loading...");
-        //        ui_icon_on = GameDatabase.Instance.GetTexture(path_icon_on, false);
-        //        ui_icon_off = GameDatabase.Instance.GetTexture(path_icon_off, false);
-        //    }
-        //    else
-        //    {
-        //        Debug.LogWarning("[CHATR] Icon texture files missing");
-        //        ui_icons_loaded = false;
-        //    }
+            if (GameDatabase.Instance.ExistsTexture(path_icon_on) && GameDatabase.Instance.ExistsTexture(path_icon_off))
+            {
+                if (debugging) Debug.Log("[CHATR] icon textures exist, loading...");
+                ui_icon_on = GameDatabase.Instance.GetTexture(path_icon_on, false);
+                ui_icon_off = GameDatabase.Instance.GetTexture(path_icon_off, false);
+            }
+            else
+            {
+                Debug.LogWarning("[CHATR] Icon texture files missing");
+                ui_icons_loaded = false;
+            }
 
-        //    if (ui_icons_loaded)
-        //    {
-        //        ui_icon_pos = new Rect((Screen.width / 2) - 285f, Screen.height - 32f, 30f, 30f);
-        //        if (chatter_freq == 0) ui_icon = ui_icon_off;
-        //        else ui_icon = ui_icon_on;
-        //        if (debugging) Debug.Log("[CHATR] icon textures loaded");
-        //    }
-        //    else
-        //    {
-        //        ui_icon_pos = new Rect((Screen.width / 2) - 320f, Screen.height - 22f, 70f, 20f);
-        //    }
+            if (ui_icons_loaded)
+            {
+                ui_icon_pos = new Rect((Screen.width / 2) - 285f, Screen.height - 32f, 30f, 30f);
+                if (chatter_freq == 0) ui_icon = ui_icon_off;
+                else ui_icon = ui_icon_on;
+                if (debugging) Debug.Log("[CHATR] icon textures loaded");
+            }
+            else
+            {
+                ui_icon_pos = new Rect((Screen.width / 2) - 320f, Screen.height - 22f, 70f, 20f);
+            }
 
             //Debug.Log("Screen.height == " + Screen.height);
             //Debug.Log("Screen.width == " + Screen.width);
             //Debug.Log("ui_icon_pos == " + ui_icon_pos);
-
-        //}
+        }
 
         //Check for a newer version
         private void get_latest_version()
@@ -5318,7 +5333,7 @@ namespace Chatterer
 
             load_beep_audio();      //this must run before loading settings (else no beep clips to assign to sources))
 
-            //load_icons(); //[Disabled] using blizzy78's Toolbar plugin
+            if (ToolbarButtonWrapper.ToolbarManagerPresent == false) load_icons(); // ([Disabled] if using blizzy78's Toolbar plugin)
 
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/line_512x4")) line_512x4 = GameDatabase.Instance.GetTexture("Chatterer/Textures/line_512x4", false);
             else Debug.LogWarning("Texture 'line_512x4' is missing!");
