@@ -142,7 +142,7 @@ namespace Chatterer
 
         private int window_base_id = -12381578;
 
-        private bool debugging = true;      //lots of extra log info if true
+        private bool debugging = false;      //lots of extra log info if true
 
         private Vessel vessel;          //is set to FlightGlobals.ActiveVessel
         private Vessel prev_vessel;     //to detect change in active vessel
@@ -1362,10 +1362,16 @@ namespace Chatterer
             GUIContent _content = new GUIContent();
 
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            _content.text = "Allow update check";
-            _content.tooltip = "Allow plugin to check for a newer version via http";
-            http_update_check = GUILayout.Toggle(http_update_check, _content);
+            _content.text = "Debug Mode";
+            _content.tooltip = "Spam the log with more or less usefull reports";
+            debugging = GUILayout.Toggle(debugging, _content);
             GUILayout.EndHorizontal();
+
+            //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //_content.text = "Allow update check";
+            //_content.tooltip = "Allow plugin to check for a newer version via http";
+            //http_update_check = GUILayout.Toggle(http_update_check, _content);
+            //GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Use per-vessel settings";
@@ -1407,11 +1413,11 @@ namespace Chatterer
                 disable_beeps_during_chatter = GUILayout.Toggle(disable_beeps_during_chatter, _content);
                 GUILayout.EndHorizontal();
 
-                _content.text = "Enable RemoteTech integration";
-                _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
-                GUILayout.EndHorizontal();
+                //_content.text = "Enable RemoteTech integration";
+                //_content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
+                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                //remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
+                //GUILayout.EndHorizontal();
 
                 if (remotetech_toggle)
                 {
@@ -2764,7 +2770,7 @@ namespace Chatterer
             //if (debugging) Debug.Log("[CHATR] adding plugin settings to ConfigNode for write");
             plugin_settings_node = new ConfigNode();
             plugin_settings_node.name = "SETTINGS";
-            plugin_settings_node.AddValue("debugging", debugging + "   //set true for debug logging");
+            plugin_settings_node.AddValue("debugging", debugging);
             plugin_settings_node.AddValue("use_vessel_settings", use_vessel_settings);
             plugin_settings_node.AddValue("http_update_check", http_update_check);
             plugin_settings_node.AddValue("disable_beeps_during_chatter", disable_beeps_during_chatter);
