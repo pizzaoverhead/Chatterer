@@ -5,6 +5,10 @@ A plugin for Kerbal Space Program which adds some SSTV, beeps, and nonsensical r
 
 Changelog:
 
+v0.5.9.4:
+- Recompiled for KSP v0.24 (First Contracts)
+- Fixed chatter volume resetting @80% on awake (finally)
+
 v0.5.9.3: 
 - Recompiled for KSP v0.23.5 (fixes missing Airlock/Breath sounds)
 - Added Debug Mode setting (disabled by default, so Chatterer no more spam your Log)
