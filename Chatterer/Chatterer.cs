@@ -293,8 +293,8 @@ namespace Chatterer
         private float chatter_freq_slider = 3f;
         private int chatter_freq = 3;
         private int prev_chatter_freq = 3;
-        private float chatter_vol_slider = 0.8f;
-        private float prev_chatter_vol_slider = 0.8f;
+        private float chatter_vol_slider = 0.5f;
+        private float prev_chatter_vol_slider = 0.5f;
 
         private float quindar_vol_slider = 0.5f;
         private float prev_quindar_vol_slider = 0.5f;
@@ -339,7 +339,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.5.9.3";
+        private string this_version = "0.5.9.4";
         private string main_window_title = "Chatterer ";
         private string latest_version = "";
         private bool recvd_latest_version = false;
@@ -3089,6 +3089,8 @@ namespace Chatterer
             if (node.HasValue("chatter_vol_slider"))
             {
                 chatter_vol_slider = Single.Parse(node.GetValue("chatter_vol_slider"));
+                initial_chatter.volume = chatter_vol_slider;
+                response_chatter.volume = chatter_vol_slider;
                 prev_chatter_vol_slider = chatter_vol_slider;
             }
             if (node.HasValue("chatter_sel_filter")) chatter_sel_filter = Int32.Parse(node.GetValue("chatter_sel_filter"));
