@@ -339,7 +339,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.5.9.4";
+        private string this_version = "0.5.9.6405";
         private string main_window_title = "Chatterer ";
         private string latest_version = "";
         private bool recvd_latest_version = false;
@@ -1360,6 +1360,12 @@ namespace Chatterer
         private void settings_gui()
         {
             GUIContent _content = new GUIContent();
+
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            _content.text = "Reset default settings";
+            _content.tooltip = "Reset all chatterer settings to default";
+            if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) load_plugin_defaults();
+            GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Debug Mode";
@@ -2840,9 +2846,64 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] load_plugin_settings() END");
         }
 
+        private void load_plugin_defaults()
+        {
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults()");
+
+            destroy_all_beep_players();
+            chatter_array.Clear();
+            beepsource_list.Clear();
+
+            plugin_settings_node = new ConfigNode();
+            plugin_settings_node = ConfigNode.Load(settings_path + "plugin_defaults.cfg");
+
+            if (plugin_settings_node != null)
+            {
+                if (debugging) Debug.Log("[CHATR] plugin_defaults != null");
+                //Load settings specific to plugin.cfg
+                if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
+                if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
+                if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
+                if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
+                if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
+                if (plugin_settings_node.HasValue("insta_sstv_key")) insta_sstv_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_sstv_key"));
+                if (plugin_settings_node.HasValue("show_advanced_options")) show_advanced_options = Boolean.Parse(plugin_settings_node.GetValue("show_advanced_options"));
+
+                load_shared_settings(plugin_settings_node); //load settings shared between both configs
+
+            }
+            else
+            {
+                if (debugging) Debug.LogWarning("[CHATR] plugin_defautls.cfg missing or unreadable");
+            }
+
+            //if (chatter_exists && chatter_array.Count == 0)
+            if (chatter_array.Count == 0)
+            {
+                if (debugging) Debug.Log("[CHATR] No audiosets found in config, adding defaults");
+                add_default_audiosets();
+                load_chatter_audio();   //load audio in case there is none
+            }
+
+            if (beeps_exists && beepsource_list.Count == 0)
+            {
+                if (debugging) Debug.LogWarning("[CHATR] beepsource_list.Count == 0, adding default 3");
+                add_default_beepsources();
+            }
+
+            if (aae_backgrounds_exist && backgroundsource_list.Count == 0)
+            {
+                if (debugging) Debug.LogWarning("[CHATR] backgroundsource_list.Count == 0, adding default 2");
+                add_default_backgroundsources();
+            }
+
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults() END");
+        }
+
         //Functions to handle settings shared by plugin.cfg and vessel.cfg
         private void save_shared_settings(ConfigNode node)
         {
+            node.AddValue("show_tooltips", show_tooltips);
             node.AddValue("main_window_pos", main_window_pos.x + "," + main_window_pos.y);
             node.AddValue("ui_icon_pos", ui_icon_pos.x + "," + ui_icon_pos.y);
             node.AddValue("hide_all_windows", hide_all_windows);
@@ -3075,6 +3136,7 @@ namespace Chatterer
                 ui_icon_pos.x = Single.Parse(split[0]);
                 ui_icon_pos.y = Single.Parse(split[1]);
             }
+            if (node.HasValue("show_tooltips")) show_tooltips = Boolean.Parse(node.GetValue("show_tooltips"));
             if (node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(node.GetValue("hide_all_windows"));
             if (node.HasValue("skin_index")) skin_index = Int32.Parse(node.GetValue("skin_index"));
             if (node.HasValue("active_menu")) active_menu = Int32.Parse(node.GetValue("active_menu"));
