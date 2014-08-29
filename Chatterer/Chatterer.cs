@@ -1,7 +1,9 @@
 ﻿///////////////////////////////////////////////////////////////////////////////
 //
-//    Chatterer for Kerbal Space Program
-//    Copyright (C) 2013 Iannic-ann-od
+//    Chatterer a plugin for Kerbal Space Program from SQUAD
+//    (https://www.kerbalspaceprogram.com/)
+//    Copyright (C) 2014 Athlonic 
+//    (original work and with permission from : Iannic-ann-od)
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
@@ -22,11 +24,15 @@
 
 /* DO ME
  * 
+ * FIX EVA detection (avoid switching vessel to trigger Airlock sound)
+ * FIX the mute all function
  * 
+ * ADD Applauncher/BlizzyTB button behaviour/animations (Idle, disabled, muted, onChat, ...)
+ * ADD plugin version checker 
  * 
+ * Separate the code in different .cs files accordingly to their function
  * 
- * 
- * 
+ * //
  * 
  * ADD some fillable Preset slots to store configured chatter/beeps/filters for later use (single beep, all beeps, or all audio)
  * save all clipboard nodes to disk when any are filled/changed
@@ -35,10 +41,7 @@
  * 
  * //ADD a settings 'clipboard' to copy/paste current single beepsource settings to another beepsource
  * //ADD EVA-capsule chatter (if nearby crew > 0) and capsule-capsule chatter (if vessel crew > 1)
- * 
- * 
- * 
- * 
+ *  
  */
 
 
