@@ -1,7 +1,9 @@
 ﻿///////////////////////////////////////////////////////////////////////////////
 //
-//    Chatterer for Kerbal Space Program
-//    Copyright (C) 2013 Iannic-ann-od
+//    Chatterer a plugin for Kerbal Space Program from SQUAD
+//    (https://www.kerbalspaceprogram.com/)
+//    Copyright (C) 2014 Athlonic 
+//    (original work and with permission from : Iannic-ann-od)
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
@@ -22,11 +24,15 @@
 
 /* DO ME
  * 
+ * FIX EVA detection (avoid switching vessel to trigger Airlock sound)
+ * FIX the mute all function
  * 
+ * ADD Applauncher/BlizzyTB button behaviour/animations (Idle, disabled, muted, onChat, ...)
+ * ADD plugin version checker 
  * 
+ * Separate the code in different .cs files accordingly to their function
  * 
- * 
- * 
+ * //
  * 
  * ADD some fillable Preset slots to store configured chatter/beeps/filters for later use (single beep, all beeps, or all audio)
  * save all clipboard nodes to disk when any are filled/changed
@@ -35,10 +41,7 @@
  * 
  * //ADD a settings 'clipboard' to copy/paste current single beepsource settings to another beepsource
  * //ADD EVA-capsule chatter (if nearby crew > 0) and capsule-capsule chatter (if vessel crew > 1)
- * 
- * 
- * 
- * 
+ *  
  */
 
 
@@ -47,6 +50,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.IO;
 using UnityEngine;
 
@@ -140,7 +145,7 @@ namespace Chatterer
 
         private int window_base_id = -12381578;
 
-        private bool debugging = true;      //lots of extra log info if true
+        private bool debugging = false;      //lots of extra log info if true
 
         private Vessel vessel;          //is set to FlightGlobals.ActiveVessel
         private Vessel prev_vessel;     //to detect change in active vessel
@@ -197,11 +202,9 @@ namespace Chatterer
 
         //GUI
         private bool gui_running = false;
-        private int skin_index = 2;     //selected skin
-        private bool ui_icons_loaded = true;
-        protected Rect ui_icon_pos; //position set later according to ui_icons_loaded
+        private int skin_index = 1;     //selected skin
         private bool gui_styles_set = false;
-        private bool hide_all_windows = false;
+        private bool hide_all_windows = true;
         private string custom_dir_name = "directory name";  //default text for audioset input box
         private int active_menu = 0;    //selected main window section (sliders, sets, etc)
         private int chatter_sel_filter;     //currently selected filter in filters window
@@ -209,6 +212,16 @@ namespace Chatterer
         private int sel_beep_page = 1;
         private int num_beep_pages;
         private int prev_num_pages;
+
+        //integration with blizzy78's Toolbar plugin
+        private ToolbarButtonWrapper chatterer_toolbar_button;
+        private bool useBlizzy78Toolbar = false;
+
+        //KSP Stock application launcher button
+        private ApplicationLauncherButton launcherButton = null;
+        private Texture2D launcherButtonTexture;
+        private Texture2D chatterer_icon_on = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_on", false);
+        private Texture2D chatterer_icon_off = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_off", false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -264,9 +277,8 @@ namespace Chatterer
         //private bool disable_power_usage = false;
         private bool show_tooltips = true;
         private bool http_update_check = false;
-        private bool changing_icon_pos = false;
-        private bool use_vessel_settings = true;
-        private bool prev_use_vessel_settings = true;
+        private bool use_vessel_settings = false;
+        private bool prev_use_vessel_settings = false;
 
         //Chatter filters
         private AudioChorusFilter chatter_chorus_filter;
@@ -290,8 +302,8 @@ namespace Chatterer
         private float chatter_freq_slider = 3f;
         private int chatter_freq = 3;
         private int prev_chatter_freq = 3;
-        private float chatter_vol_slider = 1f;
-        private float prev_chatter_vol_slider = 1f;
+        private float chatter_vol_slider = 0.5f;
+        private float prev_chatter_vol_slider = 0.5f;
 
         private float quindar_vol_slider = 0.5f;
         private float prev_quindar_vol_slider = 0.5f;
@@ -336,7 +348,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.5.8";
+        private string this_version = "0.6.0.86";
         private string main_window_title = "Chatterer ";
         private string latest_version = "";
         private bool recvd_latest_version = false;
@@ -398,6 +410,7 @@ namespace Chatterer
 
         private GameObject aae_ambient_player = new GameObject();
         private AudioSource aae_breathing = new AudioSource();
+        private AudioSource aae_airlock = new AudioSource();
         private AudioSource aae_wind = new AudioSource();
         private float aae_wind_vol_slider = 1.0f;
 
@@ -412,7 +425,6 @@ namespace Chatterer
         private string aae_soundscape_current_clip = "";
 
 
-        private AudioSource airlocksource = new AudioSource();
         private AudioSource landingsource = new AudioSource();
         private AudioSource yep_yepsource = new AudioSource();
 
@@ -423,6 +435,91 @@ namespace Chatterer
 
 
         //GUI
+
+        internal chatterer() 
+        {
+            //integration with blizzy78's Toolbar plugin
+            if (ToolbarButtonWrapper.ToolbarManagerPresent) //&& useBlizzy78Toolbar)
+            {
+                if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
+
+                chatterer_toolbar_button = ToolbarButtonWrapper.TryWrapToolbarButton("Chatterer", "UI");
+                chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
+                chatterer_toolbar_button.ToolTip = "Open/Close Chatterer UI";
+                chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
+                chatterer_toolbar_button.AddButtonClickHandler((e) =>
+                {
+                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, hide_all_windows = " + hide_all_windows);
+
+                    if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
+                    {
+                        hide_all_windows = !hide_all_windows;
+                    }
+                    else if (launcherButton != null)
+                    {
+                        if (hide_all_windows)
+                        {
+                            launcherButton.SetTrue();
+                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                        }
+                        else if (!hide_all_windows)
+                        {
+                            launcherButton.SetFalse();
+                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                        }
+                    }
+                });
+            }
+        }
+
+        private void OnGUIApplicationLauncherReady()
+        {
+            // Create the button in the KSP AppLauncher
+            if (launcherButton == null && !useBlizzy78Toolbar)
+            {
+                launcherButtonTexture = chatterer_icon_on;
+                
+                launcherButton = ApplicationLauncher.Instance.AddModApplication(launcherButtonToggle, launcherButtonToggle,
+                                                                            null, null,
+                                                                            null, null,
+                                                                            ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.MAPVIEW,
+                                                                            launcherButtonTexture);
+            }
+        }
+
+        public void launcherButtonToggle()
+        {
+            hide_all_windows = !hide_all_windows;
+        }
+
+        public void launcherButtonRemove()
+        {
+            if (launcherButton != null)
+            {
+                ApplicationLauncher.Instance.RemoveModApplication(launcherButton);
+            }
+        }
+
+        public void OnSceneChangeRequest(GameScenes _scene)
+        {
+            launcherButtonRemove();
+        }
+
+        internal void OnDestroy() 
+        {
+            // Remove the button from the Blizzy's toolbar
+            if (chatterer_toolbar_button != null)
+            {
+                chatterer_toolbar_button.Destroy();
+            }
+            // Un-register the callbacks
+            GameEvents.onGUIApplicationLauncherReady.Remove(OnGUIApplicationLauncherReady);
+            GameEvents.onGameSceneLoadRequested.Remove(OnSceneChangeRequest);
+            
+            // Remove the button from the KSP AppLauncher
+            launcherButtonRemove();
+        }
+
         private void start_GUI()
         {
             RenderingManager.AddToPostDrawQueue(3, new Callback(draw_GUI));	//start the GUI
@@ -431,7 +528,7 @@ namespace Chatterer
 
         private void stop_GUI()
         {
-            RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI));	//stop the GUI
+            RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI)); //stop the GUI
             gui_running = false;
         }
 
@@ -506,7 +603,8 @@ namespace Chatterer
 
         private void build_skin_list()
         {
-            GUISkin[] skin_array = AssetBase.FindObjectsOfTypeIncludingAssets(typeof(GUISkin)) as GUISkin[];
+            // GUISkin[] skin_array = AssetBase.FindObjectsOfTypeIncludingAssets(typeof(GUISkin)) as GUISkin[]; [Obsolete("use Resources.FindObjectsOfTypeAll instead.")]
+            GUISkin[] skin_array = Resources.FindObjectsOfTypeAll(typeof(GUISkin)) as GUISkin[];
             g_skin_list = new List<GUISkin>();
 
             foreach (GUISkin _skin in skin_array)
@@ -524,19 +622,6 @@ namespace Chatterer
             else GUI.skin = g_skin_list[skin_index - 1];
 
             if (gui_styles_set == false) set_gui_styles();  //run this once to set a few GUIStyles
-
-            //icon
-            if (ui_icons_loaded)
-            {
-                ui_icon = ui_icon_off;
-                if (mute_all == false) ui_icon = ui_icon_on;
-
-                if (GUI.Button(ui_icon_pos, ui_icon, new GUIStyle())) hide_all_windows = !hide_all_windows;
-            }
-            else
-            {
-                if (GUI.Button(ui_icon_pos, "Chatterer", GUI.skin.button)) hide_all_windows = !hide_all_windows;
-            }
 
             int window_id = window_base_id;
 
@@ -595,7 +680,7 @@ namespace Chatterer
             }
 
             //Show "AAE" button
-            if (aae_backgrounds_exist || aae_soundscapes_exist || aae_breathing_exist)
+            if (aae_backgrounds_exist || aae_soundscapes_exist || aae_breathing_exist || aae_airlock_exist)
             {
                 if (GUILayout.Button("AAE"))
                 {
@@ -606,10 +691,26 @@ namespace Chatterer
             //Show "Settings"
             if (GUILayout.Button("Settings")) menu = "settings";
 
-            //Mute button
-            string muted = "Mute";
-            if (mute_all) muted = "Muted";
-            if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) mute_all = !mute_all;
+            ////Mute button // Disabled, Mute cause NULL REFERENCE EXCEPTION replacing with "Close UI" for now
+
+            //string muted = "Mute";
+            //if (mute_all) muted = "Muted";
+
+            //if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) mute_all = !mute_all;
+
+            string closeUI = "Close";
+            if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false)))
+            {
+                if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
+                {
+                    hide_all_windows = !hide_all_windows;
+                }
+                else if (launcherButton != null)
+                {
+                    launcherButton.SetFalse();
+                }
+            }
+            
             GUILayout.EndHorizontal();
 
             //Separator
@@ -1226,6 +1327,17 @@ namespace Chatterer
                 GUILayout.EndHorizontal();
             }
 
+            //Airlock
+            if (aae_airlock_exist)
+            {
+                _content.text = "Airlock volume: " + (aae_airlock.volume * 100).ToString("F0") + "%";
+                _content.tooltip = "Volume level for Airlock";
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
+                aae_airlock.volume = GUILayout.HorizontalSlider(aae_airlock.volume, 0, 1f, GUILayout.Width(100f));
+                GUILayout.EndHorizontal();
+            }
+
             //Wind
             if (aae_wind_exist)
             {
@@ -1307,10 +1419,22 @@ namespace Chatterer
             GUIContent _content = new GUIContent();
 
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            _content.text = "Allow update check";
-            _content.tooltip = "Allow plugin to check for a newer version via http";
-            http_update_check = GUILayout.Toggle(http_update_check, _content);
+            _content.text = "Reset default settings";
+            _content.tooltip = "Reset all chatterer settings to default";
+            if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) load_plugin_defaults();
             GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            _content.text = "Debug Mode";
+            _content.tooltip = "Spam the log with more or less usefull reports";
+            debugging = GUILayout.Toggle(debugging, _content);
+            GUILayout.EndHorizontal();
+
+            //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //_content.text = "Allow update check";
+            //_content.tooltip = "Allow plugin to check for a newer version via http";
+            //http_update_check = GUILayout.Toggle(http_update_check, _content);
+            //GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Use per-vessel settings";
@@ -1332,6 +1456,17 @@ namespace Chatterer
                 prev_use_vessel_settings = use_vessel_settings;
             }
 
+            if (ToolbarButtonWrapper.ToolbarManagerPresent)
+            {
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "Use Blizzy78's toolbar only";
+                _content.tooltip = "Hide stock Applaunch button";
+                useBlizzy78Toolbar = GUILayout.Toggle(useBlizzy78Toolbar, _content);
+                if (useBlizzy78Toolbar && launcherButton != null) launcherButtonRemove();
+                if (!useBlizzy78Toolbar && launcherButton == null) OnGUIApplicationLauncherReady();
+                GUILayout.EndHorizontal();
+            }
+            
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Show tooltips";
             _content.tooltip = "It does something";
@@ -1352,11 +1487,11 @@ namespace Chatterer
                 disable_beeps_during_chatter = GUILayout.Toggle(disable_beeps_during_chatter, _content);
                 GUILayout.EndHorizontal();
 
-                _content.text = "Enable RemoteTech integration";
-                _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
-                GUILayout.EndHorizontal();
+                //_content.text = "Enable RemoteTech integration";
+                //_content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
+                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                //remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
+                //GUILayout.EndHorizontal();
 
                 if (remotetech_toggle)
                 {
@@ -1490,16 +1625,19 @@ namespace Chatterer
 
             GUILayout.EndHorizontal();
 
-            //Change icon position
-            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            if (changing_icon_pos == false)
-            {
-                _content.text = "Change icon position";
-                _content.tooltip = "Move icon anywhere on the screen";
-                if (GUILayout.Button(_content)) changing_icon_pos = true;
-            }
-            else GUILayout.Label("Click anywhere to set new icon position");
-            GUILayout.EndHorizontal();
+            ////Change icon position
+            //if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
+            //{
+            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //    if (changing_icon_pos == false)
+            //    {
+            //        _content.text = "Change icon position";
+            //        _content.tooltip = "Move icon anywhere on the screen";
+            //        if (GUILayout.Button(_content)) changing_icon_pos = true;
+            //    }
+            //    else GUILayout.Label("Click anywhere to set new icon position");
+            //    GUILayout.EndHorizontal();
+            //}            
         }
 
         private void testing_gui(int window_id)
@@ -1745,12 +1883,12 @@ namespace Chatterer
                 acf.depth = GUILayout.HorizontalSlider(acf.depth, 0, 1f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
-                _content.text = "Feedback: " + (acf.feedback * 100).ToString("F0") + "%";
-                _content.tooltip = "Wet signal to feed back into the chorus buffer";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.feedback = GUILayout.HorizontalSlider(acf.feedback, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
+                //_content.text = "Feedback: " + (acf.feedback * 100).ToString("F0") + "%"; // [Obsolete("feedback is deprecated, this property does nothing.")]
+                //_content.tooltip = "Wet signal to feed back into the chorus buffer";
+                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                //GUILayout.Label(_content, GUILayout.ExpandWidth(true));
+                //acf.feedback = GUILayout.HorizontalSlider(acf.feedback, 0, 1f, GUILayout.Width(90f));
+                //GUILayout.EndHorizontal();
 
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 _content.text = "Copy Chorus";
@@ -1765,7 +1903,7 @@ namespace Chatterer
                     chorus_clipboard.AddValue("delay", acf.delay);
                     chorus_clipboard.AddValue("rate", acf.rate);
                     chorus_clipboard.AddValue("depth", acf.depth);
-                    chorus_clipboard.AddValue("feedback", acf.feedback);
+                    //chorus_clipboard.AddValue("feedback", acf.feedback);
                     if (debugging) Debug.Log("[CHATR] chorus filter values copied to chorus clipboard");
                 }
                 if (chorus_clipboard != null)
@@ -1781,7 +1919,7 @@ namespace Chatterer
                         acf.delay = Single.Parse(chorus_clipboard.GetValue("delay"));
                         acf.rate = Single.Parse(chorus_clipboard.GetValue("rate"));
                         acf.depth = Single.Parse(chorus_clipboard.GetValue("depth"));
-                        acf.feedback = Single.Parse(chorus_clipboard.GetValue("feedback"));
+                        //acf.feedback = Single.Parse(chorus_clipboard.GetValue("feedback"));
                         if (debugging) Debug.Log("[CHATR] chorus filter values loaded from chorus clipboard");
                     }
                 }
@@ -2706,8 +2844,9 @@ namespace Chatterer
             //if (debugging) Debug.Log("[CHATR] adding plugin settings to ConfigNode for write");
             plugin_settings_node = new ConfigNode();
             plugin_settings_node.name = "SETTINGS";
-            plugin_settings_node.AddValue("debugging", debugging + "   //set true for debug logging");
+            plugin_settings_node.AddValue("debugging", debugging);
             plugin_settings_node.AddValue("use_vessel_settings", use_vessel_settings);
+            plugin_settings_node.AddValue("useBlizzy78Toolbar", useBlizzy78Toolbar);
             plugin_settings_node.AddValue("http_update_check", http_update_check);
             plugin_settings_node.AddValue("disable_beeps_during_chatter", disable_beeps_during_chatter);
             plugin_settings_node.AddValue("insta_chatter_key", insta_chatter_key);
@@ -2776,11 +2915,66 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] load_plugin_settings() END");
         }
 
+        private void load_plugin_defaults()
+        {
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults()");
+
+            destroy_all_beep_players();
+            chatter_array.Clear();
+            beepsource_list.Clear();
+
+            plugin_settings_node = new ConfigNode();
+            plugin_settings_node = ConfigNode.Load(settings_path + "plugin_defaults.cfg");
+
+            if (plugin_settings_node != null)
+            {
+                if (debugging) Debug.Log("[CHATR] plugin_defaults != null");
+                //Load settings specific to plugin.cfg
+                if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
+                if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
+                if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
+                if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
+                if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
+                if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
+                if (plugin_settings_node.HasValue("insta_sstv_key")) insta_sstv_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_sstv_key"));
+                if (plugin_settings_node.HasValue("show_advanced_options")) show_advanced_options = Boolean.Parse(plugin_settings_node.GetValue("show_advanced_options"));
+
+                load_shared_settings(plugin_settings_node); //load settings shared between both configs
+
+            }
+            else
+            {
+                if (debugging) Debug.LogWarning("[CHATR] plugin_defautls.cfg missing or unreadable");
+            }
+
+            //if (chatter_exists && chatter_array.Count == 0)
+            if (chatter_array.Count == 0)
+            {
+                if (debugging) Debug.Log("[CHATR] No audiosets found in config, adding defaults");
+                add_default_audiosets();
+                load_chatter_audio();   //load audio in case there is none
+            }
+
+            if (beeps_exists && beepsource_list.Count == 0)
+            {
+                if (debugging) Debug.LogWarning("[CHATR] beepsource_list.Count == 0, adding default 3");
+                add_default_beepsources();
+            }
+
+            if (aae_backgrounds_exist && backgroundsource_list.Count == 0)
+            {
+                if (debugging) Debug.LogWarning("[CHATR] backgroundsource_list.Count == 0, adding default 2");
+                add_default_backgroundsources();
+            }
+
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults() END");
+        }
+
         //Functions to handle settings shared by plugin.cfg and vessel.cfg
         private void save_shared_settings(ConfigNode node)
         {
+            node.AddValue("show_tooltips", show_tooltips);
             node.AddValue("main_window_pos", main_window_pos.x + "," + main_window_pos.y);
-            node.AddValue("ui_icon_pos", ui_icon_pos.x + "," + ui_icon_pos.y);
             node.AddValue("hide_all_windows", hide_all_windows);
             node.AddValue("skin_index", skin_index);
             node.AddValue("active_menu", active_menu);
@@ -2824,6 +3018,7 @@ namespace Chatterer
 
             if (aae_breathing_exist) node.AddValue("aae_breathing_vol", aae_breathing.volume);
             if (aae_wind_exist) node.AddValue("aae_wind_vol", aae_wind_vol_slider);
+            if (aae_airlock_exist) node.AddValue("aae_airlock_vol", aae_airlock.volume);
 
             //Chatter sets
             foreach (ChatterAudioList chatter_set in chatter_array)
@@ -2847,7 +3042,7 @@ namespace Chatterer
             _filter.AddValue("delay", chatter_chorus_filter.delay);
             _filter.AddValue("rate", chatter_chorus_filter.rate);
             _filter.AddValue("depth", chatter_chorus_filter.depth);
-            _filter.AddValue("feedback", chatter_chorus_filter.feedback);
+            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
             node.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -2931,7 +3126,7 @@ namespace Chatterer
                 _filter.AddValue("delay", source.chorus_filter.delay);
                 _filter.AddValue("rate", source.chorus_filter.rate);
                 _filter.AddValue("depth", source.chorus_filter.depth);
-                _filter.AddValue("feedback", source.chorus_filter.feedback);
+                //_filter.AddValue("feedback", source.chorus_filter.feedback);
                 beep_settings.AddNode(_filter);
 
                 _filter = new ConfigNode();
@@ -3004,12 +3199,8 @@ namespace Chatterer
                 main_window_pos.x = Single.Parse(split[0]);
                 main_window_pos.y = Single.Parse(split[1]);
             }
-            if (node.HasValue("ui_icon_pos"))
-            {
-                string[] split = node.GetValue("ui_icon_pos").Split(Convert.ToChar(","));
-                ui_icon_pos.x = Single.Parse(split[0]);
-                ui_icon_pos.y = Single.Parse(split[1]);
-            }
+            
+            if (node.HasValue("show_tooltips")) show_tooltips = Boolean.Parse(node.GetValue("show_tooltips"));
             if (node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(node.GetValue("hide_all_windows"));
             if (node.HasValue("skin_index")) skin_index = Int32.Parse(node.GetValue("skin_index"));
             if (node.HasValue("active_menu")) active_menu = Int32.Parse(node.GetValue("active_menu"));
@@ -3024,6 +3215,8 @@ namespace Chatterer
             if (node.HasValue("chatter_vol_slider"))
             {
                 chatter_vol_slider = Single.Parse(node.GetValue("chatter_vol_slider"));
+                initial_chatter.volume = chatter_vol_slider;
+                response_chatter.volume = chatter_vol_slider;
                 prev_chatter_vol_slider = chatter_vol_slider;
             }
             if (node.HasValue("chatter_sel_filter")) chatter_sel_filter = Int32.Parse(node.GetValue("chatter_sel_filter"));
@@ -3100,6 +3293,11 @@ namespace Chatterer
             if (aae_breathing_exist)
             {
                 if (node.HasValue("aae_breathing_vol")) aae_breathing.volume = Single.Parse(node.GetValue("aae_breathing_vol"));
+            }
+
+            if (aae_airlock_exist)
+            {
+                if (node.HasValue("aae_airlock_vol")) aae_airlock.volume = Single.Parse(node.GetValue("aae_airlock_vol"));
             }
 
             if (aae_wind_exist)
@@ -3289,42 +3487,6 @@ namespace Chatterer
                 }
             }
             if (debugging) Debug.Log("[CHATR] load_shared_settings() END");
-        }
-
-        //Load small icon
-        private void load_icons()
-        {
-            string path_icon_on = "Chatterer/Textures/chatterer_icon_on";
-            string path_icon_off = "Chatterer/Textures/chatterer_icon_off";
-
-            if (GameDatabase.Instance.ExistsTexture(path_icon_on) && GameDatabase.Instance.ExistsTexture(path_icon_off))
-            {
-                if (debugging) Debug.Log("[CHATR] icon textures exist, loading...");
-                ui_icon_on = GameDatabase.Instance.GetTexture(path_icon_on, false);
-                ui_icon_off = GameDatabase.Instance.GetTexture(path_icon_off, false);
-            }
-            else
-            {
-                Debug.LogWarning("[CHATR] Icon texture files missing");
-                ui_icons_loaded = false;
-            }
-
-            if (ui_icons_loaded)
-            {
-                ui_icon_pos = new Rect((Screen.width / 2) - 285f, Screen.height - 32f, 30f, 30f);
-                if (chatter_freq == 0) ui_icon = ui_icon_off;
-                else ui_icon = ui_icon_on;
-                if (debugging) Debug.Log("[CHATR] icon textures loaded");
-            }
-            else
-            {
-                ui_icon_pos = new Rect((Screen.width / 2) - 320f, Screen.height - 22f, 70f, 20f);
-            }
-
-            //Debug.Log("Screen.height == " + Screen.height);
-            //Debug.Log("Screen.width == " + Screen.width);
-            //Debug.Log("ui_icon_pos == " + ui_icon_pos);
-
         }
 
         //Check for a newer version
@@ -4795,7 +4957,7 @@ namespace Chatterer
                     if (filter.HasValue("delay")) acf.delay = Single.Parse(filter.GetValue("delay"));
                     if (filter.HasValue("rate")) acf.rate = Single.Parse(filter.GetValue("rate"));
                     if (filter.HasValue("depth")) acf.depth = Single.Parse(filter.GetValue("depth"));
-                    if (filter.HasValue("feedback")) acf.feedback = Single.Parse(filter.GetValue("feedback"));
+                    //if (filter.HasValue("feedback")) acf.feedback = Single.Parse(filter.GetValue("feedback"));
                 }
             }
         }
@@ -4899,7 +5061,7 @@ namespace Chatterer
             _filter.AddValue("delay", chatter_chorus_filter.delay);
             _filter.AddValue("rate", chatter_chorus_filter.rate);
             _filter.AddValue("depth", chatter_chorus_filter.depth);
-            _filter.AddValue("feedback", chatter_chorus_filter.feedback);
+            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -4968,7 +5130,7 @@ namespace Chatterer
             if (filter.HasValue("delay")) chatter_chorus_filter.delay = Single.Parse(filter.GetValue("delay"));
             if (filter.HasValue("rate")) chatter_chorus_filter.rate = Single.Parse(filter.GetValue("rate"));
             if (filter.HasValue("depth")) chatter_chorus_filter.depth = Single.Parse(filter.GetValue("depth"));
-            if (filter.HasValue("feedback")) chatter_chorus_filter.feedback = Single.Parse(filter.GetValue("feedback"));
+            //if (filter.HasValue("feedback")) chatter_chorus_filter.feedback = Single.Parse(filter.GetValue("feedback"));
 
             filter = filters_clipboard.GetNode("DISTORTION");
             if (filter.HasValue("enabled")) chatter_distortion_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
@@ -5029,7 +5191,7 @@ namespace Chatterer
             _filter.AddValue("delay", source.chorus_filter.delay);
             _filter.AddValue("rate", source.chorus_filter.rate);
             _filter.AddValue("depth", source.chorus_filter.depth);
-            _filter.AddValue("feedback", source.chorus_filter.feedback);
+            //_filter.AddValue("feedback", source.chorus_filter.feedback);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -5148,6 +5310,10 @@ namespace Chatterer
         {
             if (debugging) Debug.Log("[CHATR] Awake() starting...");
 
+            // Setup & callbacks for KSP Application Launcher
+            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
+            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
+
             //set a path to save/load settings
             settings_path = AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/"; //returns "X:/full/path/to/GameData/Chatterer/Plugins/PluginData/chatterer"
 
@@ -5215,14 +5381,14 @@ namespace Chatterer
             }
 
             //AAE airlock
-            airlocksource = aae_ambient_player.AddComponent<AudioSource>();
-            airlocksource.panLevel = 0;
-            airlocksource.volume = 0.5f;
+            aae_airlock = aae_ambient_player.AddComponent<AudioSource>();
+            aae_airlock.panLevel = 0;
+            aae_airlock.volume = 1.0f;
             string airlock_path = "Chatterer/Sounds/AAE/effect/airlock";
             if (GameDatabase.Instance.ExistsAudioClip(airlock_path))
             {
-                //todo add aae_airlock_exists bool and set it here
-                airlocksource.clip = GameDatabase.Instance.GetAudioClip(airlock_path);
+                aae_airlock_exist = true;
+                aae_airlock.clip = GameDatabase.Instance.GetAudioClip(airlock_path);
                 if (debugging) Debug.Log("[CHATR] " + airlock_path + " loaded OK");
             }
             else
@@ -5270,8 +5436,6 @@ namespace Chatterer
 
             load_beep_audio();      //this must run before loading settings (else no beep clips to assign to sources))
 
-            load_icons();
-
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/line_512x4")) line_512x4 = GameDatabase.Instance.GetTexture("Chatterer/Textures/line_512x4", false);
             else Debug.LogWarning("Texture 'line_512x4' is missing!");
 
@@ -5314,13 +5478,13 @@ namespace Chatterer
             if (insta_chatter_key_just_changed && Input.GetKeyUp(insta_chatter_key)) insta_chatter_key_just_changed = false;
             if (insta_sstv_key_just_changed && Input.GetKeyUp(insta_sstv_key)) insta_sstv_key_just_changed = false;
 
-            //Icon relocation
-            if (changing_icon_pos && Input.GetMouseButtonDown(0))
-            {
-                ui_icon_pos = new Rect(Input.mousePosition.x - 15f, Screen.height - Input.mousePosition.y - 15f, 30f, 30f);
-                changing_icon_pos = false;
-            }
-
+            ////Icon relocation
+            //if (changing_icon_pos && Input.GetMouseButtonDown(0))
+            //{
+            //    ui_icon_pos = new Rect(Input.mousePosition.x - 15f, Screen.height - Input.mousePosition.y - 15f, 30f, 30f);
+            //    changing_icon_pos = false;
+            //}
+            
             mute_check();
 
             radio_check();
@@ -5444,17 +5608,34 @@ namespace Chatterer
                     vessel_prev_sit = vessel.situation;
                     vessel_prev_stage = vessel.currentStage;
                     //don't update vessel_part_count here!
-                    prev_vessel = vessel;
 
-                    //
+                    if (vessel != prev_vessel && prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
+                    {
+                        if (aae_airlock_exist)
+                        {
+                            aae_airlock.Play();
+                            if (debugging) Debug.Log("[CHATR] Returning from EVA, playing Airlock sound...");
+                        }
+
+                    }
+                    
+                    // prev_vessel = vessel;
+
+
+                    //airlock sound
                     //todo fix airlock sound here
                     //sound plays after naut is already outside
-                    //if (vessel.vesselType == VesselType.EVA)
-                    //{
-                    //    airlocksource.Play();
-                    //}
+                    if (vessel != prev_vessel && vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
+                    {
+                        if (aae_airlock_exist)
+                        {
+                            aae_airlock.Play();
+                            if (debugging) Debug.Log("[CHATR] Going on EVA, playing Airlock sound...");
+                        }
+                        
+                    }
 
-
+                    prev_vessel = vessel;
                 }
 
                 if (gui_running == false) start_GUI();
