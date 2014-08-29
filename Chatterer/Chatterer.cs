@@ -1,7 +1,9 @@
 ﻿///////////////////////////////////////////////////////////////////////////////
 //
-//    Chatterer for Kerbal Space Program
-//    Copyright (C) 2013 Iannic-ann-od
+//    Chatterer a plugin for Kerbal Space Program from SQUAD
+//    (https://www.kerbalspaceprogram.com/)
+//    Copyright (C) 2014 Athlonic 
+//    (original work and with permission from : Iannic-ann-od)
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
@@ -22,11 +24,15 @@
 
 /* DO ME
  * 
+ * FIX EVA detection (avoid switching vessel to trigger Airlock sound)
+ * FIX the mute all function
  * 
+ * ADD Applauncher/BlizzyTB button behaviour/animations (Idle, disabled, muted, onChat, ...)
+ * ADD plugin version checker 
  * 
+ * Separate the code in different .cs files accordingly to their function
  * 
- * 
- * 
+ * //
  * 
  * ADD some fillable Preset slots to store configured chatter/beeps/filters for later use (single beep, all beeps, or all audio)
  * save all clipboard nodes to disk when any are filled/changed
@@ -35,10 +41,7 @@
  * 
  * //ADD a settings 'clipboard' to copy/paste current single beepsource settings to another beepsource
  * //ADD EVA-capsule chatter (if nearby crew > 0) and capsule-capsule chatter (if vessel crew > 1)
- * 
- * 
- * 
- * 
+ *  
  */
 
 
@@ -200,8 +203,6 @@ namespace Chatterer
         //GUI
         private bool gui_running = false;
         private int skin_index = 1;     //selected skin
-        private bool ui_icons_loaded;
-        protected Rect ui_icon_pos; //position set later according to ui_icons_loaded
         private bool gui_styles_set = false;
         private bool hide_all_windows = true;
         private string custom_dir_name = "directory name";  //default text for audioset input box
@@ -211,7 +212,16 @@ namespace Chatterer
         private int sel_beep_page = 1;
         private int num_beep_pages;
         private int prev_num_pages;
-        private ToolbarButtonWrapper chatterer_toolbar_button; //integration with blizzy78's Toolbar plugin
+
+        //integration with blizzy78's Toolbar plugin
+        private ToolbarButtonWrapper chatterer_toolbar_button;
+        private bool useBlizzy78Toolbar = false;
+
+        //KSP Stock application launcher button
+        private ApplicationLauncherButton launcherButton = null;
+        private Texture2D launcherButtonTexture;
+        private Texture2D chatterer_icon_on = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_on", false);
+        private Texture2D chatterer_icon_off = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_off", false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -267,7 +277,6 @@ namespace Chatterer
         //private bool disable_power_usage = false;
         private bool show_tooltips = true;
         private bool http_update_check = false;
-        private bool changing_icon_pos = false;
         private bool use_vessel_settings = false;
         private bool prev_use_vessel_settings = false;
 
@@ -339,7 +348,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.5.9.4";
+        private string this_version = "0.6.0.86";
         private string main_window_title = "Chatterer ";
         private string latest_version = "";
         private bool recvd_latest_version = false;
@@ -430,10 +439,9 @@ namespace Chatterer
         internal chatterer() 
         {
             //integration with blizzy78's Toolbar plugin
-            if (ToolbarButtonWrapper.ToolbarManagerPresent)
+            if (ToolbarButtonWrapper.ToolbarManagerPresent) //&& useBlizzy78Toolbar)
             {
-                ui_icons_loaded = false; // Disabling default Chatterer icon
-                if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found !, disabling default Chatterer icon");
+                if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
 
                 chatterer_toolbar_button = ToolbarButtonWrapper.TryWrapToolbarButton("Chatterer", "UI");
                 chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
@@ -441,23 +449,75 @@ namespace Chatterer
                 chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
                 chatterer_toolbar_button.AddButtonClickHandler((e) =>
                 {
-                    hide_all_windows = !hide_all_windows;
-                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked");
+                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, hide_all_windows = " + hide_all_windows);
+
+                    if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
+                    {
+                        hide_all_windows = !hide_all_windows;
+                    }
+                    else if (launcherButton != null)
+                    {
+                        if (hide_all_windows)
+                        {
+                            launcherButton.SetTrue();
+                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                        }
+                        else if (!hide_all_windows)
+                        {
+                            launcherButton.SetFalse();
+                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                        }
+                    }
                 });
             }
-            else
+        }
+
+        private void OnGUIApplicationLauncherReady()
+        {
+            // Create the button in the KSP AppLauncher
+            if (launcherButton == null && !useBlizzy78Toolbar)
             {
-                ui_icons_loaded = true; // blizzy78's Toolbar plugin not present : enabling default Chatterer icon
-                if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin not found, enabling default Chatterer icon");
+                launcherButtonTexture = chatterer_icon_on;
+                
+                launcherButton = ApplicationLauncher.Instance.AddModApplication(launcherButtonToggle, launcherButtonToggle,
+                                                                            null, null,
+                                                                            null, null,
+                                                                            ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.MAPVIEW,
+                                                                            launcherButtonTexture);
             }
+        }
+
+        public void launcherButtonToggle()
+        {
+            hide_all_windows = !hide_all_windows;
+        }
+
+        public void launcherButtonRemove()
+        {
+            if (launcherButton != null)
+            {
+                ApplicationLauncher.Instance.RemoveModApplication(launcherButton);
+            }
+        }
+
+        public void OnSceneChangeRequest(GameScenes _scene)
+        {
+            launcherButtonRemove();
         }
 
         internal void OnDestroy() 
         {
+            // Remove the button from the Blizzy's toolbar
             if (chatterer_toolbar_button != null)
             {
                 chatterer_toolbar_button.Destroy();
             }
+            // Un-register the callbacks
+            GameEvents.onGUIApplicationLauncherReady.Remove(OnGUIApplicationLauncherReady);
+            GameEvents.onGameSceneLoadRequested.Remove(OnSceneChangeRequest);
+            
+            // Remove the button from the KSP AppLauncher
+            launcherButtonRemove();
         }
 
         private void start_GUI()
@@ -468,7 +528,7 @@ namespace Chatterer
 
         private void stop_GUI()
         {
-            RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI));	//stop the GUI
+            RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI)); //stop the GUI
             gui_running = false;
         }
 
@@ -563,19 +623,6 @@ namespace Chatterer
 
             if (gui_styles_set == false) set_gui_styles();  //run this once to set a few GUIStyles
 
-            //icon ([Disabled] if using blizzy78's Toolbar plugin)
-            if (ui_icons_loaded)
-            {
-                ui_icon = ui_icon_off;
-                if (mute_all == false) ui_icon = ui_icon_on;
-
-                if (GUI.Button(ui_icon_pos, ui_icon, new GUIStyle())) hide_all_windows = !hide_all_windows;
-            }
-            else if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
-            {
-                if (GUI.Button(ui_icon_pos, "Chatterer", GUI.skin.button)) hide_all_windows = !hide_all_windows;
-            }
-            
             int window_id = window_base_id;
 
             //main window
@@ -652,7 +699,17 @@ namespace Chatterer
             //if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) mute_all = !mute_all;
 
             string closeUI = "Close";
-            if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false))) hide_all_windows = !hide_all_windows;
+            if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false)))
+            {
+                if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
+                {
+                    hide_all_windows = !hide_all_windows;
+                }
+                else if (launcherButton != null)
+                {
+                    launcherButton.SetFalse();
+                }
+            }
             
             GUILayout.EndHorizontal();
 
@@ -1362,6 +1419,12 @@ namespace Chatterer
             GUIContent _content = new GUIContent();
 
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            _content.text = "Reset default settings";
+            _content.tooltip = "Reset all chatterer settings to default";
+            if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) load_plugin_defaults();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Debug Mode";
             _content.tooltip = "Spam the log with more or less usefull reports";
             debugging = GUILayout.Toggle(debugging, _content);
@@ -1393,6 +1456,17 @@ namespace Chatterer
                 prev_use_vessel_settings = use_vessel_settings;
             }
 
+            if (ToolbarButtonWrapper.ToolbarManagerPresent)
+            {
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "Use Blizzy78's toolbar only";
+                _content.tooltip = "Hide stock Applaunch button";
+                useBlizzy78Toolbar = GUILayout.Toggle(useBlizzy78Toolbar, _content);
+                if (useBlizzy78Toolbar && launcherButton != null) launcherButtonRemove();
+                if (!useBlizzy78Toolbar && launcherButton == null) OnGUIApplicationLauncherReady();
+                GUILayout.EndHorizontal();
+            }
+            
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Show tooltips";
             _content.tooltip = "It does something";
@@ -1551,19 +1625,19 @@ namespace Chatterer
 
             GUILayout.EndHorizontal();
 
-            //Change icon position
-            if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
-            {
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                if (changing_icon_pos == false)
-                {
-                    _content.text = "Change icon position";
-                    _content.tooltip = "Move icon anywhere on the screen";
-                    if (GUILayout.Button(_content)) changing_icon_pos = true;
-                }
-                else GUILayout.Label("Click anywhere to set new icon position");
-                GUILayout.EndHorizontal();
-            }            
+            ////Change icon position
+            //if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
+            //{
+            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //    if (changing_icon_pos == false)
+            //    {
+            //        _content.text = "Change icon position";
+            //        _content.tooltip = "Move icon anywhere on the screen";
+            //        if (GUILayout.Button(_content)) changing_icon_pos = true;
+            //    }
+            //    else GUILayout.Label("Click anywhere to set new icon position");
+            //    GUILayout.EndHorizontal();
+            //}            
         }
 
         private void testing_gui(int window_id)
@@ -2772,6 +2846,7 @@ namespace Chatterer
             plugin_settings_node.name = "SETTINGS";
             plugin_settings_node.AddValue("debugging", debugging);
             plugin_settings_node.AddValue("use_vessel_settings", use_vessel_settings);
+            plugin_settings_node.AddValue("useBlizzy78Toolbar", useBlizzy78Toolbar);
             plugin_settings_node.AddValue("http_update_check", http_update_check);
             plugin_settings_node.AddValue("disable_beeps_during_chatter", disable_beeps_during_chatter);
             plugin_settings_node.AddValue("insta_chatter_key", insta_chatter_key);
@@ -2840,11 +2915,66 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] load_plugin_settings() END");
         }
 
+        private void load_plugin_defaults()
+        {
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults()");
+
+            destroy_all_beep_players();
+            chatter_array.Clear();
+            beepsource_list.Clear();
+
+            plugin_settings_node = new ConfigNode();
+            plugin_settings_node = ConfigNode.Load(settings_path + "plugin_defaults.cfg");
+
+            if (plugin_settings_node != null)
+            {
+                if (debugging) Debug.Log("[CHATR] plugin_defaults != null");
+                //Load settings specific to plugin.cfg
+                if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
+                if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
+                if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
+                if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
+                if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
+                if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
+                if (plugin_settings_node.HasValue("insta_sstv_key")) insta_sstv_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_sstv_key"));
+                if (plugin_settings_node.HasValue("show_advanced_options")) show_advanced_options = Boolean.Parse(plugin_settings_node.GetValue("show_advanced_options"));
+
+                load_shared_settings(plugin_settings_node); //load settings shared between both configs
+
+            }
+            else
+            {
+                if (debugging) Debug.LogWarning("[CHATR] plugin_defautls.cfg missing or unreadable");
+            }
+
+            //if (chatter_exists && chatter_array.Count == 0)
+            if (chatter_array.Count == 0)
+            {
+                if (debugging) Debug.Log("[CHATR] No audiosets found in config, adding defaults");
+                add_default_audiosets();
+                load_chatter_audio();   //load audio in case there is none
+            }
+
+            if (beeps_exists && beepsource_list.Count == 0)
+            {
+                if (debugging) Debug.LogWarning("[CHATR] beepsource_list.Count == 0, adding default 3");
+                add_default_beepsources();
+            }
+
+            if (aae_backgrounds_exist && backgroundsource_list.Count == 0)
+            {
+                if (debugging) Debug.LogWarning("[CHATR] backgroundsource_list.Count == 0, adding default 2");
+                add_default_backgroundsources();
+            }
+
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults() END");
+        }
+
         //Functions to handle settings shared by plugin.cfg and vessel.cfg
         private void save_shared_settings(ConfigNode node)
         {
+            node.AddValue("show_tooltips", show_tooltips);
             node.AddValue("main_window_pos", main_window_pos.x + "," + main_window_pos.y);
-            node.AddValue("ui_icon_pos", ui_icon_pos.x + "," + ui_icon_pos.y);
             node.AddValue("hide_all_windows", hide_all_windows);
             node.AddValue("skin_index", skin_index);
             node.AddValue("active_menu", active_menu);
@@ -3069,12 +3199,8 @@ namespace Chatterer
                 main_window_pos.x = Single.Parse(split[0]);
                 main_window_pos.y = Single.Parse(split[1]);
             }
-            if (node.HasValue("ui_icon_pos"))
-            {
-                string[] split = node.GetValue("ui_icon_pos").Split(Convert.ToChar(","));
-                ui_icon_pos.x = Single.Parse(split[0]);
-                ui_icon_pos.y = Single.Parse(split[1]);
-            }
+            
+            if (node.HasValue("show_tooltips")) show_tooltips = Boolean.Parse(node.GetValue("show_tooltips"));
             if (node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(node.GetValue("hide_all_windows"));
             if (node.HasValue("skin_index")) skin_index = Int32.Parse(node.GetValue("skin_index"));
             if (node.HasValue("active_menu")) active_menu = Int32.Parse(node.GetValue("active_menu"));
@@ -3361,41 +3487,6 @@ namespace Chatterer
                 }
             }
             if (debugging) Debug.Log("[CHATR] load_shared_settings() END");
-        }
-
-        //Load small icon ([Disabled] if using blizzy78's Toolbar plugin)
-        private void load_icons()
-        {
-            string path_icon_on = "Chatterer/Textures/chatterer_icon_on";
-            string path_icon_off = "Chatterer/Textures/chatterer_icon_off";
-
-            if (GameDatabase.Instance.ExistsTexture(path_icon_on) && GameDatabase.Instance.ExistsTexture(path_icon_off))
-            {
-                if (debugging) Debug.Log("[CHATR] icon textures exist, loading...");
-                ui_icon_on = GameDatabase.Instance.GetTexture(path_icon_on, false);
-                ui_icon_off = GameDatabase.Instance.GetTexture(path_icon_off, false);
-            }
-            else
-            {
-                Debug.LogWarning("[CHATR] Icon texture files missing");
-                ui_icons_loaded = false;
-            }
-
-            if (ui_icons_loaded)
-            {
-                ui_icon_pos = new Rect((Screen.width / 2) - 285f, Screen.height - 32f, 30f, 30f);
-                if (chatter_freq == 0) ui_icon = ui_icon_off;
-                else ui_icon = ui_icon_on;
-                if (debugging) Debug.Log("[CHATR] icon textures loaded");
-            }
-            else
-            {
-                ui_icon_pos = new Rect((Screen.width / 2) - 320f, Screen.height - 22f, 70f, 20f);
-            }
-
-            //Debug.Log("Screen.height == " + Screen.height);
-            //Debug.Log("Screen.width == " + Screen.width);
-            //Debug.Log("ui_icon_pos == " + ui_icon_pos);
         }
 
         //Check for a newer version
@@ -5219,6 +5310,10 @@ namespace Chatterer
         {
             if (debugging) Debug.Log("[CHATR] Awake() starting...");
 
+            // Setup & callbacks for KSP Application Launcher
+            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
+            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
+
             //set a path to save/load settings
             settings_path = AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/"; //returns "X:/full/path/to/GameData/Chatterer/Plugins/PluginData/chatterer"
 
@@ -5341,8 +5436,6 @@ namespace Chatterer
 
             load_beep_audio();      //this must run before loading settings (else no beep clips to assign to sources))
 
-            if (ToolbarButtonWrapper.ToolbarManagerPresent == false) load_icons(); // ([Disabled] if using blizzy78's Toolbar plugin)
-
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/line_512x4")) line_512x4 = GameDatabase.Instance.GetTexture("Chatterer/Textures/line_512x4", false);
             else Debug.LogWarning("Texture 'line_512x4' is missing!");
 
@@ -5385,13 +5478,13 @@ namespace Chatterer
             if (insta_chatter_key_just_changed && Input.GetKeyUp(insta_chatter_key)) insta_chatter_key_just_changed = false;
             if (insta_sstv_key_just_changed && Input.GetKeyUp(insta_sstv_key)) insta_sstv_key_just_changed = false;
 
-            //Icon relocation
-            if (changing_icon_pos && Input.GetMouseButtonDown(0))
-            {
-                ui_icon_pos = new Rect(Input.mousePosition.x - 15f, Screen.height - Input.mousePosition.y - 15f, 30f, 30f);
-                changing_icon_pos = false;
-            }
-
+            ////Icon relocation
+            //if (changing_icon_pos && Input.GetMouseButtonDown(0))
+            //{
+            //    ui_icon_pos = new Rect(Input.mousePosition.x - 15f, Screen.height - Input.mousePosition.y - 15f, 30f, 30f);
+            //    changing_icon_pos = false;
+            //}
+            
             mute_check();
 
             radio_check();

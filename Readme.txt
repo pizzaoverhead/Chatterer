@@ -1,23 +1,72 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+//    Chatterer a plugin for Kerbal Space Program from SQUAD
+//    (https://www.kerbalspaceprogram.com/)
+//    Copyright (C) 2014 Athlonic 
+//    (original work and with permission from : Iannic-ann-od)
+//
+//    This program is free software: you can redistribute it and/or modify
+//    it under the terms of the GNU General Public License as published by
+//    the Free Software Foundation, either version 3 of the License, or
+//    (at your option) any later version.
+//
+//    This program is distributed in the hope that it will be useful,
+//    but WITHOUT ANY WARRANTY; without even the implied warranty of
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//    GNU General Public License for more details.
+//
+//    You should have received a copy of the GNU General Public License
+//    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+///////////////////////////////////////////////////////////////////////////////
+	
 Chatterer
 =========
 
-A plugin for Kerbal Space Program which adds some SSTV, beeps, and nonsensical radio chatter between your crewed command pods and Mission Control.
+A plugin for Kerbal Space Program from SQUAD, which adds some SSTV, beeps, and nonsensical radio chatter between your crewed command pods and Mission Control.
+There is also some environmental sounds as : wind in atmosphere, breathing on EVA and background noises inside space-crafts.
+
+Installation :
+
+- Unzip 'Chatterer_x.x.x.zip' file anywhere you see fit,
+- Copy only the 'Chatterer' folder (and its content) you will find under 'Chatterer_x.x.x\GameData'
+- Then paste this 'Chatterer' folder in your KSP 'GameData' folder.
+
+Usage :
+
+- Chattering/background noises should start automatically upon flight start,
+- you will see the Chatterer button on your application toolbar on the upper right of the screen,
+- Click on it to access Chatterer settings (watch for tooltips).
+
+(optional when using Blizzy78's Toolbar Mod)
+- if you have Blizzy78's Toolbar Mod installed, you can also find a Chatterer Icon available (must be enabled on first load),
+- you can also choose to use Blizzy78's Toolbar only and hide KSP stock applauncher button (check Chatterer settings).
+
+
 
 Changelog:
 
-v0.5.9.4:
+v0.6.0: [29 Aug 2014]
+- compiled for KSPv0.24.2
+- added stock KSP Application launcher button
+- added an option to hide stock launcher button and use Blizzy78 toolbar only
+- made breathing sound more "Kerbal"
+- added a "Reset to defaults" setting
+- fixed "show tooltips" setting not saving/resetting correctly
+
+v0.5.9.4: [18 Jul 2014]
 - Recompiled for KSP v0.24 (First Contracts)
 - Fixed chatter volume resetting @80% on awake (finally)
 
-v0.5.9.3: 
+v0.5.9.3: [5 Apr 2014]
 - Recompiled for KSP v0.23.5 (fixes missing Airlock/Breath sounds)
 - Added Debug Mode setting (disabled by default, so Chatterer no more spam your Log)
 - Disabled "Remotech integration" & "Check for update" settings as they don't work (for now)
 
-v0.5.9.2:
+v0.5.9.2: [27 Dec 2013]
 - Made integration with blizzy78's Toolbar plugin optional (will use Chatterer default icon if toolbar plugin is not installed)
 
-v0.5.9:
+v0.5.9: [24 Dec 2013]
 - Recompiled with 0.23 references
 - integration with blizzy78's Toolbar plugin
 - enabled airlock sound when going to and from EVA
