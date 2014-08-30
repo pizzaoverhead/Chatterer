@@ -1531,13 +1531,17 @@ namespace Chatterer
                 //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 //show_lab_gui = GUILayout.Toggle(show_lab_gui, "The Lab");
                 //GUILayout.EndHorizontal();
+            }
 
-                _content.text = "Show advanced options";
-                _content.tooltip = "More chatter and beep options are displayed";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                show_advanced_options = GUILayout.Toggle(show_advanced_options, _content);
-                GUILayout.EndHorizontal();
+            // Allowing "advanced options" even if crew < 0
+            _content.text = "Show advanced options";
+            _content.tooltip = "More chatter and beep options are displayed";
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            show_advanced_options = GUILayout.Toggle(show_advanced_options, _content);
+            GUILayout.EndHorizontal();
 
+            if (vessel.GetCrewCount() > 0)
+            {
                 //Insta-chatter key
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 if (set_insta_chatter_key == false)
