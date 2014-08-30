@@ -202,7 +202,7 @@ namespace Chatterer
 
         //GUI
         private bool gui_running = false;
-        private int skin_index = 1;     //selected skin
+        private int skin_index = 0;     //selected skin
         private bool gui_styles_set = false;
         private bool hide_all_windows = true;
         private string custom_dir_name = "directory name";  //default text for audioset input box
@@ -609,8 +609,28 @@ namespace Chatterer
 
             foreach (GUISkin _skin in skin_array)
             {
-                //Some skins just don't look good here so skip them
-                if (_skin.name != "PlaqueDialogSkin" && _skin.name != "FlagBrowserSkin" && _skin.name != "SSUITextAreaDefault" && _skin.name != "ExperimentsDialogSkin" && _skin.name != "ExpRecoveryDialogSkin") g_skin_list.Add(_skin);
+                // Some skins just don't look good here so skip them
+                if (_skin.name != "PlaqueDialogSkin"
+                    && _skin.name != "FlagBrowserSkin"
+                    && _skin.name != "SSUITextAreaDefault"
+                    && _skin.name != "ExperimentsDialogSkin"
+                    && _skin.name != "ExpRecoveryDialogSkin"
+                    && _skin.name != "PartTooltipSkin"
+                    // Third party known skin mess up
+                    && _skin.name != "UnityWKSPButtons"
+                    && _skin.name != "Unity"
+                    && _skin.name != "Default"
+                    // Dupes
+                    && _skin.name != "GameSkin"
+                    && _skin.name != "GameSkin(Clone)"
+                    && _skin.name != "KSP window 4"
+                    && _skin.name != "KSP window 6"
+                    && _skin.name != "KSP window 7"
+                   )
+                {
+                    // Build wanted skin only list
+                    g_skin_list.Add(_skin);
+                }
             }
             if (debugging) Debug.Log("[CHATR] skin list built, count = " + g_skin_list.Count);
         }
