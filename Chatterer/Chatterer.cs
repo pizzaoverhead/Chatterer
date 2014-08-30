@@ -739,10 +739,11 @@ namespace Chatterer
             GUILayout.EndHorizontal();
 
             //Display GUI accordingly
-            if (menu == "chatter") chatter_gui();
+            if (menu == "chatter" && vessel.GetCrewCount() > 0) chatter_gui();
             else if (menu == "beeps") beeps_gui();
             else if (menu == "AAE") AAE_gui();
             else if (menu == "settings") settings_gui();
+            else beeps_gui();
 
             //new version info (if any)
             if (recvd_latest_version && latest_version != "")
