@@ -453,13 +453,7 @@ namespace Chatterer
 
                     if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
                     {
-                        if (!hide_all_windows)
-                        {
-                            hide_all_windows = true;
-                            save_plugin_settings();
-                            //if (debugging) Debug.Log("[CHATR] saving plugin settings by closing UI from Blizzy78's Toolbar button");
-                        }
-                        else hide_all_windows = !hide_all_windows;
+                        UIToggle();
                     }
                     else if (launcherButton != null)
                     {
@@ -485,7 +479,7 @@ namespace Chatterer
             {
                 launcherButtonTexture = chatterer_icon_on;
                 
-                launcherButton = ApplicationLauncher.Instance.AddModApplication(launcherButtonToggle, launcherButtonToggle,
+                launcherButton = ApplicationLauncher.Instance.AddModApplication(UIToggle, UIToggle,
                                                                             null, null,
                                                                             null, null,
                                                                             ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.MAPVIEW,
@@ -493,7 +487,7 @@ namespace Chatterer
             }
         }
 
-        public void launcherButtonToggle()
+        public void UIToggle()
         {
             if (!hide_all_windows)
             {
@@ -735,18 +729,11 @@ namespace Chatterer
             {
                 if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
                 {
-                    if (!hide_all_windows)
-                    {
-                        hide_all_windows = true;
-                        save_plugin_settings();
-                        //if (debugging) Debug.Log("[CHATR] saving plugin settings by closing UI from UI close button");
-                    }
-                    else hide_all_windows = !hide_all_windows;
+                    UIToggle();
                 }
                 else if (launcherButton != null)
                 {
                     launcherButton.SetFalse();
-                    //if (debugging) Debug.Log("[CHATR] closing UI from UI close button & saving plugin settings...");
                 }
             }
             
@@ -2882,18 +2869,6 @@ namespace Chatterer
         }
 
         //Save/Load settings
-
-        private void toggleUI()
-        {
-            if (!hide_all_windows)
-            {
-                hide_all_windows = true;
-                save_plugin_settings();
-                //if (debugging) Debug.Log("[CHATR] saving plugin settings by closing UI");
-            }
-            else hide_all_windows = !hide_all_windows;
-        }
-
         private void save_plugin_settings()
         {
             //these values are not saved to vessel.cfg ever and are considered global
@@ -5702,38 +5677,7 @@ namespace Chatterer
                 }
 
                 if (gui_running == false) start_GUI();
-
-                ////write settings every x seconds
-                //cfg_update_timer += Time.deltaTime;
-                //if (cfg_update_timer >= 7f)
-                //{
-                //    cfg_update_timer = 0;
-                //    //DEBUG
-                //    //if (debugging) Debug.Log("[CHATR] searching all GameObjects for 'rbr'...");
-                //    //int x = 0;
-                //    //var allSources = FindObjectsOfType(typeof(GameObject)) as GameObject[];
-
-                //    //foreach (var source in allSources)
-                //    //{
-                //    //    if (source.name.Length > 3)
-                //    //    {
-                //    //        if (source.name.Substring(0, 3) == "rbr")
-                //    //        {
-                //    //            if (debugging) Debug.Log("[CHATR] source.name = " + source.name);
-                //    //            x++;
-                //    //        }
-                //    //    }
-                //    //}
-                //    //if (debugging) Debug.Log("[CHATR] " + x.ToString() + " rbr GameObjects exist");
-
-
-                //    //save_plugin_settings();
-
-                //    //if (use_vessel_settings) write_vessel_settings();    //update vessel_settings.cfg
-
-                //    //cfg_update_timer = 0;
-                //}
-
+                
                 //update remotetech info if needed
                 if (remotetech_toggle)
                 {
