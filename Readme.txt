@@ -46,6 +46,13 @@ Usage :
 
 Changelog:
 
+v0.6.1: [31 Aug 2014]
+- fixed "Show advanced options" not showing on probes
+- fixed Skin mess up and made "none" the default,
+  (updated blacklist for unwanted Skin)
+  (blacklisted dupe skins as well)
+- fixed chatter menu showing in some case even if chatter button was disabled
+
 v0.6.0: [29 Aug 2014]
 - compiled for KSPv0.24.2
 - added stock KSP Application launcher button
