@@ -2916,6 +2916,7 @@ namespace Chatterer
                 //Load settings specific to plugin.cfg
                 if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
                 if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
+                if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
                 if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
                 if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
                 if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
@@ -5348,10 +5349,6 @@ namespace Chatterer
         {
             if (debugging) Debug.Log("[CHATR] Awake() starting...");
 
-            // Setup & callbacks for KSP Application Launcher
-            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
-            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
-
             //set a path to save/load settings
             settings_path = AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/"; //returns "X:/full/path/to/GameData/Chatterer/Plugins/PluginData/chatterer"
 
@@ -5506,6 +5503,10 @@ namespace Chatterer
             create_filter_defaults_node();
 
             build_skin_list();
+
+            // Setup & callbacks for KSP Application Launcher
+            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
+            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
         }
