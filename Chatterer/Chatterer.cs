@@ -202,7 +202,7 @@ namespace Chatterer
 
         //GUI
         private bool gui_running = false;
-        private int skin_index = 1;     //selected skin
+        private int skin_index = 0;     //selected skin
         private bool gui_styles_set = false;
         private bool hide_all_windows = true;
         private string custom_dir_name = "directory name";  //default text for audioset input box
@@ -348,7 +348,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.6.0.86";
+        private string this_version = "0.6.1.86";
         private string main_window_title = "Chatterer ";
         private string latest_version = "";
         private bool recvd_latest_version = false;
@@ -609,8 +609,28 @@ namespace Chatterer
 
             foreach (GUISkin _skin in skin_array)
             {
-                //Some skins just don't look good here so skip them
-                if (_skin.name != "PlaqueDialogSkin" && _skin.name != "FlagBrowserSkin" && _skin.name != "SSUITextAreaDefault" && _skin.name != "ExperimentsDialogSkin" && _skin.name != "ExpRecoveryDialogSkin") g_skin_list.Add(_skin);
+                // Some skins just don't look good here so skip them
+                if (_skin.name != "PlaqueDialogSkin"
+                    && _skin.name != "FlagBrowserSkin"
+                    && _skin.name != "SSUITextAreaDefault"
+                    && _skin.name != "ExperimentsDialogSkin"
+                    && _skin.name != "ExpRecoveryDialogSkin"
+                    && _skin.name != "PartTooltipSkin"
+                    // Third party known skin mess up
+                    && _skin.name != "UnityWKSPButtons"
+                    && _skin.name != "Unity"
+                    && _skin.name != "Default"
+                    // Dupes
+                    && _skin.name != "GameSkin"
+                    && _skin.name != "GameSkin(Clone)"
+                    && _skin.name != "KSP window 4"
+                    && _skin.name != "KSP window 6"
+                    && _skin.name != "KSP window 7"
+                   )
+                {
+                    // Build wanted skin only list
+                    g_skin_list.Add(_skin);
+                }
             }
             if (debugging) Debug.Log("[CHATR] skin list built, count = " + g_skin_list.Count);
         }
@@ -719,10 +739,11 @@ namespace Chatterer
             GUILayout.EndHorizontal();
 
             //Display GUI accordingly
-            if (menu == "chatter") chatter_gui();
+            if (menu == "chatter" && vessel.GetCrewCount() > 0) chatter_gui();
             else if (menu == "beeps") beeps_gui();
             else if (menu == "AAE") AAE_gui();
             else if (menu == "settings") settings_gui();
+            else beeps_gui();
 
             //new version info (if any)
             if (recvd_latest_version && latest_version != "")
@@ -1531,13 +1552,17 @@ namespace Chatterer
                 //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 //show_lab_gui = GUILayout.Toggle(show_lab_gui, "The Lab");
                 //GUILayout.EndHorizontal();
+            }
 
-                _content.text = "Show advanced options";
-                _content.tooltip = "More chatter and beep options are displayed";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                show_advanced_options = GUILayout.Toggle(show_advanced_options, _content);
-                GUILayout.EndHorizontal();
+            // Allowing "advanced options" even if crew < 0
+            _content.text = "Show advanced options";
+            _content.tooltip = "More chatter and beep options are displayed";
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            show_advanced_options = GUILayout.Toggle(show_advanced_options, _content);
+            GUILayout.EndHorizontal();
 
+            if (vessel.GetCrewCount() > 0)
+            {
                 //Insta-chatter key
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 if (set_insta_chatter_key == false)
