@@ -348,7 +348,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.6.1.86";
+        private string this_version = "0.6.2.86";
         private string main_window_title = "Chatterer ";
         private string latest_version = "";
         private bool recvd_latest_version = false;
@@ -449,23 +449,23 @@ namespace Chatterer
                 chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
                 chatterer_toolbar_button.AddButtonClickHandler((e) =>
                 {
-                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, hide_all_windows = " + hide_all_windows);
+                    //if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, hide_all_windows = " + hide_all_windows);
 
                     if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
                     {
-                        hide_all_windows = !hide_all_windows;
+                        UIToggle();
                     }
                     else if (launcherButton != null)
                     {
                         if (hide_all_windows)
                         {
                             launcherButton.SetTrue();
-                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            //if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
                         }
                         else if (!hide_all_windows)
                         {
                             launcherButton.SetFalse();
-                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            //if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.State);
                         }
                     }
                 });
@@ -479,7 +479,7 @@ namespace Chatterer
             {
                 launcherButtonTexture = chatterer_icon_on;
                 
-                launcherButton = ApplicationLauncher.Instance.AddModApplication(launcherButtonToggle, launcherButtonToggle,
+                launcherButton = ApplicationLauncher.Instance.AddModApplication(UIToggle, UIToggle,
                                                                             null, null,
                                                                             null, null,
                                                                             ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.MAPVIEW,
@@ -487,9 +487,15 @@ namespace Chatterer
             }
         }
 
-        public void launcherButtonToggle()
+        public void UIToggle()
         {
-            hide_all_windows = !hide_all_windows;
+            if (!hide_all_windows)
+            {
+                hide_all_windows = true;
+                save_plugin_settings();
+                //if (debugging && launcherButton != null) Debug.Log("[CHATR] ...saving plugin settings by closing UI from Applauncher button");
+            }
+            else hide_all_windows = !hide_all_windows;
         }
 
         public void launcherButtonRemove()
@@ -723,7 +729,7 @@ namespace Chatterer
             {
                 if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
                 {
-                    hide_all_windows = !hide_all_windows;
+                    UIToggle();
                 }
                 else if (launcherButton != null)
                 {
@@ -2883,7 +2889,14 @@ namespace Chatterer
 
             //save plugin.cfg
             plugin_settings_node.Save(settings_path + "plugin.cfg");
-            //if (debugging) Debug.Log("[CHATR] plugin settings saved to disk");
+            if (debugging) Debug.Log("[CHATR] plugin settings saved to disk");
+
+            //update vessel_settings.cfg
+            if (use_vessel_settings)
+            {
+                write_vessel_settings();
+                if (debugging) Debug.Log("[CHATR] this vessel settings saved to disk");
+            }
         }
 
         private void load_plugin_settings()
@@ -2899,10 +2912,11 @@ namespace Chatterer
 
             if (plugin_settings_node != null)
             {
-                //if (debugging) Debug.Log("[CHATR] plugin_settings != null");
+                if (debugging) Debug.Log("[CHATR] plugin_settings != null");
                 //Load settings specific to plugin.cfg
                 if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
                 if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
+                if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
                 if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
                 if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
                 if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
@@ -4765,20 +4779,20 @@ namespace Chatterer
             //create a new node for the active vessel with its current settings
             //add new node to vessel_settings_node
             //save vessel_settings_node to .cfg
-            //if (debugging) Debug.Log("[CHATR] writing vessel_settings node to disk");
+            if (debugging) Debug.Log("[CHATR] writing vessel_settings node to disk");
 
 
 
             ConfigNode all_but_curr_vessel = new ConfigNode();
 
-            //if (debugging) Debug.Log("[CHATR] active vessel.id = " + vessel.id.ToString());
+            if (debugging) Debug.Log("[CHATR] active vessel.id = " + vessel.id.ToString());
             foreach (ConfigNode cn in vessel_settings_node.nodes)
             {
                 //
                 if (cn.HasValue("vessel_id"))
                 {
                     string val = cn.GetValue("vessel_id");
-                    //if (debugging) Debug.Log("[CHATR] node vessel_id = " + val);
+                    if (debugging) Debug.Log("[CHATR] node vessel_id = " + val);
 
                     if (val != vessel.id.ToString())
                     {
@@ -4786,7 +4800,7 @@ namespace Chatterer
                         //add it to the list
 
                         all_but_curr_vessel.AddNode(cn);
-                        //if (debugging) Debug.Log("[CHATR] write_vessel_settings() :: node vessel_id != vessel.id :: node vessel added to all_but_curr_vessel");
+                        if (debugging) Debug.Log("[CHATR] write_vessel_settings() :: node vessel_id != vessel.id :: node vessel added to all_but_curr_vessel");
                     }
                     //else
                     //{
@@ -4808,9 +4822,9 @@ namespace Chatterer
 
             //save_vessel_settings_node();
             vessel_settings_node.Save(settings_path + "vessels.cfg");
-            //if (debugging) Debug.Log("[CHATR] write_vessel_settings() END :: vessel_settings node saved to vessel_settings.cfg");
+            if (debugging) Debug.Log("[CHATR] write_vessel_settings() END :: vessel_settings node saved to vessel_settings.cfg");
             //end func
-            //if (debugging) Debug.Log("[CHATR] vessel_settings node saved to disk :: vessel node count = " + vessel_settings_node.nodes.Count);
+            if (debugging) Debug.Log("[CHATR] vessel_settings node saved to disk :: vessel node count = " + vessel_settings_node.nodes.Count);
         }
 
         //Set some default stuff
@@ -5335,10 +5349,6 @@ namespace Chatterer
         {
             if (debugging) Debug.Log("[CHATR] Awake() starting...");
 
-            // Setup & callbacks for KSP Application Launcher
-            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
-            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
-
             //set a path to save/load settings
             settings_path = AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/"; //returns "X:/full/path/to/GameData/Chatterer/Plugins/PluginData/chatterer"
 
@@ -5494,6 +5504,10 @@ namespace Chatterer
 
             build_skin_list();
 
+            // Setup & callbacks for KSP Application Launcher
+            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
+            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
+
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
         }
 
@@ -5579,8 +5593,8 @@ namespace Chatterer
 
                         ConfigNode all_but_prev_vessel = new ConfigNode();
 
-                        //if (debugging) Debug.Log("[CHATR] Update() :: checking each vessel_id in vessel_settings_node");
-                        //if (debugging) Debug.Log("[CHATR] prev_vessel.id = " + prev_vessel.id.ToString());
+                        if (debugging) Debug.Log("[CHATR] Update() :: checking each vessel_id in vessel_settings_node");
+                        if (debugging) Debug.Log("[CHATR] prev_vessel.id = " + prev_vessel.id.ToString());
                         foreach (ConfigNode _vessel in vessel_settings_node.nodes)
                         {
 
@@ -5598,7 +5612,7 @@ namespace Chatterer
                                     //if (debugging) Debug.Log("[CHATR] prev_vessel old node removed");
                                     //temp_vessels_string = prev_vessel.id.ToString();
                                     all_but_prev_vessel.AddNode(_vessel);
-                                    //if (debugging) Debug.Log("[CHATR] Update() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
+                                    if (debugging) Debug.Log("[CHATR] Update() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
                                 }
                                 //else
                                 //{
@@ -5620,7 +5634,7 @@ namespace Chatterer
 
                         //save_vessel_settings_node();
                         vessel_settings_node.Save(settings_path + "vessels.cfg");
-                        //if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node saved to vessel_settings.cfg");
+                        if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node saved to vessel_settings.cfg");
 
 
                         load_vessel_settings_node();    //reload with current vessel settings
@@ -5664,38 +5678,7 @@ namespace Chatterer
                 }
 
                 if (gui_running == false) start_GUI();
-
-                //write settings every x seconds
-                cfg_update_timer += Time.deltaTime;
-                if (cfg_update_timer >= 7f)
-                {
-                    cfg_update_timer = 0;
-                    //DEBUG
-                    //if (debugging) Debug.Log("[CHATR] searching all GameObjects for 'rbr'...");
-                    //int x = 0;
-                    //var allSources = FindObjectsOfType(typeof(GameObject)) as GameObject[];
-
-                    //foreach (var source in allSources)
-                    //{
-                    //    if (source.name.Length > 3)
-                    //    {
-                    //        if (source.name.Substring(0, 3) == "rbr")
-                    //        {
-                    //            if (debugging) Debug.Log("[CHATR] source.name = " + source.name);
-                    //            x++;
-                    //        }
-                    //    }
-                    //}
-                    //if (debugging) Debug.Log("[CHATR] " + x.ToString() + " rbr GameObjects exist");
-
-
-                    save_plugin_settings();
-
-                    if (use_vessel_settings) write_vessel_settings();    //update vessel_settings.cfg
-
-                    //cfg_update_timer = 0;
-                }
-
+                
                 //update remotetech info if needed
                 if (remotetech_toggle)
                 {
