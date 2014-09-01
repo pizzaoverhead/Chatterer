@@ -28,7 +28,6 @@
  * FIX the mute all function
  * 
  * ADD Applauncher/BlizzyTB button behaviour/animations (Idle, disabled, muted, onChat, ...)
- * ADD plugin version checker 
  * 
  * Separate the code in different .cs files accordingly to their function
  * 
@@ -249,9 +248,9 @@ namespace Chatterer
         private int lab_window_id;
 
         //Textures
-        private Texture2D ui_icon_off = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        private Texture2D ui_icon_on = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        private Texture2D ui_icon = new Texture2D(30, 30, TextureFormat.ARGB32, false);
+        //private Texture2D ui_icon_off = new Texture2D(30, 30, TextureFormat.ARGB32, false);
+        //private Texture2D ui_icon_on = new Texture2D(30, 30, TextureFormat.ARGB32, false);
+        //private Texture2D ui_icon = new Texture2D(30, 30, TextureFormat.ARGB32, false);
         private Texture2D line_512x4 = new Texture2D(512, 8, TextureFormat.ARGB32, false);
 
         //GUIStyles
@@ -290,7 +289,6 @@ namespace Chatterer
         private int chatter_reverb_preset_index = 0;
 
         //Counters
-        private float cfg_update_timer = 0;
         private float rt_update_timer = 0;
         private float sstv_timer = 0;
         private float sstv_timer_limit = 0;
@@ -350,8 +348,8 @@ namespace Chatterer
         //Version
         private string this_version = "0.6.2.86";
         private string main_window_title = "Chatterer ";
-        private string latest_version = "";
-        private bool recvd_latest_version = false;
+        //private string latest_version = "";
+        //private bool recvd_latest_version = false;
 
         //Clipboards
         private ConfigNode filters_clipboard;
@@ -417,8 +415,8 @@ namespace Chatterer
         private BackgroundSource sel_background_src;    //so sample selector window knows which backgroundsource we are working with
 
 
-        private int aae_soundscape_freq = 2;
-        private int aae_prev_soundscape_freq = 2;
+        private int aae_soundscape_freq = 0;
+        private int aae_prev_soundscape_freq = 0;
         private float aae_soundscape_freq_slider = 2;
         private float aae_soundscape_timer = 0;
         private float aae_soundscape_timer_limit = 0;
@@ -439,7 +437,7 @@ namespace Chatterer
         internal chatterer() 
         {
             //integration with blizzy78's Toolbar plugin
-            if (ToolbarButtonWrapper.ToolbarManagerPresent) //&& useBlizzy78Toolbar)
+            if (ToolbarButtonWrapper.ToolbarManagerPresent)
             {
                 if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
 
@@ -449,7 +447,7 @@ namespace Chatterer
                 chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
                 chatterer_toolbar_button.AddButtonClickHandler((e) =>
                 {
-                    //if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, hide_all_windows = " + hide_all_windows);
+                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, when hide_all_windows = " + hide_all_windows);
 
                     if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
                     {
@@ -460,12 +458,12 @@ namespace Chatterer
                         if (hide_all_windows)
                         {
                             launcherButton.SetTrue();
-                            //if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
                         }
                         else if (!hide_all_windows)
                         {
                             launcherButton.SetFalse();
-                            //if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.State);
                         }
                     }
                 });
@@ -477,6 +475,8 @@ namespace Chatterer
             // Create the button in the KSP AppLauncher
             if (launcherButton == null && !useBlizzy78Toolbar)
             {
+                if (debugging) Debug.Log("[CHATR] Building ApplicationLauncherButton");
+
                 launcherButtonTexture = chatterer_icon_on;
                 
                 launcherButton = ApplicationLauncher.Instance.AddModApplication(UIToggle, UIToggle,
@@ -493,9 +493,12 @@ namespace Chatterer
             {
                 hide_all_windows = true;
                 save_plugin_settings();
-                //if (debugging && launcherButton != null) Debug.Log("[CHATR] ...saving plugin settings by closing UI from Applauncher button");
+
+                if (debugging) Debug.Log("[CHATR] UIToggle(OFF)");
             }
             else hide_all_windows = !hide_all_windows;
+
+            if (debugging) Debug.Log("[CHATR] UIToggle(ON)");
         }
 
         public void launcherButtonRemove()
@@ -503,7 +506,11 @@ namespace Chatterer
             if (launcherButton != null)
             {
                 ApplicationLauncher.Instance.RemoveModApplication(launcherButton);
+
+                if (debugging) Debug.Log("[CHATR] launcherButtonRemove");
             }
+
+            else if (debugging) Debug.Log("[CHATR] launcherButtonRemove (useless attempt)");
         }
 
         public void OnSceneChangeRequest(GameScenes _scene)
@@ -513,10 +520,14 @@ namespace Chatterer
 
         internal void OnDestroy() 
         {
+            if (debugging) Debug.Log("[CHATR] OnDestroy() START");
+
             // Remove the button from the Blizzy's toolbar
             if (chatterer_toolbar_button != null)
             {
                 chatterer_toolbar_button.Destroy();
+
+                if (debugging) Debug.Log("[CHATR] OnDestroy() Blizzy78's toolbar button removed");
             }
             // Un-register the callbacks
             GameEvents.onGUIApplicationLauncherReady.Remove(OnGUIApplicationLauncherReady);
@@ -524,16 +535,22 @@ namespace Chatterer
             
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
+
+            if (debugging) Debug.Log("[CHATR] OnDestroy() END");
         }
 
         private void start_GUI()
         {
+            if (debugging) Debug.Log("[CHATR] start_GUI()");
+            
             RenderingManager.AddToPostDrawQueue(3, new Callback(draw_GUI));	//start the GUI
             gui_running = true;
         }
 
         private void stop_GUI()
         {
+            if (debugging) Debug.Log("[CHATR] stop_GUI()");
+            
             RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI)); //stop the GUI
             gui_running = false;
         }
@@ -604,6 +621,7 @@ namespace Chatterer
             //gs_beep1 = button_txt_center_green;
 
             gui_styles_set = true;
+
             if (debugging) Debug.Log("[CHATR] GUI styles set");
         }
 
@@ -638,6 +656,7 @@ namespace Chatterer
                     g_skin_list.Add(_skin);
                 }
             }
+
             if (debugging) Debug.Log("[CHATR] skin list built, count = " + g_skin_list.Count);
         }
 
@@ -751,13 +770,13 @@ namespace Chatterer
             else if (menu == "settings") settings_gui();
             else beeps_gui();
 
-            //new version info (if any)
-            if (recvd_latest_version && latest_version != "")
-            {
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(latest_version, label_txt_left);
-                GUILayout.EndHorizontal();
-            }
+            ////new version info (if any)
+            //if (recvd_latest_version && latest_version != "")
+            //{
+            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //    GUILayout.Label(latest_version, label_txt_left);
+            //    GUILayout.EndHorizontal();
+            //}
 
             //Tooltips
             if (show_tooltips && GUI.tooltip != "") tooltips(main_window_pos);
@@ -1655,20 +1674,6 @@ namespace Chatterer
             //if (debugging) Debug.Log("[CHATR] ► OK");
 
             GUILayout.EndHorizontal();
-
-            ////Change icon position
-            //if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
-            //{
-            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //    if (changing_icon_pos == false)
-            //    {
-            //        _content.text = "Change icon position";
-            //        _content.tooltip = "Move icon anywhere on the screen";
-            //        if (GUILayout.Button(_content)) changing_icon_pos = true;
-            //    }
-            //    else GUILayout.Label("Click anywhere to set new icon position");
-            //    GUILayout.EndHorizontal();
-            //}            
         }
 
         private void testing_gui(int window_id)
@@ -1913,14 +1918,7 @@ namespace Chatterer
                 GUILayout.Label(_content, GUILayout.ExpandWidth(true));
                 acf.depth = GUILayout.HorizontalSlider(acf.depth, 0, 1f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
-
-                //_content.text = "Feedback: " + (acf.feedback * 100).ToString("F0") + "%"; // [Obsolete("feedback is deprecated, this property does nothing.")]
-                //_content.tooltip = "Wet signal to feed back into the chorus buffer";
-                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                //GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                //acf.feedback = GUILayout.HorizontalSlider(acf.feedback, 0, 1f, GUILayout.Width(90f));
-                //GUILayout.EndHorizontal();
-
+                
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 _content.text = "Copy Chorus";
                 _content.tooltip = "Copy chorus values to clipboard";
@@ -1934,7 +1932,7 @@ namespace Chatterer
                     chorus_clipboard.AddValue("delay", acf.delay);
                     chorus_clipboard.AddValue("rate", acf.rate);
                     chorus_clipboard.AddValue("depth", acf.depth);
-                    //chorus_clipboard.AddValue("feedback", acf.feedback);
+                    
                     if (debugging) Debug.Log("[CHATR] chorus filter values copied to chorus clipboard");
                 }
                 if (chorus_clipboard != null)
@@ -1950,7 +1948,7 @@ namespace Chatterer
                         acf.delay = Single.Parse(chorus_clipboard.GetValue("delay"));
                         acf.rate = Single.Parse(chorus_clipboard.GetValue("rate"));
                         acf.depth = Single.Parse(chorus_clipboard.GetValue("depth"));
-                        //acf.feedback = Single.Parse(chorus_clipboard.GetValue("feedback"));
+                        
                         if (debugging) Debug.Log("[CHATR] chorus filter values loaded from chorus clipboard");
                     }
                 }
@@ -2956,7 +2954,7 @@ namespace Chatterer
 
         private void load_plugin_defaults()
         {
-            if (debugging) Debug.Log("[CHATR] load_plugin_defaults()");
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults() START");
 
             destroy_all_beep_players();
             chatter_array.Clear();
@@ -3081,7 +3079,6 @@ namespace Chatterer
             _filter.AddValue("delay", chatter_chorus_filter.delay);
             _filter.AddValue("rate", chatter_chorus_filter.rate);
             _filter.AddValue("depth", chatter_chorus_filter.depth);
-            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
             node.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -3165,7 +3162,6 @@ namespace Chatterer
                 _filter.AddValue("delay", source.chorus_filter.delay);
                 _filter.AddValue("rate", source.chorus_filter.rate);
                 _filter.AddValue("depth", source.chorus_filter.depth);
-                //_filter.AddValue("feedback", source.chorus_filter.feedback);
                 beep_settings.AddNode(_filter);
 
                 _filter = new ConfigNode();
@@ -3528,27 +3524,27 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] load_shared_settings() END");
         }
 
-        //Check for a newer version
-        private void get_latest_version()
-        {
-            bool got_all_info = false;
+        ////Check for a newer version
+        //private void get_latest_version()
+        //{
+        //    bool got_all_info = false;
 
-            WWWForm form = new WWWForm();
-            form.AddField("version", this_version);
+        //    WWWForm form = new WWWForm();
+        //    form.AddField("version", this_version);
 
-            WWW version = new WWW("http://rbri.co.nf/ksp/chatterer/get_latest_version.php", form.data);
+        //    WWW version = new WWW("http://rbri.co.nf/ksp/chatterer/get_latest_version.php", form.data);
 
-            while (got_all_info == false)
-            {
-                if (version.isDone)
-                {
-                    latest_version = version.text;
-                    got_all_info = true;
-                }
-            }
-            recvd_latest_version = true;
-            if (debugging) Debug.Log("[CHATR] recv'd latest version info: " + latest_version);
-        }
+        //    while (got_all_info == false)
+        //    {
+        //        if (version.isDone)
+        //        {
+        //            latest_version = version.text;
+        //            got_all_info = true;
+        //        }
+        //    }
+        //    recvd_latest_version = true;
+        //    if (debugging) Debug.Log("[CHATR] recv'd latest version info: " + latest_version);
+        //}
 
         //determine whether the vessel has a part with ModuleRemoteTechSPU and load all relevant RemoteTech variables for the vessel
         public void updateRemoteTechData()
@@ -4248,7 +4244,6 @@ namespace Chatterer
             _filter.AddValue("delay", 40.0f);
             _filter.AddValue("rate", 0.8f);
             _filter.AddValue("depth", 0.03f);
-            _filter.AddValue("feedback", 0);
             filter_defaults.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -4996,7 +4991,6 @@ namespace Chatterer
                     if (filter.HasValue("delay")) acf.delay = Single.Parse(filter.GetValue("delay"));
                     if (filter.HasValue("rate")) acf.rate = Single.Parse(filter.GetValue("rate"));
                     if (filter.HasValue("depth")) acf.depth = Single.Parse(filter.GetValue("depth"));
-                    //if (filter.HasValue("feedback")) acf.feedback = Single.Parse(filter.GetValue("feedback"));
                 }
             }
         }
@@ -5100,7 +5094,6 @@ namespace Chatterer
             _filter.AddValue("delay", chatter_chorus_filter.delay);
             _filter.AddValue("rate", chatter_chorus_filter.rate);
             _filter.AddValue("depth", chatter_chorus_filter.depth);
-            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -5169,7 +5162,6 @@ namespace Chatterer
             if (filter.HasValue("delay")) chatter_chorus_filter.delay = Single.Parse(filter.GetValue("delay"));
             if (filter.HasValue("rate")) chatter_chorus_filter.rate = Single.Parse(filter.GetValue("rate"));
             if (filter.HasValue("depth")) chatter_chorus_filter.depth = Single.Parse(filter.GetValue("depth"));
-            //if (filter.HasValue("feedback")) chatter_chorus_filter.feedback = Single.Parse(filter.GetValue("feedback"));
 
             filter = filters_clipboard.GetNode("DISTORTION");
             if (filter.HasValue("enabled")) chatter_distortion_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
@@ -5230,7 +5222,6 @@ namespace Chatterer
             _filter.AddValue("delay", source.chorus_filter.delay);
             _filter.AddValue("rate", source.chorus_filter.rate);
             _filter.AddValue("depth", source.chorus_filter.depth);
-            //_filter.AddValue("feedback", source.chorus_filter.feedback);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -5299,7 +5290,6 @@ namespace Chatterer
             if (filter.HasValue("delay")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("delay"));
             if (filter.HasValue("rate")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("rate"));
             if (filter.HasValue("depth")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("depth"));
-            if (filter.HasValue("feedback")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("feedback"));
 
             filter = filters_clipboard.GetNode("DISTORTION");
             if (filter.HasValue("enabled")) source.distortion_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
@@ -5477,8 +5467,6 @@ namespace Chatterer
 
             load_plugin_settings();
 
-
-            if (http_update_check) get_latest_version();
 
             load_quindar_audio();
             quindar1 = chatter_player.AddComponent<AudioSource>();
