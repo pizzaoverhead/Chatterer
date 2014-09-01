@@ -496,9 +496,12 @@ namespace Chatterer
 
                 if (debugging) Debug.Log("[CHATR] UIToggle(OFF)");
             }
-            else hide_all_windows = !hide_all_windows;
+            else
+            {
+                hide_all_windows = !hide_all_windows;
 
-            if (debugging) Debug.Log("[CHATR] UIToggle(ON)");
+                if (debugging) Debug.Log("[CHATR] UIToggle(ON)");
+            }
         }
 
         public void launcherButtonRemove()
