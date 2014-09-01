@@ -739,12 +739,16 @@ namespace Chatterer
             //Show "Settings"
             if (GUILayout.Button("Settings")) menu = "settings";
 
-            ////Mute button // Disabled, Mute cause NULL REFERENCE EXCEPTION replacing with "Close UI" for now
+            //Mute button
+            string muted = "Mute";
+            if (mute_all) muted = "Muted";
 
-            //string muted = "Mute";
-            //if (mute_all) muted = "Muted";
+            if (GUILayout.Button(muted, GUILayout.ExpandWidth(false)))
+            {
+                mute_all = !mute_all;
 
-            //if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) mute_all = !mute_all;
+                if (debugging) Debug.Log("[CHATR] Mute = " + mute_all);
+            }
 
             string closeUI = "Close";
             if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false)))
@@ -4869,25 +4873,30 @@ namespace Chatterer
                 {
                     //but things aren't muted
                     //mute them
-                    initial_chatter.mute = true;
-                    response_chatter.mute = true;
-                    quindar1.mute = true;
-                    quindar2.mute = true;
+                    if (chatter_exists)
+                    {
+                        initial_chatter.mute = true;
+                        response_chatter.mute = true;
+                        quindar1.mute = true;
+                        quindar2.mute = true;
+                    }
 
                     foreach (BackgroundSource src in backgroundsource_list)
                     {
                         src.audiosource.mute = true;
                     }
 
-                    aae_breathing.mute = true;
-                    aae_soundscape.mute = true;
-                    aae_wind.mute = true;
+                    if (aae_breathing_exist) aae_breathing.mute = true;
+                    if (aae_soundscapes_exist) aae_soundscape.mute = true;
+                    if (aae_breathing_exist) aae_wind.mute = true;
+                    if (aae_airlock_exist) aae_airlock.mute = true;
 
                     foreach (BeepSource source in beepsource_list)
                     {
                         source.audiosource.mute = true;
                     }
-                    sstv.mute = true;
+                    
+                    if (sstv_exists) sstv.mute = true;
 
                     all_muted = true;   //and change flag
                 }
@@ -4899,25 +4908,30 @@ namespace Chatterer
                 {
                     //but things are muted
                     //unmute them
-                    initial_chatter.mute = false;
-                    response_chatter.mute = false;
-                    quindar1.mute = false;
-                    quindar2.mute = false;
+                    if (chatter_exists)
+                    {
+                        initial_chatter.mute = false;
+                        response_chatter.mute = false;
+                        quindar1.mute = false;
+                        quindar2.mute = false;
+                    }
 
                     foreach (BackgroundSource src in backgroundsource_list)
                     {
                         src.audiosource.mute = false;
                     }
 
-                    aae_breathing.mute = false;
-                    aae_soundscape.mute = false;
-                    aae_wind.mute = false;
+                    if (aae_breathing_exist) aae_breathing.mute = false;
+                    if (aae_soundscapes_exist) aae_soundscape.mute = false;
+                    if (aae_wind_exist) aae_wind.mute = false;
+                    if (aae_airlock_exist) aae_airlock.mute = false;
 
                     foreach (BeepSource source in beepsource_list)
                     {
                         source.audiosource.mute = false;
                     }
-                    sstv.mute = false;
+                    
+                    if (sstv_exists) sstv.mute = false;
 
                     all_muted = false;   //and change flag
                 }
