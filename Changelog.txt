@@ -1,7 +1,9 @@
 Changelog:
 
-v0.6.2: [31 Aug 2014]
-- test
+v0.6.2: [01 Sep 2014]
+- fixed "use Blizzy78' toolbar only" setting not loading
+- Added/tweaked GitHub and .version files for KSP-AVC "Add-on Version Checker" plugin support
+- settings are now saved when closing UI instead of every 7 sec, this should help with performances, shouldn't it ? ^^
 
 v0.6.1: [31 Aug 2014]
 - fixed "Show advanced options" not showing on probes
