@@ -28,7 +28,6 @@
  * FIX the mute all function
  * 
  * ADD Applauncher/BlizzyTB button behaviour/animations (Idle, disabled, muted, onChat, ...)
- * ADD plugin version checker 
  * 
  * Separate the code in different .cs files accordingly to their function
  * 
@@ -168,9 +167,7 @@ namespace Chatterer
         //All beep objects, audiosources, and filters are managed by BeepSource class
         private List<BeepSource> beepsource_list = new List<BeepSource>();     //List to hold the BeepSources
         private List<BackgroundSource> backgroundsource_list = new List<BackgroundSource>();    //list to hold the BackgroundSources
-
-
-
+        
         //Chatter, SSTV, and beep audio sample Lists and Dictionaries
         private List<ChatterAudioList> chatter_array = new List<ChatterAudioList>();        //array of all chatter clips and some settings
         private Dictionary<string, AudioClip> dict_probe_samples = new Dictionary<string, AudioClip>();
@@ -217,11 +214,19 @@ namespace Chatterer
         private ToolbarButtonWrapper chatterer_toolbar_button;
         private bool useBlizzy78Toolbar = false;
 
-        //KSP Stock application launcher button
+        //KSP Stock application launcherButton
         private ApplicationLauncherButton launcherButton = null;
-        private Texture2D launcherButtonTexture;
-        private Texture2D chatterer_icon_on = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_on", false);
-        private Texture2D chatterer_icon_off = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_off", false);
+        private Texture2D chatterer_button_Texture = null;
+        private Texture2D chatterer_button_TX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_TX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        //private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false); //for later RT2 use
+        //private Texture2D chatterer_button_disabled_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -249,9 +254,9 @@ namespace Chatterer
         private int lab_window_id;
 
         //Textures
-        private Texture2D ui_icon_off = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        private Texture2D ui_icon_on = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        private Texture2D ui_icon = new Texture2D(30, 30, TextureFormat.ARGB32, false);
+        //private Texture2D ui_icon_off = new Texture2D(30, 30, TextureFormat.ARGB32, false);
+        //private Texture2D ui_icon_on = new Texture2D(30, 30, TextureFormat.ARGB32, false);
+        //private Texture2D ui_icon = new Texture2D(30, 30, TextureFormat.ARGB32, false);
         private Texture2D line_512x4 = new Texture2D(512, 8, TextureFormat.ARGB32, false);
 
         //GUIStyles
@@ -290,7 +295,6 @@ namespace Chatterer
         private int chatter_reverb_preset_index = 0;
 
         //Counters
-        private float cfg_update_timer = 0;
         private float rt_update_timer = 0;
         private float sstv_timer = 0;
         private float sstv_timer_limit = 0;
@@ -348,10 +352,10 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.6.2.86";
+        private string this_version = "0.6.3.86";
         private string main_window_title = "Chatterer ";
-        private string latest_version = "";
-        private bool recvd_latest_version = false;
+        //private string latest_version = "";
+        //private bool recvd_latest_version = false;
 
         //Clipboards
         private ConfigNode filters_clipboard;
@@ -417,8 +421,8 @@ namespace Chatterer
         private BackgroundSource sel_background_src;    //so sample selector window knows which backgroundsource we are working with
 
 
-        private int aae_soundscape_freq = 2;
-        private int aae_prev_soundscape_freq = 2;
+        private int aae_soundscape_freq = 0;
+        private int aae_prev_soundscape_freq = 0;
         private float aae_soundscape_freq_slider = 2;
         private float aae_soundscape_timer = 0;
         private float aae_soundscape_timer_limit = 0;
@@ -439,7 +443,7 @@ namespace Chatterer
         internal chatterer() 
         {
             //integration with blizzy78's Toolbar plugin
-            if (ToolbarButtonWrapper.ToolbarManagerPresent) //&& useBlizzy78Toolbar)
+            if (ToolbarButtonWrapper.ToolbarManagerPresent)
             {
                 if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
 
@@ -449,7 +453,7 @@ namespace Chatterer
                 chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
                 chatterer_toolbar_button.AddButtonClickHandler((e) =>
                 {
-                    //if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, hide_all_windows = " + hide_all_windows);
+                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, when hide_all_windows = " + hide_all_windows);
 
                     if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
                     {
@@ -460,12 +464,12 @@ namespace Chatterer
                         if (hide_all_windows)
                         {
                             launcherButton.SetTrue();
-                            //if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
                         }
                         else if (!hide_all_windows)
                         {
                             launcherButton.SetFalse();
-                            //if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.State);
                         }
                     }
                 });
@@ -477,13 +481,55 @@ namespace Chatterer
             // Create the button in the KSP AppLauncher
             if (launcherButton == null && !useBlizzy78Toolbar)
             {
-                launcherButtonTexture = chatterer_icon_on;
-                
+                if (debugging) Debug.Log("[CHATR] Building ApplicationLauncherButton");
+                                
                 launcherButton = ApplicationLauncher.Instance.AddModApplication(UIToggle, UIToggle,
                                                                             null, null,
                                                                             null, null,
                                                                             ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.MAPVIEW,
-                                                                            launcherButtonTexture);
+                                                                            chatterer_button_idle);
+            }
+        }
+
+         private void launcherButtonTexture_check()
+         {
+            // launcherButton texture change check
+
+             if (all_muted)
+             {
+                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
+                 else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
+             }
+             else
+             {
+                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
+                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                 else SetAppLauncherButtonTexture(chatterer_button_idle);
+             }
+
+             //if (inRadioContact) // for later use when RT2 support is implemented
+             //{
+             //
+             //}
+             //else SetAppLauncherButtonTexture(chatterer_button_disabled);
+         }
+
+        private void SetAppLauncherButtonTexture(Texture2D tex2d)
+        {
+            // Set new launcherButton texture
+            
+            if (launcherButton != null)
+            {
+                if (tex2d != chatterer_button_Texture)
+                {
+                    chatterer_button_Texture = tex2d;
+                    launcherButton.SetTexture(tex2d);
+
+                    if (debugging) Debug.Log("[CHATR] SetAppLauncherButtonTexture(" + tex2d + ");");
+                }
             }
         }
 
@@ -493,9 +539,15 @@ namespace Chatterer
             {
                 hide_all_windows = true;
                 save_plugin_settings();
-                //if (debugging && launcherButton != null) Debug.Log("[CHATR] ...saving plugin settings by closing UI from Applauncher button");
+
+                if (debugging) Debug.Log("[CHATR] UIToggle(OFF)");
             }
-            else hide_all_windows = !hide_all_windows;
+            else
+            {
+                hide_all_windows = !hide_all_windows;
+
+                if (debugging) Debug.Log("[CHATR] UIToggle(ON)");
+            }
         }
 
         public void launcherButtonRemove()
@@ -503,7 +555,11 @@ namespace Chatterer
             if (launcherButton != null)
             {
                 ApplicationLauncher.Instance.RemoveModApplication(launcherButton);
+
+                if (debugging) Debug.Log("[CHATR] launcherButtonRemove");
             }
+
+            else if (debugging) Debug.Log("[CHATR] launcherButtonRemove (useless attempt)");
         }
 
         public void OnSceneChangeRequest(GameScenes _scene)
@@ -513,10 +569,14 @@ namespace Chatterer
 
         internal void OnDestroy() 
         {
+            if (debugging) Debug.Log("[CHATR] OnDestroy() START");
+
             // Remove the button from the Blizzy's toolbar
             if (chatterer_toolbar_button != null)
             {
                 chatterer_toolbar_button.Destroy();
+
+                if (debugging) Debug.Log("[CHATR] OnDestroy() Blizzy78's toolbar button removed");
             }
             // Un-register the callbacks
             GameEvents.onGUIApplicationLauncherReady.Remove(OnGUIApplicationLauncherReady);
@@ -524,16 +584,22 @@ namespace Chatterer
             
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
+
+            if (debugging) Debug.Log("[CHATR] OnDestroy() END");
         }
 
         private void start_GUI()
         {
+            if (debugging) Debug.Log("[CHATR] start_GUI()");
+            
             RenderingManager.AddToPostDrawQueue(3, new Callback(draw_GUI));	//start the GUI
             gui_running = true;
         }
 
         private void stop_GUI()
         {
+            if (debugging) Debug.Log("[CHATR] stop_GUI()");
+            
             RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI)); //stop the GUI
             gui_running = false;
         }
@@ -604,6 +670,7 @@ namespace Chatterer
             //gs_beep1 = button_txt_center_green;
 
             gui_styles_set = true;
+
             if (debugging) Debug.Log("[CHATR] GUI styles set");
         }
 
@@ -638,6 +705,7 @@ namespace Chatterer
                     g_skin_list.Add(_skin);
                 }
             }
+
             if (debugging) Debug.Log("[CHATR] skin list built, count = " + g_skin_list.Count);
         }
 
@@ -717,12 +785,18 @@ namespace Chatterer
             //Show "Settings"
             if (GUILayout.Button("Settings")) menu = "settings";
 
-            ////Mute button // Disabled, Mute cause NULL REFERENCE EXCEPTION replacing with "Close UI" for now
+            //Mute button
+            string muted = "Mute";
+            if (mute_all) muted = "Muted";
 
-            //string muted = "Mute";
-            //if (mute_all) muted = "Muted";
+            if (GUILayout.Button(muted, GUILayout.ExpandWidth(false)))
+            {
+                mute_all = !mute_all;
+                //if (mute_all == false) SetAppLauncherButtonTexture(chatterer_button_idle);
+                //else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
 
-            //if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) mute_all = !mute_all;
+                if (debugging) Debug.Log("[CHATR] Mute = " + mute_all);
+            }
 
             string closeUI = "Close";
             if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false)))
@@ -751,13 +825,13 @@ namespace Chatterer
             else if (menu == "settings") settings_gui();
             else beeps_gui();
 
-            //new version info (if any)
-            if (recvd_latest_version && latest_version != "")
-            {
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(latest_version, label_txt_left);
-                GUILayout.EndHorizontal();
-            }
+            ////new version info (if any)
+            //if (recvd_latest_version && latest_version != "")
+            //{
+            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //    GUILayout.Label(latest_version, label_txt_left);
+            //    GUILayout.EndHorizontal();
+            //}
 
             //Tooltips
             if (show_tooltips && GUI.tooltip != "") tooltips(main_window_pos);
@@ -1655,20 +1729,6 @@ namespace Chatterer
             //if (debugging) Debug.Log("[CHATR] ► OK");
 
             GUILayout.EndHorizontal();
-
-            ////Change icon position
-            //if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
-            //{
-            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //    if (changing_icon_pos == false)
-            //    {
-            //        _content.text = "Change icon position";
-            //        _content.tooltip = "Move icon anywhere on the screen";
-            //        if (GUILayout.Button(_content)) changing_icon_pos = true;
-            //    }
-            //    else GUILayout.Label("Click anywhere to set new icon position");
-            //    GUILayout.EndHorizontal();
-            //}            
         }
 
         private void testing_gui(int window_id)
@@ -1913,14 +1973,7 @@ namespace Chatterer
                 GUILayout.Label(_content, GUILayout.ExpandWidth(true));
                 acf.depth = GUILayout.HorizontalSlider(acf.depth, 0, 1f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
-
-                //_content.text = "Feedback: " + (acf.feedback * 100).ToString("F0") + "%"; // [Obsolete("feedback is deprecated, this property does nothing.")]
-                //_content.tooltip = "Wet signal to feed back into the chorus buffer";
-                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                //GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                //acf.feedback = GUILayout.HorizontalSlider(acf.feedback, 0, 1f, GUILayout.Width(90f));
-                //GUILayout.EndHorizontal();
-
+                
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 _content.text = "Copy Chorus";
                 _content.tooltip = "Copy chorus values to clipboard";
@@ -1934,7 +1987,7 @@ namespace Chatterer
                     chorus_clipboard.AddValue("delay", acf.delay);
                     chorus_clipboard.AddValue("rate", acf.rate);
                     chorus_clipboard.AddValue("depth", acf.depth);
-                    //chorus_clipboard.AddValue("feedback", acf.feedback);
+                    
                     if (debugging) Debug.Log("[CHATR] chorus filter values copied to chorus clipboard");
                 }
                 if (chorus_clipboard != null)
@@ -1950,7 +2003,7 @@ namespace Chatterer
                         acf.delay = Single.Parse(chorus_clipboard.GetValue("delay"));
                         acf.rate = Single.Parse(chorus_clipboard.GetValue("rate"));
                         acf.depth = Single.Parse(chorus_clipboard.GetValue("depth"));
-                        //acf.feedback = Single.Parse(chorus_clipboard.GetValue("feedback"));
+                        
                         if (debugging) Debug.Log("[CHATR] chorus filter values loaded from chorus clipboard");
                     }
                 }
@@ -2956,7 +3009,7 @@ namespace Chatterer
 
         private void load_plugin_defaults()
         {
-            if (debugging) Debug.Log("[CHATR] load_plugin_defaults()");
+            if (debugging) Debug.Log("[CHATR] load_plugin_defaults() START");
 
             destroy_all_beep_players();
             chatter_array.Clear();
@@ -3081,7 +3134,6 @@ namespace Chatterer
             _filter.AddValue("delay", chatter_chorus_filter.delay);
             _filter.AddValue("rate", chatter_chorus_filter.rate);
             _filter.AddValue("depth", chatter_chorus_filter.depth);
-            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
             node.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -3165,7 +3217,6 @@ namespace Chatterer
                 _filter.AddValue("delay", source.chorus_filter.delay);
                 _filter.AddValue("rate", source.chorus_filter.rate);
                 _filter.AddValue("depth", source.chorus_filter.depth);
-                //_filter.AddValue("feedback", source.chorus_filter.feedback);
                 beep_settings.AddNode(_filter);
 
                 _filter = new ConfigNode();
@@ -3528,27 +3579,27 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] load_shared_settings() END");
         }
 
-        //Check for a newer version
-        private void get_latest_version()
-        {
-            bool got_all_info = false;
+        ////Check for a newer version
+        //private void get_latest_version()
+        //{
+        //    bool got_all_info = false;
 
-            WWWForm form = new WWWForm();
-            form.AddField("version", this_version);
+        //    WWWForm form = new WWWForm();
+        //    form.AddField("version", this_version);
 
-            WWW version = new WWW("http://rbri.co.nf/ksp/chatterer/get_latest_version.php", form.data);
+        //    WWW version = new WWW("http://rbri.co.nf/ksp/chatterer/get_latest_version.php", form.data);
 
-            while (got_all_info == false)
-            {
-                if (version.isDone)
-                {
-                    latest_version = version.text;
-                    got_all_info = true;
-                }
-            }
-            recvd_latest_version = true;
-            if (debugging) Debug.Log("[CHATR] recv'd latest version info: " + latest_version);
-        }
+        //    while (got_all_info == false)
+        //    {
+        //        if (version.isDone)
+        //        {
+        //            latest_version = version.text;
+        //            got_all_info = true;
+        //        }
+        //    }
+        //    recvd_latest_version = true;
+        //    if (debugging) Debug.Log("[CHATR] recv'd latest version info: " + latest_version);
+        //}
 
         //determine whether the vessel has a part with ModuleRemoteTechSPU and load all relevant RemoteTech variables for the vessel
         public void updateRemoteTechData()
@@ -4248,7 +4299,6 @@ namespace Chatterer
             _filter.AddValue("delay", 40.0f);
             _filter.AddValue("rate", 0.8f);
             _filter.AddValue("depth", 0.03f);
-            _filter.AddValue("feedback", 0);
             filter_defaults.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -4871,25 +4921,30 @@ namespace Chatterer
                 {
                     //but things aren't muted
                     //mute them
-                    initial_chatter.mute = true;
-                    response_chatter.mute = true;
-                    quindar1.mute = true;
-                    quindar2.mute = true;
+                    if (chatter_exists)
+                    {
+                        initial_chatter.mute = true;
+                        response_chatter.mute = true;
+                        quindar1.mute = true;
+                        quindar2.mute = true;
+                    }
 
                     foreach (BackgroundSource src in backgroundsource_list)
                     {
                         src.audiosource.mute = true;
                     }
 
-                    aae_breathing.mute = true;
-                    aae_soundscape.mute = true;
-                    aae_wind.mute = true;
+                    if (aae_breathing_exist) aae_breathing.mute = true;
+                    if (aae_soundscapes_exist) aae_soundscape.mute = true;
+                    if (aae_breathing_exist) aae_wind.mute = true;
+                    if (aae_airlock_exist) aae_airlock.mute = true;
 
                     foreach (BeepSource source in beepsource_list)
                     {
                         source.audiosource.mute = true;
                     }
-                    sstv.mute = true;
+                    
+                    if (sstv_exists) sstv.mute = true;
 
                     all_muted = true;   //and change flag
                 }
@@ -4901,25 +4956,30 @@ namespace Chatterer
                 {
                     //but things are muted
                     //unmute them
-                    initial_chatter.mute = false;
-                    response_chatter.mute = false;
-                    quindar1.mute = false;
-                    quindar2.mute = false;
+                    if (chatter_exists)
+                    {
+                        initial_chatter.mute = false;
+                        response_chatter.mute = false;
+                        quindar1.mute = false;
+                        quindar2.mute = false;
+                    }
 
                     foreach (BackgroundSource src in backgroundsource_list)
                     {
                         src.audiosource.mute = false;
                     }
 
-                    aae_breathing.mute = false;
-                    aae_soundscape.mute = false;
-                    aae_wind.mute = false;
+                    if (aae_breathing_exist) aae_breathing.mute = false;
+                    if (aae_soundscapes_exist) aae_soundscape.mute = false;
+                    if (aae_wind_exist) aae_wind.mute = false;
+                    if (aae_airlock_exist) aae_airlock.mute = false;
 
                     foreach (BeepSource source in beepsource_list)
                     {
                         source.audiosource.mute = false;
                     }
-                    sstv.mute = false;
+                    
+                    if (sstv_exists) sstv.mute = false;
 
                     all_muted = false;   //and change flag
                 }
@@ -4996,7 +5056,6 @@ namespace Chatterer
                     if (filter.HasValue("delay")) acf.delay = Single.Parse(filter.GetValue("delay"));
                     if (filter.HasValue("rate")) acf.rate = Single.Parse(filter.GetValue("rate"));
                     if (filter.HasValue("depth")) acf.depth = Single.Parse(filter.GetValue("depth"));
-                    //if (filter.HasValue("feedback")) acf.feedback = Single.Parse(filter.GetValue("feedback"));
                 }
             }
         }
@@ -5100,7 +5159,6 @@ namespace Chatterer
             _filter.AddValue("delay", chatter_chorus_filter.delay);
             _filter.AddValue("rate", chatter_chorus_filter.rate);
             _filter.AddValue("depth", chatter_chorus_filter.depth);
-            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -5169,7 +5227,6 @@ namespace Chatterer
             if (filter.HasValue("delay")) chatter_chorus_filter.delay = Single.Parse(filter.GetValue("delay"));
             if (filter.HasValue("rate")) chatter_chorus_filter.rate = Single.Parse(filter.GetValue("rate"));
             if (filter.HasValue("depth")) chatter_chorus_filter.depth = Single.Parse(filter.GetValue("depth"));
-            //if (filter.HasValue("feedback")) chatter_chorus_filter.feedback = Single.Parse(filter.GetValue("feedback"));
 
             filter = filters_clipboard.GetNode("DISTORTION");
             if (filter.HasValue("enabled")) chatter_distortion_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
@@ -5230,7 +5287,6 @@ namespace Chatterer
             _filter.AddValue("delay", source.chorus_filter.delay);
             _filter.AddValue("rate", source.chorus_filter.rate);
             _filter.AddValue("depth", source.chorus_filter.depth);
-            //_filter.AddValue("feedback", source.chorus_filter.feedback);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -5299,7 +5355,6 @@ namespace Chatterer
             if (filter.HasValue("delay")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("delay"));
             if (filter.HasValue("rate")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("rate"));
             if (filter.HasValue("depth")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("depth"));
-            if (filter.HasValue("feedback")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("feedback"));
 
             filter = filters_clipboard.GetNode("DISTORTION");
             if (filter.HasValue("enabled")) source.distortion_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
@@ -5474,11 +5529,20 @@ namespace Chatterer
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/line_512x4")) line_512x4 = GameDatabase.Instance.GetTexture("Chatterer/Textures/line_512x4", false);
             else Debug.LogWarning("Texture 'line_512x4' is missing!");
 
+            // initialise launcherButton textures
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX")) chatterer_button_TX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX_muted")) chatterer_button_TX_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX")) chatterer_button_RX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX_muted")) chatterer_button_RX_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV")) chatterer_button_SSTV = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV_muted")) chatterer_button_SSTV_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle")) chatterer_button_idle = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle_muted")) chatterer_button_idle_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle_muted", false);
+            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false); // for later RT2 use
+            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled_muted")) chatterer_button_disabled_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled_muted", false);
 
             load_plugin_settings();
 
-
-            if (http_update_check) get_latest_version();
 
             load_quindar_audio();
             quindar1 = chatter_player.AddComponent<AudioSource>();
@@ -5527,6 +5591,18 @@ namespace Chatterer
             mute_check();
 
             radio_check();
+
+            launcherButtonTexture_check();
+
+            //// launcherButton texture change check
+            ////if (inRadioContact) // for later use when RT2 support is implemented
+            ////{
+            //    if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
+            //    else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+            //    else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+            //    else if (!all_muted) SetAppLauncherButtonTexture(chatterer_button_idle);
+            ////}
+            ////else SetAppLauncherButtonTexture(chatterer_button_disabled); 
 
             if (FlightGlobals.ActiveVessel != null)
             {
@@ -5927,7 +6003,11 @@ namespace Chatterer
                                     else
                                     {
                                         bm.audiosource.loop = true;
-                                        if (bm.audiosource.isPlaying == false) bm.audiosource.Play();
+                                        if (bm.audiosource.isPlaying == false)
+                                        {
+                                            bm.audiosource.Play();
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                                        }
                                     }
                                 }
                                 else
@@ -5957,6 +6037,7 @@ namespace Chatterer
                                         {
                                             //if (debugging) Debug.Log("[CHATR] timer limit reached, playing source " + bm.beep_name);
                                             bm.audiosource.Play();  //else beep
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
                                         }
                                     }
                                 }
@@ -5990,8 +6071,11 @@ namespace Chatterer
                                         }
                                         if (sstv.isPlaying || ((initial_chatter.isPlaying || response_chatter.isPlaying) && disable_beeps_during_chatter)) return;   //no beep under these conditions
                                         //if (disable_beeps_during_chatter == false || (disable_beeps_during_chatter == true && exchange_playing == false) || sstv.isPlaying == false)
-                                        else bm.audiosource.Play();  //else beep
-
+                                        else
+                                        {
+                                            bm.audiosource.Play();  //else beep
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                                        }
                                     }
                                 }
                             }

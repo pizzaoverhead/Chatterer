@@ -1,5 +1,16 @@
 Changelog:
 
+v0.6.3: [03 Sep 2014]
+- fixed and restored "Mute" function
+- added KSP application launcher button behaviours :
+* green = transmit (TX)
+* blue = receive (RX)
+* white = SSTV / Beep (flashing)
+* grey = idle (online)
+* grey/red = muted
+* red = disabled (offline) (for later use with RT2)
+- code cleaning and optimizations
+
 v0.6.2: [01 Sep 2014]
 - fixed "use Blizzy78' toolbar only" setting not loading
 - Added/tweaked GitHub and .version files for KSP-AVC "Add-on Version Checker" plugin support
