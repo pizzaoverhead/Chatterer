@@ -4014,14 +4014,14 @@ namespace Chatterer
                         else
                         {
                             //no ExistsAudioClip == false
-                            Debug.LogWarning("[CHATR] Could not load audio " + gdb_path);
+                            Debug.LogWarning("[CHATR] Could not load audio " + gdb_path + " : Check installation path.");
                         }
                     }
                 }
             }
             else
             {
-                Debug.LogWarning("Directory '" + sounds_path + "' could not be found");
+                if (debugging) Debug.Log("Directory '" + sounds_path + "' could not be found, skipping.");
             }
         }
 
