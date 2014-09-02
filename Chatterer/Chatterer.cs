@@ -519,20 +519,10 @@ namespace Chatterer
 
         private void SetAppLauncherButtonTexture(Texture2D tex2d)
         {
-            // Set new launcherButton texture when needed
+            // Set new launcherButton texture
             
             if (launcherButton != null)
             {
-                // Mute function is prioritary
-                
-                //if (mute_all == true && tex2d != chatterer_button_Texture)
-                //{
-                //    chatterer_button_Texture = chatterer_button_muted;
-                //    launcherButton.SetTexture(chatterer_button_muted);
-
-                //    if (debugging) Debug.Log("[CHATR] Muted, SetAppLauncherButtonTexture(" + tex2d + ");");
-                //}
-
                 if (tex2d != chatterer_button_Texture)
                 {
                     chatterer_button_Texture = tex2d;
@@ -5539,7 +5529,7 @@ namespace Chatterer
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/line_512x4")) line_512x4 = GameDatabase.Instance.GetTexture("Chatterer/Textures/line_512x4", false);
             else Debug.LogWarning("Texture 'line_512x4' is missing!");
 
-            // load launcherButton textures
+            // initialise launcherButton textures
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX")) chatterer_button_TX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX_muted")) chatterer_button_TX_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX_muted", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX")) chatterer_button_RX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX", false);
