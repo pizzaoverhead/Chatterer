@@ -352,7 +352,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.6.2.86";
+        private string this_version = "0.6.3.86";
         private string main_window_title = "Chatterer ";
         //private string latest_version = "";
         //private bool recvd_latest_version = false;
