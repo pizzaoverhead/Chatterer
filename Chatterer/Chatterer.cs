@@ -216,11 +216,15 @@ namespace Chatterer
         private ToolbarButtonWrapper chatterer_toolbar_button;
         private bool useBlizzy78Toolbar = false;
 
-        //KSP Stock application launcher button
+        //KSP Stock application launcherButton
         private ApplicationLauncherButton launcherButton = null;
-        private Texture2D launcherButtonTexture;
-        private Texture2D chatterer_icon_on = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_on", false);
-        private Texture2D chatterer_icon_off = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_off", false);
+        private Texture2D chatterer_button_Texture = null;
+        private Texture2D chatterer_button_TX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -476,14 +480,37 @@ namespace Chatterer
             if (launcherButton == null && !useBlizzy78Toolbar)
             {
                 if (debugging) Debug.Log("[CHATR] Building ApplicationLauncherButton");
-
-                launcherButtonTexture = chatterer_icon_on;
-                
+                                
                 launcherButton = ApplicationLauncher.Instance.AddModApplication(UIToggle, UIToggle,
                                                                             null, null,
                                                                             null, null,
                                                                             ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.MAPVIEW,
-                                                                            launcherButtonTexture);
+                                                                            chatterer_button_idle);
+            }
+        }
+
+        private void SetAppLauncherButtonTexture(Texture2D tex2d)
+        {
+            // Set new launcherButton texture when needed
+            
+            if (launcherButton != null)
+            {
+                // Mute function is prioritary
+                
+                if (mute_all == true && tex2d != chatterer_button_Texture)
+                {
+                    chatterer_button_Texture = chatterer_button_muted;
+                    launcherButton.SetTexture(chatterer_button_muted);
+
+                    if (debugging) Debug.Log("[CHATR] Muted, SetAppLauncherButtonTexture(" + tex2d + ");");
+                }
+                else if (tex2d != chatterer_button_Texture)
+                {
+                    chatterer_button_Texture = tex2d;
+                    launcherButton.SetTexture(tex2d);
+
+                    if (debugging) Debug.Log("[CHATR] SetAppLauncherButtonTexture(" + tex2d + ");");
+                }
             }
         }
 
@@ -746,6 +773,8 @@ namespace Chatterer
             if (GUILayout.Button(muted, GUILayout.ExpandWidth(false)))
             {
                 mute_all = !mute_all;
+                if (mute_all == false) SetAppLauncherButtonTexture(chatterer_button_idle);
+                else SetAppLauncherButtonTexture(chatterer_button_muted);
 
                 if (debugging) Debug.Log("[CHATR] Mute = " + mute_all);
             }
@@ -5481,6 +5510,13 @@ namespace Chatterer
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/line_512x4")) line_512x4 = GameDatabase.Instance.GetTexture("Chatterer/Textures/line_512x4", false);
             else Debug.LogWarning("Texture 'line_512x4' is missing!");
 
+            // load launcherButton textures
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX")) chatterer_button_TX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX")) chatterer_button_RX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV")) chatterer_button_SSTV = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle")) chatterer_button_idle = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_muted")) chatterer_button_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false);
 
             load_plugin_settings();
 
@@ -5532,6 +5568,16 @@ namespace Chatterer
             mute_check();
 
             radio_check();
+
+            // launcherButton texture change check
+            //if (inRadioContact) // for later use when RT2 support is implemented
+            //{
+                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
+                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                else if (!all_muted) SetAppLauncherButtonTexture(chatterer_button_idle);
+            //}
+            //else SetAppLauncherButtonTexture(chatterer_button_disabled); 
 
             if (FlightGlobals.ActiveVessel != null)
             {
@@ -5907,7 +5953,7 @@ namespace Chatterer
                 //do beeps
                 if (beeps_exists)
                 {
-                    if (dict_probe_samples.Count > 0 && OTP_playing == false)   //don't do any beeps here while OTP is playing
+                    if (dict_probe_samples.Count > 0 && OTP_playing == false && mute_all == false)   //don't do any beeps here while OTP is playing
                     {
                         foreach (BeepSource bm in beepsource_list)
                         {
@@ -5932,7 +5978,11 @@ namespace Chatterer
                                     else
                                     {
                                         bm.audiosource.loop = true;
-                                        if (bm.audiosource.isPlaying == false) bm.audiosource.Play();
+                                        if (bm.audiosource.isPlaying == false)
+                                        {
+                                            bm.audiosource.Play();
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                                        }
                                     }
                                 }
                                 else
@@ -5962,6 +6012,7 @@ namespace Chatterer
                                         {
                                             //if (debugging) Debug.Log("[CHATR] timer limit reached, playing source " + bm.beep_name);
                                             bm.audiosource.Play();  //else beep
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
                                         }
                                     }
                                 }
@@ -5995,8 +6046,11 @@ namespace Chatterer
                                         }
                                         if (sstv.isPlaying || ((initial_chatter.isPlaying || response_chatter.isPlaying) && disable_beeps_during_chatter)) return;   //no beep under these conditions
                                         //if (disable_beeps_during_chatter == false || (disable_beeps_during_chatter == true && exchange_playing == false) || sstv.isPlaying == false)
-                                        else bm.audiosource.Play();  //else beep
-
+                                        else
+                                        {
+                                            bm.audiosource.Play();  //else beep
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                                        }
                                     }
                                 }
                             }
