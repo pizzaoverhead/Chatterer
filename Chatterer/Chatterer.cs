@@ -167,9 +167,7 @@ namespace Chatterer
         //All beep objects, audiosources, and filters are managed by BeepSource class
         private List<BeepSource> beepsource_list = new List<BeepSource>();     //List to hold the BeepSources
         private List<BackgroundSource> backgroundsource_list = new List<BackgroundSource>();    //list to hold the BackgroundSources
-
-
-
+        
         //Chatter, SSTV, and beep audio sample Lists and Dictionaries
         private List<ChatterAudioList> chatter_array = new List<ChatterAudioList>();        //array of all chatter clips and some settings
         private Dictionary<string, AudioClip> dict_probe_samples = new Dictionary<string, AudioClip>();
@@ -220,11 +218,15 @@ namespace Chatterer
         private ApplicationLauncherButton launcherButton = null;
         private Texture2D chatterer_button_Texture = null;
         private Texture2D chatterer_button_TX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_TX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
         private Texture2D chatterer_button_RX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
         private Texture2D chatterer_button_SSTV = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
         private Texture2D chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        //private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false); //for later RT2 use
+        //private Texture2D chatterer_button_disabled_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -489,6 +491,32 @@ namespace Chatterer
             }
         }
 
+         private void launcherButtonTexture_check()
+         {
+            // launcherButton texture change check
+
+             if (all_muted)
+             {
+                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
+                 else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
+             }
+             else
+             {
+                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
+                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                 else SetAppLauncherButtonTexture(chatterer_button_idle);
+             }
+
+             //if (inRadioContact) // for later use when RT2 support is implemented
+             //{
+             //
+             //}
+             //else SetAppLauncherButtonTexture(chatterer_button_disabled);
+         }
+
         private void SetAppLauncherButtonTexture(Texture2D tex2d)
         {
             // Set new launcherButton texture when needed
@@ -497,14 +525,15 @@ namespace Chatterer
             {
                 // Mute function is prioritary
                 
-                if (mute_all == true && tex2d != chatterer_button_Texture)
-                {
-                    chatterer_button_Texture = chatterer_button_muted;
-                    launcherButton.SetTexture(chatterer_button_muted);
+                //if (mute_all == true && tex2d != chatterer_button_Texture)
+                //{
+                //    chatterer_button_Texture = chatterer_button_muted;
+                //    launcherButton.SetTexture(chatterer_button_muted);
 
-                    if (debugging) Debug.Log("[CHATR] Muted, SetAppLauncherButtonTexture(" + tex2d + ");");
-                }
-                else if (tex2d != chatterer_button_Texture)
+                //    if (debugging) Debug.Log("[CHATR] Muted, SetAppLauncherButtonTexture(" + tex2d + ");");
+                //}
+
+                if (tex2d != chatterer_button_Texture)
                 {
                     chatterer_button_Texture = tex2d;
                     launcherButton.SetTexture(tex2d);
@@ -773,8 +802,8 @@ namespace Chatterer
             if (GUILayout.Button(muted, GUILayout.ExpandWidth(false)))
             {
                 mute_all = !mute_all;
-                if (mute_all == false) SetAppLauncherButtonTexture(chatterer_button_idle);
-                else SetAppLauncherButtonTexture(chatterer_button_muted);
+                //if (mute_all == false) SetAppLauncherButtonTexture(chatterer_button_idle);
+                //else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
 
                 if (debugging) Debug.Log("[CHATR] Mute = " + mute_all);
             }
@@ -5512,11 +5541,15 @@ namespace Chatterer
 
             // load launcherButton textures
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX")) chatterer_button_TX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX_muted")) chatterer_button_TX_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX_muted", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX")) chatterer_button_RX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX_muted")) chatterer_button_RX_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX_muted", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV")) chatterer_button_SSTV = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV_muted")) chatterer_button_SSTV_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV_muted", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle")) chatterer_button_idle = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle", false);
-            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_muted")) chatterer_button_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_muted", false);
-            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle_muted")) chatterer_button_idle_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle_muted", false);
+            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false); // for later RT2 use
+            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled_muted")) chatterer_button_disabled_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled_muted", false);
 
             load_plugin_settings();
 
@@ -5569,15 +5602,17 @@ namespace Chatterer
 
             radio_check();
 
-            // launcherButton texture change check
-            //if (inRadioContact) // for later use when RT2 support is implemented
-            //{
-                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
-                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
-                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
-                else if (!all_muted) SetAppLauncherButtonTexture(chatterer_button_idle);
-            //}
-            //else SetAppLauncherButtonTexture(chatterer_button_disabled); 
+            launcherButtonTexture_check();
+
+            //// launcherButton texture change check
+            ////if (inRadioContact) // for later use when RT2 support is implemented
+            ////{
+            //    if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
+            //    else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+            //    else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+            //    else if (!all_muted) SetAppLauncherButtonTexture(chatterer_button_idle);
+            ////}
+            ////else SetAppLauncherButtonTexture(chatterer_button_disabled); 
 
             if (FlightGlobals.ActiveVessel != null)
             {
@@ -5953,7 +5988,7 @@ namespace Chatterer
                 //do beeps
                 if (beeps_exists)
                 {
-                    if (dict_probe_samples.Count > 0 && OTP_playing == false && mute_all == false)   //don't do any beeps here while OTP is playing
+                    if (dict_probe_samples.Count > 0 && OTP_playing == false)   //don't do any beeps here while OTP is playing
                     {
                         foreach (BeepSource bm in beepsource_list)
                         {
