@@ -24,12 +24,8 @@
 
 /* DO ME
  * 
- * FIX EVA detection (avoid switching vessel to trigger Airlock sound)
- * FIX the mute all function
- * 
- * ADD Applauncher/BlizzyTB button behaviour/animations (Idle, disabled, muted, onChat, ...)
- * 
- * Separate the code in different .cs files accordingly to their function
+ * 1 - Separate the code in different .cs files accordingly to their function
+ * 2 - Add RemoteTech 2 support
  * 
  * //
  * 
@@ -149,6 +145,9 @@ namespace Chatterer
         private Vessel vessel;          //is set to FlightGlobals.ActiveVessel
         private Vessel prev_vessel;     //to detect change in active vessel
 
+        private List<ProtoCrewMember> vessel_crew; //list of crew member present in current vessel
+        private List<ProtoCrewMember> prev_vessel_crew; //to detect change in crew member onboard and when to trigger Airlock sound
+
         //GameObjects to hold AudioSources and AudioFilters
         //private GameObject musik_player = new GameObject();
         private GameObject chatter_player = new GameObject();
@@ -254,9 +253,6 @@ namespace Chatterer
         private int lab_window_id;
 
         //Textures
-        //private Texture2D ui_icon_off = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        //private Texture2D ui_icon_on = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        //private Texture2D ui_icon = new Texture2D(30, 30, TextureFormat.ARGB32, false);
         private Texture2D line_512x4 = new Texture2D(512, 8, TextureFormat.ARGB32, false);
 
         //GUIStyles
@@ -352,11 +348,9 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.6.3.86";
+        private string this_version = "0.6.4.86";
         private string main_window_title = "Chatterer ";
-        //private string latest_version = "";
-        //private bool recvd_latest_version = false;
-
+        
         //Clipboards
         private ConfigNode filters_clipboard;
         private ConfigNode chorus_clipboard;
@@ -400,8 +394,6 @@ namespace Chatterer
 
 
         //AAE
-        //private bool AAE_exists = false;
-
         private bool aae_backgrounds_exist = false;
         private bool aae_soundscapes_exist = false;
         private bool aae_breathing_exist = false;
@@ -493,8 +485,7 @@ namespace Chatterer
 
          private void launcherButtonTexture_check()
          {
-            // launcherButton texture change check
-
+             // launcherButton texture change check
              if (all_muted)
              {
                  if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
@@ -520,7 +511,6 @@ namespace Chatterer
         private void SetAppLauncherButtonTexture(Texture2D tex2d)
         {
             // Set new launcherButton texture
-            
             if (launcherButton != null)
             {
                 if (tex2d != chatterer_button_Texture)
@@ -676,7 +666,6 @@ namespace Chatterer
 
         private void build_skin_list()
         {
-            // GUISkin[] skin_array = AssetBase.FindObjectsOfTypeIncludingAssets(typeof(GUISkin)) as GUISkin[]; [Obsolete("use Resources.FindObjectsOfTypeAll instead.")]
             GUISkin[] skin_array = Resources.FindObjectsOfTypeAll(typeof(GUISkin)) as GUISkin[];
             g_skin_list = new List<GUISkin>();
 
@@ -792,9 +781,7 @@ namespace Chatterer
             if (GUILayout.Button(muted, GUILayout.ExpandWidth(false)))
             {
                 mute_all = !mute_all;
-                //if (mute_all == false) SetAppLauncherButtonTexture(chatterer_button_idle);
-                //else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
-
+                
                 if (debugging) Debug.Log("[CHATR] Mute = " + mute_all);
             }
 
@@ -824,14 +811,6 @@ namespace Chatterer
             else if (menu == "AAE") AAE_gui();
             else if (menu == "settings") settings_gui();
             else beeps_gui();
-
-            ////new version info (if any)
-            //if (recvd_latest_version && latest_version != "")
-            //{
-            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //    GUILayout.Label(latest_version, label_txt_left);
-            //    GUILayout.EndHorizontal();
-            //}
 
             //Tooltips
             if (show_tooltips && GUI.tooltip != "") tooltips(main_window_pos);
@@ -1041,8 +1020,7 @@ namespace Chatterer
                             }
                         }
                     }
-                    //if (debugging) Debug.Log("[CHATR] - button OK");
-
+                    
                     if (num_beep_pages > 1)
                     {
                         _content.text = "◄";
@@ -1063,8 +1041,6 @@ namespace Chatterer
                             }
                         }
                     }
-
-                    //if (debugging) Debug.Log("[CHATR] ◄ button OK");
                 }
 
                 //Beep selection grid
@@ -1121,7 +1097,6 @@ namespace Chatterer
                             }
                         }
                     }
-                    //if (debugging) Debug.Log("[CHATR] ► button OK");
 
                     //Increase beepsources
                     _content.text = "Add";
@@ -1152,7 +1127,6 @@ namespace Chatterer
                             prev_num_pages = num_beep_pages;
                         }
                     }
-                    //if (debugging) Debug.Log("[CHATR] + button OK");
                 }
                 GUILayout.EndHorizontal();
 
@@ -1530,13 +1504,7 @@ namespace Chatterer
             _content.tooltip = "Spam the log with more or less usefull reports";
             debugging = GUILayout.Toggle(debugging, _content);
             GUILayout.EndHorizontal();
-
-            //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //_content.text = "Allow update check";
-            //_content.tooltip = "Allow plugin to check for a newer version via http";
-            //http_update_check = GUILayout.Toggle(http_update_check, _content);
-            //GUILayout.EndHorizontal();
-
+            
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Use per-vessel settings";
             _content.tooltip = "Every vessel will save/load its own individual settings";
@@ -1709,7 +1677,6 @@ namespace Chatterer
                 if (skin_index < 0) skin_index = g_skin_list.Count;
                 if (debugging) Debug.Log("[CHATR] new skin_index = " + skin_index + " :: g_skin_list.Count = " + g_skin_list.Count);
             }
-            //if (debugging) Debug.Log("[CHATR] ◄ OK");
 
             string skin_name = "";
             if (skin_index == 0) skin_name = "None";
@@ -1726,8 +1693,7 @@ namespace Chatterer
                 if (skin_index > g_skin_list.Count) skin_index = 0;
                 if (debugging) Debug.Log("[CHATR] new skin_index = " + skin_index + " :: g_skin_list.Count = " + g_skin_list.Count);
             }
-            //if (debugging) Debug.Log("[CHATR] ► OK");
-
+            
             GUILayout.EndHorizontal();
         }
 
@@ -3579,28 +3545,6 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] load_shared_settings() END");
         }
 
-        ////Check for a newer version
-        //private void get_latest_version()
-        //{
-        //    bool got_all_info = false;
-
-        //    WWWForm form = new WWWForm();
-        //    form.AddField("version", this_version);
-
-        //    WWW version = new WWW("http://rbri.co.nf/ksp/chatterer/get_latest_version.php", form.data);
-
-        //    while (got_all_info == false)
-        //    {
-        //        if (version.isDone)
-        //        {
-        //            latest_version = version.text;
-        //            got_all_info = true;
-        //        }
-        //    }
-        //    recvd_latest_version = true;
-        //    if (debugging) Debug.Log("[CHATR] recv'd latest version info: " + latest_version);
-        //}
-
         //determine whether the vessel has a part with ModuleRemoteTechSPU and load all relevant RemoteTech variables for the vessel
         public void updateRemoteTechData()
         {
@@ -3738,8 +3682,7 @@ namespace Chatterer
                     foreach (string file in st_array)
                     {
                         //if (debugging) Debug.Log("[CHATR] sstv file = " + file);
-                        //[CHATR] file = C:/KSP/ksp-win-0-21-1/KSP_win/GameData/RBR/Sounds/apollo11/capcom/capcom_16.ogg
-
+                        
                         //tear out the whole root + directory + st + one more for final slash
                         int start_pos = sstv_sounds_root.Length;
                         string file_name = file.Substring(start_pos);
@@ -3772,11 +3715,7 @@ namespace Chatterer
                             string gdb_path = "Chatterer/Sounds/sstv/" + short_file_name;
                             if (GameDatabase.Instance.ExistsAudioClip(gdb_path))
                             {
-                                //all_beep_clips.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
-                                //dict_probe_samples.Add(short_file_name, GameDatabase.Instance.GetAudioClip(gdb_path));
-                                //dict_probe_samples2.Add(GameDatabase.Instance.GetAudioClip(gdb_path), short_file_name);
                                 all_sstv_clips.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
-                                //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
                             }
                             else
                             {
@@ -3787,28 +3726,6 @@ namespace Chatterer
                     }
                 }
             }
-
-
-
-
-            /*
-            string path;
-            int i;
-
-            for (i = 1; i <= sstv_search_max; i++)
-            {
-                path = "RBR/Sounds/sstv_" + i.ToString("D2");
-                if (GameDatabase.Instance.ExistsAudioClip(path))
-                {
-                    all_sstv_clips.Add(GameDatabase.Instance.GetAudioClip(path));
-                    //print(path + " loaded OKAY");
-                }
-                //else
-                //{
-                //print(path + " load ERROR");
-                //}
-            }
-            */
             if (all_sstv_clips.Count == 0) Debug.LogWarning("[CHATR] No SSTV clips found");
         }
 
@@ -4014,15 +3931,12 @@ namespace Chatterer
                         else
                         {
                             //no ExistsAudioClip == false
-                            Debug.LogWarning("[CHATR] Could not load audio " + gdb_path);
+                            Debug.LogWarning("[CHATR] Could not load audio " + gdb_path + " : Check installation path.");
                         }
                     }
                 }
             }
-            else
-            {
-                Debug.LogWarning("Directory '" + sounds_path + "' could not be found");
-            }
+            else if (debugging) Debug.Log("Directory '" + sounds_path + "' could not be found, skipping.");
         }
 
         //Timer functions
@@ -5593,17 +5507,7 @@ namespace Chatterer
             radio_check();
 
             launcherButtonTexture_check();
-
-            //// launcherButton texture change check
-            ////if (inRadioContact) // for later use when RT2 support is implemented
-            ////{
-            //    if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
-            //    else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
-            //    else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
-            //    else if (!all_muted) SetAppLauncherButtonTexture(chatterer_button_idle);
-            ////}
-            ////else SetAppLauncherButtonTexture(chatterer_button_disabled); 
-
+            
             if (FlightGlobals.ActiveVessel != null)
             {
                 vessel = FlightGlobals.ActiveVessel;
@@ -5631,6 +5535,8 @@ namespace Chatterer
 
 
                     prev_vessel = vessel;
+                    vessel_crew = vessel.GetVesselCrew();
+                    prev_vessel_crew = vessel_crew;
                     vessel_prev_sit = vessel.situation;
                     vessel_prev_stage = vessel.currentStage;
                     vessel_part_count = vessel.parts.Count;
@@ -5724,30 +5630,66 @@ namespace Chatterer
                     vessel_prev_stage = vessel.currentStage;
                     //don't update vessel_part_count here!
 
-                    if (vessel != prev_vessel && prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
-                    {
-                        if (aae_airlock_exist)
-                        {
-                            aae_airlock.Play();
-                            if (debugging) Debug.Log("[CHATR] Returning from EVA, playing Airlock sound...");
-                        }
+                    //if (vessel != prev_vessel && prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
+                    //{
+                    //    if (aae_airlock_exist)
+                    //    {
+                    //        aae_airlock.Play();
+                    //        if (debugging) Debug.Log("[CHATR] Returning from EVA, playing Airlock sound...");
+                    //    }
 
-                    }
+                    //}
                     
-                    // prev_vessel = vessel;
-
-
-                    //airlock sound
-                    //todo fix airlock sound here
-                    //sound plays after naut is already outside
-                    if (vessel != prev_vessel && vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
-                    {
-                        if (aae_airlock_exist)
-                        {
-                            aae_airlock.Play();
-                            if (debugging) Debug.Log("[CHATR] Going on EVA, playing Airlock sound...");
-                        }
+                    ////airlock sound
+                    ////todo fix airlock sound here
+                    ////sound plays after naut is already outside
+                    //if (vessel != prev_vessel && vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
+                    //{
+                    //    if (aae_airlock_exist)
+                    //    {
+                    //        aae_airlock.Play();
+                    //        if (debugging) Debug.Log("[CHATR] Going on EVA, playing Airlock sound...");
+                    //    }
                         
+                    //}
+
+                    if (aae_airlock_exist)
+                    {
+                        // get onbard crew names list
+                        vessel_crew = vessel.GetVesselCrew();
+                        
+                        if (vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
+                        {
+                            foreach (ProtoCrewMember crewMember in prev_vessel_crew)
+                            {
+                                if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", previously onboard.");
+
+                                if (crewMember.name == vessel.vesselName)
+                                {
+                                    aae_airlock.Play();
+
+                                    if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", going to EVA, playing Airlock sound...");
+                                }
+                                else if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", is still onboard.");
+                            }
+                        }
+                        else if (prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
+                        {
+                            foreach (ProtoCrewMember crewMember in vessel_crew)
+                            {
+                                if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", onboard.");
+
+                                if (crewMember.name == prev_vessel.vesselName)
+                                {
+                                    aae_airlock.Play();
+                                    
+                                    if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", returning from EVA, playing Airlock sound...");
+                                }
+                                else if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", wasn't on EVA.");
+                            }
+                        }
+
+                        prev_vessel_crew = vessel_crew;
                     }
 
                     prev_vessel = vessel;
@@ -5893,16 +5835,13 @@ namespace Chatterer
                 //add the suspenseful music track on loop
                 //conditions?
                 //vessel.situation == suborbital, true alt <= 10000m, descent speed > 10m/s
-                if (vessel.situation == Vessel.Situations.SUB_ORBITAL && vessel.heightFromTerrain < 10000f && vessel.verticalSpeed < -10f)
-                {
-                    //start suspense loop
-                    //todo add suspense loop
-                    //landingsource.loop = true;
-                    //landingsource.Play();
-                }
-
+                //if (vessel.situation == Vessel.Situations.SUB_ORBITAL && vessel.heightFromTerrain < 10000f && vessel.verticalSpeed < -10f)
+                //{
+                //    //start suspense loop
+                //    //todo add suspense loop
+                //    //landingsource.loop = true;
+                //    //landingsource.Play();
                 //}
-
 
 
                 //END AAE
