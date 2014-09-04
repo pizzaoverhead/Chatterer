@@ -24,9 +24,8 @@
 
 /* DO ME
  * 
- * 1 - FIX EVA detection (avoid switching vessel to trigger Airlock sound)
- * 2 - Separate the code in different .cs files accordingly to their function
- * 
+ * 1 - Separate the code in different .cs files accordingly to their function
+ * 2 - Add RemoteTech 2 support
  * 
  * //
  * 
@@ -349,7 +348,7 @@ namespace Chatterer
             controlDelay = 0;
 
         //Version
-        private string this_version = "0.6.3.86";
+        private string this_version = "0.6.4.86";
         private string main_window_title = "Chatterer ";
         
         //Clipboards
