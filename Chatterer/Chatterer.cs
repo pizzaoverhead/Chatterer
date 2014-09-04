@@ -146,6 +146,9 @@ namespace Chatterer
         private Vessel vessel;          //is set to FlightGlobals.ActiveVessel
         private Vessel prev_vessel;     //to detect change in active vessel
 
+        private List<ProtoCrewMember> vessel_crew; //list of crew member present in current vessel
+        private List<ProtoCrewMember> prev_vessel_crew; //to detect change in crew member onboard and when to trigger Airlock sound
+
         //GameObjects to hold AudioSources and AudioFilters
         //private GameObject musik_player = new GameObject();
         private GameObject chatter_player = new GameObject();
@@ -5533,6 +5536,8 @@ namespace Chatterer
 
 
                     prev_vessel = vessel;
+                    vessel_crew = vessel.GetVesselCrew();
+                    prev_vessel_crew = vessel_crew;
                     vessel_prev_sit = vessel.situation;
                     vessel_prev_stage = vessel.currentStage;
                     vessel_part_count = vessel.parts.Count;
@@ -5626,27 +5631,66 @@ namespace Chatterer
                     vessel_prev_stage = vessel.currentStage;
                     //don't update vessel_part_count here!
 
-                    if (vessel != prev_vessel && prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
+                    //if (vessel != prev_vessel && prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
+                    //{
+                    //    if (aae_airlock_exist)
+                    //    {
+                    //        aae_airlock.Play();
+                    //        if (debugging) Debug.Log("[CHATR] Returning from EVA, playing Airlock sound...");
+                    //    }
+
+                    //}
+                    
+                    ////airlock sound
+                    ////todo fix airlock sound here
+                    ////sound plays after naut is already outside
+                    //if (vessel != prev_vessel && vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
+                    //{
+                    //    if (aae_airlock_exist)
+                    //    {
+                    //        aae_airlock.Play();
+                    //        if (debugging) Debug.Log("[CHATR] Going on EVA, playing Airlock sound...");
+                    //    }
+                        
+                    //}
+
+                    if (aae_airlock_exist)
                     {
-                        if (aae_airlock_exist)
+                        // get onbard crew names list
+                        vessel_crew = vessel.GetVesselCrew();
+                        
+                        if (vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
                         {
-                            aae_airlock.Play();
-                            if (debugging) Debug.Log("[CHATR] Returning from EVA, playing Airlock sound...");
+                            foreach (ProtoCrewMember crewMember in prev_vessel_crew)
+                            {
+                                if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", previously onboard.");
+
+                                if (crewMember.name == vessel.vesselName)
+                                {
+                                    aae_airlock.Play();
+
+                                    if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", going to EVA, playing Airlock sound...");
+                                }
+                                else if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", is still onboard.");
+                            }
+                        }
+                        else if (prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
+                        {
+                            foreach (ProtoCrewMember crewMember in vessel_crew)
+                            {
+                                if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", onboard.");
+
+                                if (crewMember.name == prev_vessel.vesselName)
+                                {
+                                    aae_airlock.Play();
+                                    
+                                    if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", returning from EVA, playing Airlock sound...");
+                                }
+                                else if (debugging) Debug.Log("[CHATR] Crew : " + crewMember.name + ", wasn't on EVA.");
+                            }
                         }
 
-                    }
-                    
-                    //airlock sound
-                    //todo fix airlock sound here
-                    //sound plays after naut is already outside
-                    if (vessel != prev_vessel && vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
-                    {
-                        if (aae_airlock_exist)
-                        {
-                            aae_airlock.Play();
-                            if (debugging) Debug.Log("[CHATR] Going on EVA, playing Airlock sound...");
-                        }
-                        
+                        prev_vessel_crew = vessel_crew;
                     }
 
                     prev_vessel = vessel;
