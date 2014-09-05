@@ -5532,8 +5532,6 @@ namespace Chatterer
                 if (run_once)
                 {
                     //get null refs trying to set these in Awake() so do them once here
-
-
                     prev_vessel = vessel;
                     vessel_crew = vessel.GetVesselCrew();
                     prev_vessel_crew = vessel_crew;
@@ -5629,30 +5627,7 @@ namespace Chatterer
                     vessel_prev_sit = vessel.situation;
                     vessel_prev_stage = vessel.currentStage;
                     //don't update vessel_part_count here!
-
-                    //if (vessel != prev_vessel && prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
-                    //{
-                    //    if (aae_airlock_exist)
-                    //    {
-                    //        aae_airlock.Play();
-                    //        if (debugging) Debug.Log("[CHATR] Returning from EVA, playing Airlock sound...");
-                    //    }
-
-                    //}
-                    
-                    ////airlock sound
-                    ////todo fix airlock sound here
-                    ////sound plays after naut is already outside
-                    //if (vessel != prev_vessel && vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
-                    //{
-                    //    if (aae_airlock_exist)
-                    //    {
-                    //        aae_airlock.Play();
-                    //        if (debugging) Debug.Log("[CHATR] Going on EVA, playing Airlock sound...");
-                    //    }
-                        
-                    //}
-
+                                        
                     if (aae_airlock_exist)
                     {
                         // get onbard crew names list
