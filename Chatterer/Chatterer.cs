@@ -345,15 +345,15 @@ namespace Chatterer
             //localControl = false,
 
             //whether the vessel is in radio contact with KSC
-            inRadioContact = false,
+            inRadioContact = false;
 
             //whether the vessel is in radio contact with a sattelite
-            inSatteliteRadioContact = false;
+            //inSatteliteRadioContact = false;
 
         double
             //the current signal delay (is returned as 0 if the vessel is not in contact)
-            controlDelay = 0, //delay from KSC
-            shortestcontrolDelay = 0; // delay from nearest sattelite
+            controlDelay = 0; //delay from KSC
+            //shortestcontrolDelay = 0; // delay from nearest sattelite
 
         //Version
         private string this_version = "0.6.4.86";
@@ -524,7 +524,7 @@ namespace Chatterer
                     chatterer_button_Texture = tex2d;
                     launcherButton.SetTexture(tex2d);
 
-                    if (debugging) Debug.Log("[CHATR] SetAppLauncherButtonTexture(" + tex2d + ");");
+                    //if (debugging) Debug.Log("[CHATR] SetAppLauncherButtonTexture(" + tex2d + ");");
                 }
             }
         }
@@ -1565,19 +1565,19 @@ namespace Chatterer
                     has_RT_text = txt_green;
                 }
 
-                string rt_Satteliteconnected = "Not connected to Sattelite network";
-                GUIStyle RT_Satteliteradio_contact_text = txt_red;
-                if (inSatteliteRadioContact)
-                {
-                    rt_Satteliteconnected = "Connected to Sattelite network";
-                    RT_Satteliteradio_contact_text = txt_green;
-                }
+                //string rt_Satteliteconnected = "Not connected to Sattelite network";
+                //GUIStyle RT_Satteliteradio_contact_text = txt_red;
+                //if (inSatteliteRadioContact)
+                //{
+                //    rt_Satteliteconnected = "Connected to Sattelite network";
+                //    RT_Satteliteradio_contact_text = txt_green;
+                //}
 
                 string rt_connected = "Not connected to KSC";
                 GUIStyle RT_radio_contact_text = txt_red;
                 if (inRadioContact)
                 {
-                    rt_connected = "Connected to KSC";
+                    rt_connected = "Connected to KSC, delay : " + Convert.ToSingle(controlDelay) +" secs.";
                     RT_radio_contact_text = txt_green;
                 }
 
@@ -1585,9 +1585,9 @@ namespace Chatterer
                 GUILayout.Label("RemoteTech2 SPU " + has_RT_SPU, has_RT_text);
                 GUILayout.EndHorizontal();
 
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(rt_Satteliteconnected, RT_Satteliteradio_contact_text);
-                GUILayout.EndHorizontal();
+                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                //GUILayout.Label(rt_Satteliteconnected, RT_Satteliteradio_contact_text);
+                //GUILayout.EndHorizontal();
 
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 GUILayout.Label(rt_connected, RT_radio_contact_text);
@@ -3570,27 +3570,27 @@ namespace Chatterer
             {
                 if (hasRemoteTech == false) hasRemoteTech = true;
 
-                if (RT2Hook.Instance.HasAnyConnection(vessel.id))
-                {
-                    shortestcontrolDelay = RT2Hook.Instance.GetShortestSignalDelay(vessel.id);
+                //if (RT2Hook.Instance.HasAnyConnection(vessel.id))
+                //{
+                //    shortestcontrolDelay = RT2Hook.Instance.GetShortestSignalDelay(vessel.id);
 
-                    if (inSatteliteRadioContact == false)
-                    {
-                        inSatteliteRadioContact = !inSatteliteRadioContact;
+                //    if (inSatteliteRadioContact == false)
+                //    {
+                //        inSatteliteRadioContact = !inSatteliteRadioContact;
 
-                        if (debugging) Debug.Log("[CHATR] Sattelite contact ! Signal delay =" + Convert.ToSingle(shortestcontrolDelay));
-                    }
-                }
-                else if (!RT2Hook.Instance.HasAnyConnection(vessel.id))
-                {
-                    if (inSatteliteRadioContact == true)
-                    {
-                        inSatteliteRadioContact = !inSatteliteRadioContact;
+                //        if (debugging) Debug.Log("[CHATR] Sattelite contact ! Signal delay =" + Convert.ToSingle(shortestcontrolDelay));
+                //    }
+                //}
+                //else if (!RT2Hook.Instance.HasAnyConnection(vessel.id))
+                //{
+                //    if (inSatteliteRadioContact == true)
+                //    {
+                //        inSatteliteRadioContact = !inSatteliteRadioContact;
 
-                        shortestcontrolDelay = 0;
-                        if (debugging) Debug.Log("[CHATR] No Sattelite contact ! Satt delay set to =" + Convert.ToSingle(shortestcontrolDelay));
-                    }
-                }
+                //        shortestcontrolDelay = 0;
+                //        if (debugging) Debug.Log("[CHATR] No Sattelite contact ! Satt delay set to =" + Convert.ToSingle(shortestcontrolDelay));
+                //    }
+                //}
 
                 if (RT2Hook.Instance.HasConnectionToKSC(vessel.id))
                 {
@@ -3611,40 +3611,13 @@ namespace Chatterer
 
                         controlDelay = 0;
                         if (debugging) Debug.Log("[CHATR] Offline ! Delay set to =" + Convert.ToSingle(controlDelay));
+
+                        if (response_chatter.isPlaying == true) response_chatter.Stop();
+                        if (sstv.isPlaying == true) sstv.Stop();
                     }
                 }
             }
             else if (hasRemoteTech == true) hasRemoteTech = false;
-            
-            ////iterate through all vessel parts and look for a part containing ModuleRemoteTechSPU
-            //foreach (Part p in vessel.parts)
-            //{
-            //    if (p.Modules.Contains("ModuleRemoteTechSPU"))
-            //    {
-            //        //create BaseEventData field
-            //        BaseEventData data = new BaseEventData(BaseEventData.Sender.USER);
-
-            //        //load data into the BaseEventData field using the RTinterface KSPEvent of ModuleRemoteTechSPU.
-            //        p.Modules["ModuleRemoteTechSPU"].Events["RTinterface"].Invoke(data);
-
-            //        //ModuleRemoteTechSPU was found, so the vessel has RemoteTech
-            //        hasRemoteTech = true;
-
-            //        //cache the loaded data to local fields.
-            //        attitudeActive = data.Get<bool>("attitudeActive");
-            //        //localControl = data.Get<bool>("localControl");
-            //        inRadioContact = data.Get<bool>("inRadioContact");
-            //        controlDelay = data.Get<double>("controlDelay");
-
-            //        //end iteration and method
-            //        return;
-            //    }
-
-            //    //if iteration didn't find any ModuleRemoteTechSPU the vessel doesn't have RemoteTech
-            //    hasRemoteTech = false;
-            //    inRadioContact = false;
-            //    controlDelay = 0;
-            //}
         }
 
         //Load audio functions
@@ -5897,7 +5870,7 @@ namespace Chatterer
                 if (sstv_exists)
                 {
                     //insta-sstv activated
-                    if (insta_sstv_key_just_changed == false && Input.GetKeyDown(insta_sstv_key) && sstv.isPlaying == false)
+                    if ((remotetech_toggle == false || (remotetech_toggle && inRadioContact)) && (insta_sstv_key_just_changed == false && Input.GetKeyDown(insta_sstv_key) && sstv.isPlaying == false))
                     {
                         if (debugging) Debug.Log("[CHATR] beginning exchange,insta-SSTV");
                         if (exchange_playing)
@@ -5930,7 +5903,7 @@ namespace Chatterer
                             {
                                 sstv_timer = 0;
                                 new_sstv_loose_timer_limit();
-                                if (sstv.isPlaying == false)
+                                if (sstv.isPlaying == false && (remotetech_toggle == false || (remotetech_toggle && inRadioContact)))
                                 {
 
                                     //get a random one and play
@@ -5960,7 +5933,7 @@ namespace Chatterer
                 //do beeps
                 if (beeps_exists)
                 {
-                    if (dict_probe_samples.Count > 0 && OTP_playing == false)   //don't do any beeps here while OTP is playing
+                    if (dict_probe_samples.Count > 0 && OTP_playing == false && (remotetech_toggle == false || (remotetech_toggle == true && inRadioContact)))   //don't do any beeps here while OTP is playing
                     {
                         foreach (BeepSource bm in beepsource_list)
                         {
@@ -6115,7 +6088,7 @@ namespace Chatterer
                                                 return;
                                             }
 
-                                            if (response_chatter_set.Count > 0)
+                                            if (response_chatter_set.Count > 0 && (remotetech_toggle == false || (remotetech_toggle == true && inRadioContact)))
                                             {
                                                 if (debugging) Debug.Log("[CHATR] playing response");
                                                 response_chatter_started = true;
@@ -6128,20 +6101,21 @@ namespace Chatterer
                                                     quindar2.PlayDelayed(quindar1.clip.length + response_chatter.clip.length);
                                                     //print("playing response second quindar");
                                                 }
-                                                else if (remotetech_toggle == false || (remotetech_toggle == true && inRadioContact)) response_chatter.Play();
+                                                else response_chatter.Play();
+                                            }
+                                            else if (response_chatter_set.Count > 0 && remotetech_toggle == true && !inRadioContact)
+                                            {
+                                                if (exchange_playing == true)
+                                                {
+                                                    if (debugging) Debug.Log("[CHATR] No connection, no response ... you are alone !");
+                                                    exchange_playing = false;
+                                                }
                                             }
                                             else
                                             {
-                                                if (remotetech_toggle == true && !inRadioContact)
-                                                {
-                                                    if (debugging) Debug.Log("[CHATR] No connection, no response ... you are alone !");
-                                                }
-
                                                 if (debugging) Debug.LogWarning("[CHATR] response_chatter_set has no audioclips, abandoning exchange");
                                                 exchange_playing = false;   //exchange is over
                                             }
-                                            //print("playing response chatter...");
-                                            //exchange_playing = false;   //exchange is over
                                         }
                                     }
                                 }
