@@ -5340,6 +5340,12 @@ namespace Chatterer
             response_chatter = chatter_player.AddComponent<AudioSource>();
             response_chatter.volume = chatter_vol_slider;
             response_chatter.panLevel = 0;
+            quindar1 = chatter_player.AddComponent<AudioSource>();
+            quindar1.volume = quindar_vol_slider;
+            quindar1.panLevel = 0;
+            quindar2 = chatter_player.AddComponent<AudioSource>();
+            quindar2.volume = quindar_vol_slider;
+            quindar2.panLevel = 0;
             chatter_chorus_filter = chatter_player.AddComponent<AudioChorusFilter>();
             chatter_chorus_filter.enabled = false;
             chatter_distortion_filter = chatter_player.AddComponent<AudioDistortionFilter>();
@@ -5459,13 +5465,7 @@ namespace Chatterer
 
 
             load_quindar_audio();
-            quindar1 = chatter_player.AddComponent<AudioSource>();
-            quindar1.volume = quindar_vol_slider;
-            quindar1.panLevel = 0;
             quindar1.clip = quindar_clip;
-            quindar2 = chatter_player.AddComponent<AudioSource>();
-            quindar2.volume = quindar_vol_slider;
-            quindar2.panLevel = 0;
             quindar2.clip = quindar_clip;
 
             initialize_new_exchange();
