@@ -25,7 +25,11 @@
 /* DO ME
  * 
  * 1 - Separate the code in different .cs files accordingly to their function
- * 2 - Add RemoteTech 2 support
+ * 2 - Check RemoteTech 2 support :
+ * - ensure sattelite connection/delay are right
+ * - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
+ * - add a parazited noise as chatter response if offline
+ * 
  * 
  * //
  * 
@@ -335,17 +339,21 @@ namespace Chatterer
             hasRemoteTech = false,
 
             //whether the RemoteTech flight computer is controlling attitude
-            attitudeActive = false,
+            //attitudeActive = false,
 
             //whether local control is active, meaning no control delays
             //localControl = false,
 
-            //whether the vessel is in radio contact
-            inRadioContact = false;
+            //whether the vessel is in radio contact with KSC
+            inRadioContact = false,
+
+            //whether the vessel is in radio contact with a sattelite
+            inSatteliteRadioContact = false;
 
         double
             //the current signal delay (is returned as 0 if the vessel is not in contact)
-            controlDelay = 0;
+            controlDelay = 0, //delay from KSC
+            shortestcontrolDelay = 0; // delay from nearest sattelite
 
         //Version
         private string this_version = "0.6.4.86";
@@ -1536,12 +1544,58 @@ namespace Chatterer
                 GUILayout.EndHorizontal();
             }
 
-            _content.text = "Enable RemoteTech integration";
+            _content.text = "Enable RemoteTech2 integration";
             _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
             GUILayout.EndHorizontal();
-            
+
+            if (remotetech_toggle)
+            {
+                GUIStyle txt_green = new GUIStyle(GUI.skin.label);
+                txt_green.normal.textColor = txt_green.focused.textColor = Color.green;
+                txt_green.alignment = TextAnchor.UpperLeft;
+                GUIStyle txt_red = new GUIStyle(GUI.skin.label);
+                txt_red.normal.textColor = txt_red.focused.textColor = Color.red;
+                txt_red.alignment = TextAnchor.UpperLeft;
+
+                string has_RT_SPU = "not found";
+                GUIStyle has_RT_text = txt_red;
+                if (hasRemoteTech)
+                {
+                    has_RT_SPU = "found";
+                    has_RT_text = txt_green;
+                }
+
+                string rt_Satteliteconnected = "Not connected to Sattelite network";
+                GUIStyle RT_Satteliteradio_contact_text = txt_red;
+                if (inSatteliteRadioContact)
+                {
+                    rt_Satteliteconnected = "Connected to Sattelite network";
+                    RT_Satteliteradio_contact_text = txt_green;
+                }
+
+                string rt_connected = "Not connected to KSC";
+                GUIStyle RT_radio_contact_text = txt_red;
+                if (inRadioContact)
+                {
+                    rt_connected = "Connected to KSC";
+                    RT_radio_contact_text = txt_green;
+                }
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                GUILayout.Label("RemoteTech2 SPU " + has_RT_SPU, has_RT_text);
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                GUILayout.Label(rt_Satteliteconnected, RT_Satteliteradio_contact_text);
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                GUILayout.Label(rt_connected, RT_radio_contact_text);
+                GUILayout.EndHorizontal();
+            }
+
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Show tooltips";
             _content.tooltip = "It does something";
@@ -1562,40 +1616,6 @@ namespace Chatterer
                 disable_beeps_during_chatter = GUILayout.Toggle(disable_beeps_during_chatter, _content);
                 GUILayout.EndHorizontal();
                 
-                if (remotetech_toggle)
-                {
-                    GUIStyle txt_green = new GUIStyle(GUI.skin.label);
-                    txt_green.normal.textColor = txt_green.focused.textColor = Color.green;
-                    txt_green.alignment = TextAnchor.UpperLeft;
-                    GUIStyle txt_red = new GUIStyle(GUI.skin.label);
-                    txt_red.normal.textColor = txt_red.focused.textColor = Color.red;
-                    txt_red.alignment = TextAnchor.UpperLeft;
-
-                    string has_RT_SPU = "not found";
-                    GUIStyle has_RT_text = txt_red;
-                    if (hasRemoteTech)
-                    {
-                        has_RT_SPU = "found";
-                        has_RT_text = txt_green;
-                    }
-
-                    string rt_connected = "Not connected to network";
-                    GUIStyle RT_radio_contact_text = txt_red;
-                    if (inRadioContact)
-                    {
-                        rt_connected = "Connected to network";
-                        RT_radio_contact_text = txt_green;
-                    }
-
-                    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                    GUILayout.Label("RemoteTech SPU " + has_RT_SPU, has_RT_text);
-                    GUILayout.EndHorizontal();
-
-                    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                    GUILayout.Label(rt_connected, RT_radio_contact_text);
-                    GUILayout.EndHorizontal();
-                }
-
                 //The Lab
                 //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 //show_lab_gui = GUILayout.Toggle(show_lab_gui, "The Lab");
@@ -3554,20 +3574,45 @@ namespace Chatterer
 
                 if (RT2Hook.Instance.HasAnyConnection(vessel.id))
                 {
+                    shortestcontrolDelay = RT2Hook.Instance.GetShortestSignalDelay(vessel.id);
+
+                    if (inSatteliteRadioContact == false)
+                    {
+                        inSatteliteRadioContact = !inSatteliteRadioContact;
+
+                        if (debugging) Debug.Log("[CHATR] Sattelite contact ! Signal delay =" + Convert.ToSingle(shortestcontrolDelay));
+                    }
+                }
+                else if (!RT2Hook.Instance.HasAnyConnection(vessel.id))
+                {
+                    if (inSatteliteRadioContact == true)
+                    {
+                        inSatteliteRadioContact = !inSatteliteRadioContact;
+
+                        shortestcontrolDelay = 0;
+                        if (debugging) Debug.Log("[CHATR] No Sattelite contact ! Satt delay set to =" + Convert.ToSingle(shortestcontrolDelay));
+                    }
+                }
+
+                if (RT2Hook.Instance.HasConnectionToKSC(vessel.id))
+                {
+                    controlDelay = RT2Hook.Instance.GetSignalDelayToKSC(vessel.id);
+
                     if (inRadioContact == false)
                     {
                         inRadioContact = !inRadioContact;
 
-                        Debug.Log("[CHATR] Online !");
+                        if (debugging) Debug.Log("[CHATR] Online ! Signal delay =" + Convert.ToSingle(controlDelay));
                     }
                 }
-                else if (!RT2Hook.Instance.HasAnyConnection(vessel.id))
+                else if (!RT2Hook.Instance.HasConnectionToKSC(vessel.id))
                 {
                     if (inRadioContact == true)
                     {
                         inRadioContact = !inRadioContact;
 
-                        Debug.Log("[CHATR] Offline !");
+                        controlDelay = 0;
+                        if (debugging) Debug.Log("[CHATR] Offline ! Delay set to =" + Convert.ToSingle(controlDelay));
                     }
                 }
             }

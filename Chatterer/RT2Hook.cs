@@ -49,11 +49,11 @@ namespace Chatterer
             }
             catch (Exception e)
             {
-                Debug.Log("kOS: Error creating RemoteTech2 interface: " + e);
+                Debug.Log("[CHATR] Error creating RemoteTech2 interface: " + e);
                 return null;
             }
 
-            Debug.Log("kOS: RemoteTech2 interface successfully created.");
+            Debug.Log("[CHATR] RemoteTech2 interface successfully created.");
             return api;
         }
     }
