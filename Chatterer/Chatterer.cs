@@ -228,8 +228,8 @@ namespace Chatterer
         private Texture2D chatterer_button_SSTV_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
         private Texture2D chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
         private Texture2D chatterer_button_idle_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        //private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false); //for later RT2 use
-        //private Texture2D chatterer_button_disabled_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -491,30 +491,28 @@ namespace Chatterer
             }
         }
 
-         private void launcherButtonTexture_check()
-         {
-             // launcherButton texture change check
-             if (all_muted)
-             {
-                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
-                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
-                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
-                 else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
-             }
-             else
-             {
-                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
-                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
-                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
-                 else SetAppLauncherButtonTexture(chatterer_button_idle);
-             }
-
-             //if (inRadioContact) // for later use when RT2 support is implemented
-             //{
-             //
-             //}
-             //else SetAppLauncherButtonTexture(chatterer_button_disabled);
-         }
+        private void launcherButtonTexture_check()
+        {
+        // launcherButton texture change check
+             
+            if (all_muted)
+            {
+                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
+                else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled_muted);
+                else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
+             
+            }
+            else
+            {
+                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
+                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled);
+                else SetAppLauncherButtonTexture(chatterer_button_idle);
+            }
+        }
 
         private void SetAppLauncherButtonTexture(Texture2D tex2d)
         {
@@ -5528,8 +5526,8 @@ namespace Chatterer
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV_muted")) chatterer_button_SSTV_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV_muted", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle")) chatterer_button_idle = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle_muted")) chatterer_button_idle_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle_muted", false);
-            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false); // for later RT2 use
-            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled_muted")) chatterer_button_disabled_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled_muted")) chatterer_button_disabled_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled_muted", false);
 
             load_plugin_settings();
 
@@ -6130,10 +6128,15 @@ namespace Chatterer
                                                     quindar2.PlayDelayed(quindar1.clip.length + response_chatter.clip.length);
                                                     //print("playing response second quindar");
                                                 }
-                                                else response_chatter.Play();
+                                                else if (remotetech_toggle == false || (remotetech_toggle == true && inRadioContact)) response_chatter.Play();
                                             }
                                             else
                                             {
+                                                if (remotetech_toggle == true && !inRadioContact)
+                                                {
+                                                    if (debugging) Debug.Log("[CHATR] No connection, no response ... you are alone !");
+                                                }
+
                                                 if (debugging) Debug.LogWarning("[CHATR] response_chatter_set has no audioclips, abandoning exchange");
                                                 exchange_playing = false;   //exchange is over
                                             }
