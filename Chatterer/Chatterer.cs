@@ -1535,6 +1535,12 @@ namespace Chatterer
                 if (!useBlizzy78Toolbar && launcherButton == null) OnGUIApplicationLauncherReady();
                 GUILayout.EndHorizontal();
             }
+
+            _content.text = "Enable RemoteTech integration";
+            _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
+            GUILayout.EndHorizontal();
             
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Show tooltips";
@@ -1555,13 +1561,7 @@ namespace Chatterer
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 disable_beeps_during_chatter = GUILayout.Toggle(disable_beeps_during_chatter, _content);
                 GUILayout.EndHorizontal();
-
-                //_content.text = "Enable RemoteTech integration";
-                //_content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
-                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                //remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
-                //GUILayout.EndHorizontal();
-
+                
                 if (remotetech_toggle)
                 {
                     GUIStyle txt_green = new GUIStyle(GUI.skin.label);
@@ -3548,35 +3548,60 @@ namespace Chatterer
         //determine whether the vessel has a part with ModuleRemoteTechSPU and load all relevant RemoteTech variables for the vessel
         public void updateRemoteTechData()
         {
-            //iterate through all vessel parts and look for a part containing ModuleRemoteTechSPU
-            foreach (Part p in vessel.parts)
+            if (RT2Hook.Instance != null)
             {
-                if (p.Modules.Contains("ModuleRemoteTechSPU"))
+                if (hasRemoteTech == false) hasRemoteTech = true;
+
+                if (RT2Hook.Instance.HasAnyConnection(vessel.id))
                 {
-                    //create BaseEventData field
-                    BaseEventData data = new BaseEventData(BaseEventData.Sender.USER);
+                    if (inRadioContact == false)
+                    {
+                        inRadioContact = !inRadioContact;
 
-                    //load data into the BaseEventData field using the RTinterface KSPEvent of ModuleRemoteTechSPU.
-                    p.Modules["ModuleRemoteTechSPU"].Events["RTinterface"].Invoke(data);
-
-                    //ModuleRemoteTechSPU was found, so the vessel has RemoteTech
-                    hasRemoteTech = true;
-
-                    //cache the loaded data to local fields.
-                    attitudeActive = data.Get<bool>("attitudeActive");
-                    //localControl = data.Get<bool>("localControl");
-                    inRadioContact = data.Get<bool>("inRadioContact");
-                    controlDelay = data.Get<double>("controlDelay");
-
-                    //end iteration and method
-                    return;
+                        Debug.Log("[CHATR] Online !");
+                    }
                 }
+                else if (!RT2Hook.Instance.HasAnyConnection(vessel.id))
+                {
+                    if (inRadioContact == true)
+                    {
+                        inRadioContact = !inRadioContact;
 
-                //if iteration didn't find any ModuleRemoteTechSPU the vessel doesn't have RemoteTech
-                hasRemoteTech = false;
-                inRadioContact = false;
-                controlDelay = 0;
+                        Debug.Log("[CHATR] Offline !");
+                    }
+                }
             }
+            else if (hasRemoteTech == true) hasRemoteTech = false;
+            
+            ////iterate through all vessel parts and look for a part containing ModuleRemoteTechSPU
+            //foreach (Part p in vessel.parts)
+            //{
+            //    if (p.Modules.Contains("ModuleRemoteTechSPU"))
+            //    {
+            //        //create BaseEventData field
+            //        BaseEventData data = new BaseEventData(BaseEventData.Sender.USER);
+
+            //        //load data into the BaseEventData field using the RTinterface KSPEvent of ModuleRemoteTechSPU.
+            //        p.Modules["ModuleRemoteTechSPU"].Events["RTinterface"].Invoke(data);
+
+            //        //ModuleRemoteTechSPU was found, so the vessel has RemoteTech
+            //        hasRemoteTech = true;
+
+            //        //cache the loaded data to local fields.
+            //        attitudeActive = data.Get<bool>("attitudeActive");
+            //        //localControl = data.Get<bool>("localControl");
+            //        inRadioContact = data.Get<bool>("inRadioContact");
+            //        controlDelay = data.Get<double>("controlDelay");
+
+            //        //end iteration and method
+            //        return;
+            //    }
+
+            //    //if iteration didn't find any ModuleRemoteTechSPU the vessel doesn't have RemoteTech
+            //    hasRemoteTech = false;
+            //    inRadioContact = false;
+            //    controlDelay = 0;
+            //}
         }
 
         //Load audio functions
