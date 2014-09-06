@@ -25,7 +25,11 @@
 /* DO ME
  * 
  * 1 - Separate the code in different .cs files accordingly to their function
- * 2 - Add RemoteTech 2 support
+ * 2 - Check RemoteTech 2 support :
+ * - ensure sattelite connection/delay are right
+ * - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
+ * - add a parazited noise as chatter response if offline
+ * 
  * 
  * //
  * 
@@ -224,8 +228,8 @@ namespace Chatterer
         private Texture2D chatterer_button_SSTV_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
         private Texture2D chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
         private Texture2D chatterer_button_idle_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        //private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false); //for later RT2 use
-        //private Texture2D chatterer_button_disabled_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -335,17 +339,21 @@ namespace Chatterer
             hasRemoteTech = false,
 
             //whether the RemoteTech flight computer is controlling attitude
-            attitudeActive = false,
+            //attitudeActive = false,
 
             //whether local control is active, meaning no control delays
             //localControl = false,
 
-            //whether the vessel is in radio contact
+            //whether the vessel is in radio contact with KSC
             inRadioContact = false;
+
+            //whether the vessel is in radio contact with a sattelite
+            //inSatteliteRadioContact = false;
 
         double
             //the current signal delay (is returned as 0 if the vessel is not in contact)
-            controlDelay = 0;
+            controlDelay = 0; //delay from KSC
+            //shortestcontrolDelay = 0; // delay from nearest sattelite
 
         //Version
         private string this_version = "0.6.4.86";
@@ -483,30 +491,28 @@ namespace Chatterer
             }
         }
 
-         private void launcherButtonTexture_check()
-         {
-             // launcherButton texture change check
-             if (all_muted)
-             {
-                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
-                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
-                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
-                 else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
-             }
-             else
-             {
-                 if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
-                 else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
-                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
-                 else SetAppLauncherButtonTexture(chatterer_button_idle);
-             }
-
-             //if (inRadioContact) // for later use when RT2 support is implemented
-             //{
-             //
-             //}
-             //else SetAppLauncherButtonTexture(chatterer_button_disabled);
-         }
+        private void launcherButtonTexture_check()
+        {
+        // launcherButton texture change check
+             
+            if (all_muted)
+            {
+                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
+                else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled_muted);
+                else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
+             
+            }
+            else
+            {
+                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
+                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled);
+                else SetAppLauncherButtonTexture(chatterer_button_idle);
+            }
+        }
 
         private void SetAppLauncherButtonTexture(Texture2D tex2d)
         {
@@ -518,7 +524,7 @@ namespace Chatterer
                     chatterer_button_Texture = tex2d;
                     launcherButton.SetTexture(tex2d);
 
-                    if (debugging) Debug.Log("[CHATR] SetAppLauncherButtonTexture(" + tex2d + ");");
+                    //if (debugging) Debug.Log("[CHATR] SetAppLauncherButtonTexture(" + tex2d + ");");
                 }
             }
         }
@@ -1535,7 +1541,59 @@ namespace Chatterer
                 if (!useBlizzy78Toolbar && launcherButton == null) OnGUIApplicationLauncherReady();
                 GUILayout.EndHorizontal();
             }
-            
+
+            _content.text = "Enable RemoteTech2 integration";
+            _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
+            GUILayout.EndHorizontal();
+
+            if (remotetech_toggle)
+            {
+                GUIStyle txt_green = new GUIStyle(GUI.skin.label);
+                txt_green.normal.textColor = txt_green.focused.textColor = Color.green;
+                txt_green.alignment = TextAnchor.UpperLeft;
+                GUIStyle txt_red = new GUIStyle(GUI.skin.label);
+                txt_red.normal.textColor = txt_red.focused.textColor = Color.red;
+                txt_red.alignment = TextAnchor.UpperLeft;
+
+                string has_RT_SPU = "not found";
+                GUIStyle has_RT_text = txt_red;
+                if (hasRemoteTech)
+                {
+                    has_RT_SPU = "found";
+                    has_RT_text = txt_green;
+                }
+
+                //string rt_Satteliteconnected = "Not connected to Sattelite network";
+                //GUIStyle RT_Satteliteradio_contact_text = txt_red;
+                //if (inSatteliteRadioContact)
+                //{
+                //    rt_Satteliteconnected = "Connected to Sattelite network";
+                //    RT_Satteliteradio_contact_text = txt_green;
+                //}
+
+                string rt_connected = "Not connected to KSC";
+                GUIStyle RT_radio_contact_text = txt_red;
+                if (inRadioContact)
+                {
+                    rt_connected = "Connected to KSC, delay : " + Convert.ToSingle(controlDelay) +" secs.";
+                    RT_radio_contact_text = txt_green;
+                }
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                GUILayout.Label("RemoteTech2 SPU " + has_RT_SPU, has_RT_text);
+                GUILayout.EndHorizontal();
+
+                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                //GUILayout.Label(rt_Satteliteconnected, RT_Satteliteradio_contact_text);
+                //GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                GUILayout.Label(rt_connected, RT_radio_contact_text);
+                GUILayout.EndHorizontal();
+            }
+
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Show tooltips";
             _content.tooltip = "It does something";
@@ -1555,47 +1613,7 @@ namespace Chatterer
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 disable_beeps_during_chatter = GUILayout.Toggle(disable_beeps_during_chatter, _content);
                 GUILayout.EndHorizontal();
-
-                //_content.text = "Enable RemoteTech integration";
-                //_content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
-                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                //remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
-                //GUILayout.EndHorizontal();
-
-                if (remotetech_toggle)
-                {
-                    GUIStyle txt_green = new GUIStyle(GUI.skin.label);
-                    txt_green.normal.textColor = txt_green.focused.textColor = Color.green;
-                    txt_green.alignment = TextAnchor.UpperLeft;
-                    GUIStyle txt_red = new GUIStyle(GUI.skin.label);
-                    txt_red.normal.textColor = txt_red.focused.textColor = Color.red;
-                    txt_red.alignment = TextAnchor.UpperLeft;
-
-                    string has_RT_SPU = "not found";
-                    GUIStyle has_RT_text = txt_red;
-                    if (hasRemoteTech)
-                    {
-                        has_RT_SPU = "found";
-                        has_RT_text = txt_green;
-                    }
-
-                    string rt_connected = "Not connected to network";
-                    GUIStyle RT_radio_contact_text = txt_red;
-                    if (inRadioContact)
-                    {
-                        rt_connected = "Connected to network";
-                        RT_radio_contact_text = txt_green;
-                    }
-
-                    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                    GUILayout.Label("RemoteTech SPU " + has_RT_SPU, has_RT_text);
-                    GUILayout.EndHorizontal();
-
-                    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                    GUILayout.Label(rt_connected, RT_radio_contact_text);
-                    GUILayout.EndHorizontal();
-                }
-
+                
                 //The Lab
                 //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 //show_lab_gui = GUILayout.Toggle(show_lab_gui, "The Lab");
@@ -3548,35 +3566,58 @@ namespace Chatterer
         //determine whether the vessel has a part with ModuleRemoteTechSPU and load all relevant RemoteTech variables for the vessel
         public void updateRemoteTechData()
         {
-            //iterate through all vessel parts and look for a part containing ModuleRemoteTechSPU
-            foreach (Part p in vessel.parts)
+            if (RT2Hook.Instance != null)
             {
-                if (p.Modules.Contains("ModuleRemoteTechSPU"))
+                if (hasRemoteTech == false) hasRemoteTech = true;
+
+                //if (RT2Hook.Instance.HasAnyConnection(vessel.id))
+                //{
+                //    shortestcontrolDelay = RT2Hook.Instance.GetShortestSignalDelay(vessel.id);
+
+                //    if (inSatteliteRadioContact == false)
+                //    {
+                //        inSatteliteRadioContact = !inSatteliteRadioContact;
+
+                //        if (debugging) Debug.Log("[CHATR] Sattelite contact ! Signal delay =" + Convert.ToSingle(shortestcontrolDelay));
+                //    }
+                //}
+                //else if (!RT2Hook.Instance.HasAnyConnection(vessel.id))
+                //{
+                //    if (inSatteliteRadioContact == true)
+                //    {
+                //        inSatteliteRadioContact = !inSatteliteRadioContact;
+
+                //        shortestcontrolDelay = 0;
+                //        if (debugging) Debug.Log("[CHATR] No Sattelite contact ! Satt delay set to =" + Convert.ToSingle(shortestcontrolDelay));
+                //    }
+                //}
+
+                if (RT2Hook.Instance.HasConnectionToKSC(vessel.id))
                 {
-                    //create BaseEventData field
-                    BaseEventData data = new BaseEventData(BaseEventData.Sender.USER);
+                    controlDelay = RT2Hook.Instance.GetSignalDelayToKSC(vessel.id);
 
-                    //load data into the BaseEventData field using the RTinterface KSPEvent of ModuleRemoteTechSPU.
-                    p.Modules["ModuleRemoteTechSPU"].Events["RTinterface"].Invoke(data);
+                    if (inRadioContact == false)
+                    {
+                        inRadioContact = !inRadioContact;
 
-                    //ModuleRemoteTechSPU was found, so the vessel has RemoteTech
-                    hasRemoteTech = true;
-
-                    //cache the loaded data to local fields.
-                    attitudeActive = data.Get<bool>("attitudeActive");
-                    //localControl = data.Get<bool>("localControl");
-                    inRadioContact = data.Get<bool>("inRadioContact");
-                    controlDelay = data.Get<double>("controlDelay");
-
-                    //end iteration and method
-                    return;
+                        if (debugging) Debug.Log("[CHATR] Online ! Signal delay =" + Convert.ToSingle(controlDelay));
+                    }
                 }
+                else if (!RT2Hook.Instance.HasConnectionToKSC(vessel.id))
+                {
+                    if (inRadioContact == true)
+                    {
+                        inRadioContact = !inRadioContact;
 
-                //if iteration didn't find any ModuleRemoteTechSPU the vessel doesn't have RemoteTech
-                hasRemoteTech = false;
-                inRadioContact = false;
-                controlDelay = 0;
+                        controlDelay = 0;
+                        if (debugging) Debug.Log("[CHATR] Offline ! Delay set to =" + Convert.ToSingle(controlDelay));
+
+                        if (response_chatter.isPlaying == true) response_chatter.Stop();
+                        if (sstv.isPlaying == true) sstv.Stop();
+                    }
+                }
             }
+            else if (hasRemoteTech == true) hasRemoteTech = false;
         }
 
         //Load audio functions
@@ -5458,8 +5499,8 @@ namespace Chatterer
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV_muted")) chatterer_button_SSTV_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV_muted", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle")) chatterer_button_idle = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle", false);
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle_muted")) chatterer_button_idle_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle_muted", false);
-            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false); // for later RT2 use
-            //if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled_muted")) chatterer_button_disabled_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled_muted")) chatterer_button_disabled_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled_muted", false);
 
             load_plugin_settings();
 
@@ -5829,7 +5870,7 @@ namespace Chatterer
                 if (sstv_exists)
                 {
                     //insta-sstv activated
-                    if (insta_sstv_key_just_changed == false && Input.GetKeyDown(insta_sstv_key) && sstv.isPlaying == false)
+                    if ((remotetech_toggle == false || (remotetech_toggle && inRadioContact)) && (insta_sstv_key_just_changed == false && Input.GetKeyDown(insta_sstv_key) && sstv.isPlaying == false))
                     {
                         if (debugging) Debug.Log("[CHATR] beginning exchange,insta-SSTV");
                         if (exchange_playing)
@@ -5862,7 +5903,7 @@ namespace Chatterer
                             {
                                 sstv_timer = 0;
                                 new_sstv_loose_timer_limit();
-                                if (sstv.isPlaying == false)
+                                if (sstv.isPlaying == false && (remotetech_toggle == false || (remotetech_toggle && inRadioContact)))
                                 {
 
                                     //get a random one and play
@@ -5892,7 +5933,7 @@ namespace Chatterer
                 //do beeps
                 if (beeps_exists)
                 {
-                    if (dict_probe_samples.Count > 0 && OTP_playing == false)   //don't do any beeps here while OTP is playing
+                    if (dict_probe_samples.Count > 0 && OTP_playing == false && (remotetech_toggle == false || (remotetech_toggle == true && inRadioContact)))   //don't do any beeps here while OTP is playing
                     {
                         foreach (BeepSource bm in beepsource_list)
                         {
@@ -6047,7 +6088,7 @@ namespace Chatterer
                                                 return;
                                             }
 
-                                            if (response_chatter_set.Count > 0)
+                                            if (response_chatter_set.Count > 0 && (remotetech_toggle == false || (remotetech_toggle == true && inRadioContact)))
                                             {
                                                 if (debugging) Debug.Log("[CHATR] playing response");
                                                 response_chatter_started = true;
@@ -6062,13 +6103,19 @@ namespace Chatterer
                                                 }
                                                 else response_chatter.Play();
                                             }
+                                            else if (response_chatter_set.Count > 0 && remotetech_toggle == true && !inRadioContact)
+                                            {
+                                                if (exchange_playing == true)
+                                                {
+                                                    if (debugging) Debug.Log("[CHATR] No connection, no response ... you are alone !");
+                                                    exchange_playing = false;
+                                                }
+                                            }
                                             else
                                             {
                                                 if (debugging) Debug.LogWarning("[CHATR] response_chatter_set has no audioclips, abandoning exchange");
                                                 exchange_playing = false;   //exchange is over
                                             }
-                                            //print("playing response chatter...");
-                                            //exchange_playing = false;   //exchange is over
                                         }
                                     }
                                 }
