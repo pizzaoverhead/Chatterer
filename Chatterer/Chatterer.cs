@@ -356,7 +356,7 @@ namespace Chatterer
             //shortestcontrolDelay = 0; // delay from nearest sattelite
 
         //Version
-        private string this_version = "0.6.4.86";
+        private string this_version = "0.7.0.86";
         private string main_window_title = "Chatterer ";
         
         //Clipboards
