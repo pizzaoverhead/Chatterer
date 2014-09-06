@@ -1,5 +1,11 @@
 Changelog:
 
+v0.7.0: [06 Sep 2014]
+- Added RemoteTech2 integration
+* signal delay is added to chatter response delay
+* signal loss will disable chatter capcom's responses, beeps and SSTV transmissions
+- fixed warning msg in log about custom filters (on Awake)
+
 v0.6.4: [04 Sep 2014]
 - fixed Airlock sound playing when switching vessel to/from EVAed Kerbal
 - removed warning msg in log about "soundscape" folder missing if not

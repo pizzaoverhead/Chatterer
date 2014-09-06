@@ -49,6 +49,9 @@ Original idea and work : ***Iannic-ann-od***
 Thanks a lot to him for his awesome work and to allow me to continue it since version 0.5.9 since the end of December 2013.
 I promised him I will do my best to keep Chatterer chattering things high in Kerbal space and beyond.
 
+Modders :
+Cilph, for his help on RemoteTech2 integration
+
 Audio :
 Apollo 11 and STS-1 chatter created from audio found at the http://archive.org/details/nasaaudiocollection
 Russian chatter created from audio recorded by http://www.svengrahn.pp.se/sounds/sounds.htm

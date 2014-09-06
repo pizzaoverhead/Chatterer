@@ -60,6 +60,7 @@
   <ItemGroup>
     <Compile Include="Chatterer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RT2Hook.cs" />
     <Compile Include="ToolbarButtonWrapper.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
