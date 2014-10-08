@@ -5583,17 +5583,10 @@ namespace Chatterer
 
                     if (use_vessel_settings)
                     {
-                        if (vessel.vesselType == VesselType.EVA)
-                        {
-                            if (debugging) Debug.Log("[CHATR] Update() run-once :: On EVA, skipping : load_vessel_settings_node()");
-                        }
-                        else
-                        {
-                            if (debugging) Debug.Log("[CHATR] Update() run-once :: calling load_vessel_settings_node()");
-                            load_vessel_settings_node(); //load and search for settings for this vessel
-                            if (debugging) Debug.Log("[CHATR] Update() run-once :: calling search_vessel_settings_node()");
-                            search_vessel_settings_node();
-                        }
+                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling load_vessel_settings_node()");
+                        load_vessel_settings_node(); //load and search for settings for this vessel
+                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling search_vessel_settings_node()");
+                        search_vessel_settings_node();
                     }
                 }
 
