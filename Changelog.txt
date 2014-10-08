@@ -1,6 +1,6 @@
 Changelog:
 
-v0.7.1 [10 Oct 2014]
+v0.7.1 [08 Oct 2014]
 - recompiled for KSP v0.25
 - fixed RemoteTech v1.5.0 integration (assembly name changed)
 
