@@ -1,6 +1,6 @@
 ﻿///////////////////////////////////////////////////////////////////////////////
 //
-//    RemoteTech2 Hook code by Cilph from KOS Mod
+//    RemoteTech Hook code by Cilph from KOS Mod
 //    Much thanks to him for his help on this part ;)
 //
 //    This program is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@ namespace Chatterer
 {
     public static class RT2Hook
     {
-        public const String RemoteTechAssembly = "RemoteTech2";
+        public const String RemoteTechAssembly = "RemoteTech";
         public const String RemoteTechApi = "RemoteTech.API";
 
         private static bool mHookFail;
@@ -70,11 +70,11 @@ namespace Chatterer
             }
             catch (Exception e)
             {
-                Debug.Log("[CHATR] Error creating RemoteTech2 interface: " + e);
+                Debug.Log("[CHATR] Error creating RemoteTech interface: " + e);
                 return null;
             }
 
-            Debug.Log("[CHATR] RemoteTech2 interface successfully created.");
+            Debug.Log("[CHATR] RemoteTech interface successfully created.");
             return api;
         }
     }

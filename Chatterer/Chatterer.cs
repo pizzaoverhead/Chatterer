@@ -356,7 +356,7 @@ namespace Chatterer
             //shortestcontrolDelay = 0; // delay from nearest sattelite
 
         //Version
-        private string this_version = "0.7.0.86";
+        private string this_version = "0.7.1.86";
         private string main_window_title = "Chatterer ";
         
         //Clipboards
@@ -1542,7 +1542,7 @@ namespace Chatterer
                 GUILayout.EndHorizontal();
             }
 
-            _content.text = "Enable RemoteTech2 integration";
+            _content.text = "Enable RemoteTech integration";
             _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
@@ -1582,7 +1582,7 @@ namespace Chatterer
                 }
 
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label("RemoteTech2 SPU " + has_RT_SPU, has_RT_text);
+                GUILayout.Label("RemoteTech SPU " + has_RT_SPU, has_RT_text);
                 GUILayout.EndHorizontal();
 
                 //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
