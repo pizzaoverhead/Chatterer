@@ -141,7 +141,7 @@ namespace Chatterer
     public partial class chatterer : MonoBehaviour
     {
         //Version
-        private string this_version = "0.7.1.86";
+        private string this_version = "0.7.2.86";
         private string main_window_title = "Chatterer ";
         
         private static System.Random rand = new System.Random();
