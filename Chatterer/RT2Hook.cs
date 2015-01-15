@@ -31,7 +31,7 @@ namespace Chatterer
     public static class RT2Hook
     {
         public const String RemoteTechAssembly = "RemoteTech";
-        public const String RemoteTechApi = "RemoteTech.API";
+        public const String RemoteTechApi = "RemoteTech.API.API";
 
         private static bool mHookFail;
         private static IRemoteTechAPIv1 mInstance;
