@@ -1,5 +1,11 @@
 Changelog:
 
+v0.8.1 [16 Jan 2015]
+- Fixed RemoteTech v1.6.0 support (update RT first if you are still using v1.5.2!)
+- Removed RT delay before capsule initiating chatter exchange (silly me)
+- optimized code by using game events for EVA airlock sound [thanks to Davorin]
+- Fixed internal ambient sounds playing when focusing Flags [thanks to Davorin]
+
 v0.8.0 [16 Dec 2014]
 - recompiled for KSP v0.90
 - reduced pitch of EVA breathing (to sound less metallic)
