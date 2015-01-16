@@ -2768,6 +2768,7 @@ namespace Chatterer
             {
                 //capsule starts the exchange
                 //Always play regardless of RT
+                Debug.Log("[CHATR] Capsule starts the exchange...");
 
                 //play initial capsule chatter
                 //initial_chatter_set[initial_chatter_index].PlayDelayed(delay);
@@ -2791,6 +2792,7 @@ namespace Chatterer
             if (initial_chatter_source == 0)
             {
                 //capcom starts the exchange
+                Debug.Log("[CHATR] Capcom starts the exchange...");
                 if (remotetech_toggle == false)
                 {
                     //RT is off
@@ -2816,7 +2818,7 @@ namespace Chatterer
                 {
                     //RT is on and in radio contact
                     //play initial capcom
-                    delay += Convert.ToSingle(controlDelay);    //add RT delay to any current delay
+                    
                     if (initial_chatter_set.Count > 0)
                     {
                         //initial_chatter.PlayDelayed(delay);
