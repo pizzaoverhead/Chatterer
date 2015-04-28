@@ -29,7 +29,7 @@
  * - ensure sattelite connection/delay are right
  * - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
  * - add a parazited noise as chatter response if offline
- * 
+ * 3 - Feminise voices if female Kerbal is speaking
  * 
  * //
  * 
