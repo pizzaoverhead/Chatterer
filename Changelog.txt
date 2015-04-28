@@ -1,5 +1,12 @@
 Changelog:
 
+v0.9.0 [28 Apr 2015]
+- Recompiled and added compatibility for KSP 1.0 :
+* fix for deprecated (maxAtmosphereAltitude) method
+* fix for new applicationLauncherButton management
+- Set Insta-keys at "none" by default
+- Added a button to clear Insta-keys binding
+
 v0.8.1 [16 Jan 2015]
 - Fixed RemoteTech v1.6.0 support (update RT first if you are still using v1.5.2!)
 - Removed RT delay before capsule initiating chatter exchange (silly me)
