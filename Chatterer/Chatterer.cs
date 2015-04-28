@@ -3451,6 +3451,14 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
         }
 
+        private void Start()
+        {
+            if (launcherButton == null)
+            {
+                OnGUIApplicationLauncherReady();
+            }
+        }
+
         public void Update()
         {
             //Insta-... key setup
