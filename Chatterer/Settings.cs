@@ -62,12 +62,12 @@ namespace Chatterer
         private float prev_sstv_vol_slider = 0.25f;
 
         //Insta-chatter key
-        private KeyCode insta_chatter_key = KeyCode.Slash;
+        private KeyCode insta_chatter_key = KeyCode.None;
         private bool set_insta_chatter_key = false;
         private bool insta_chatter_key_just_changed = false;
 
         //Insta-SSTV key
-        private KeyCode insta_sstv_key = KeyCode.Quote;
+        private KeyCode insta_sstv_key = KeyCode.None;
         private bool set_insta_sstv_key = false;
         private bool insta_sstv_key_just_changed = false;
 

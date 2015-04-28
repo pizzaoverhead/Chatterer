@@ -1568,6 +1568,10 @@ namespace Chatterer
                     _content.text = "Change";
                     _content.tooltip = "Select a new insta-chatter key";
                     if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) set_insta_chatter_key = true;
+
+                    _content.text = "Clear";
+                    _content.tooltip = "Clear insta-chatter key";
+                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) insta_chatter_key = KeyCode.None;
                 }
                 GUILayout.EndHorizontal();
 
@@ -1596,6 +1600,10 @@ namespace Chatterer
                 _content.text = "Change";
                 _content.tooltip = "Select a new insta-SSTV key";
                 if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) set_insta_sstv_key = true;
+
+                _content.text = "Clear";
+                _content.tooltip = "Clear insta-SSTV key";
+                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) insta_sstv_key = KeyCode.None;
             }
             GUILayout.EndHorizontal();
 
