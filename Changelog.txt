@@ -1,5 +1,8 @@
 Changelog:
 
+v0.9.1 [02 May 2015]
+- Recompiled for KSP v1.0.2
+
 v0.9.0 [28 Apr 2015]
 - Recompiled and added compatibility for KSP 1.0 :
 * fix for deprecated (maxAtmosphereAltitude) method
