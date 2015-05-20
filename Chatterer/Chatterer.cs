@@ -141,7 +141,7 @@ namespace Chatterer
     public partial class chatterer : MonoBehaviour
     {
         //Version
-        private string this_version = "0.9.1.86";
+        private string this_version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
         private string main_window_title = "Chatterer ";
         
         private static System.Random rand = new System.Random();
@@ -3457,6 +3457,7 @@ namespace Chatterer
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
+            Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
         }
 
         private void Start()
