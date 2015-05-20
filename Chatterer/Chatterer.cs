@@ -318,6 +318,7 @@ namespace Chatterer
 
         //AAE
         private bool aae_backgrounds_exist = false;
+        private bool aae_backgrounds_onlyinIVA = false;
         private bool aae_soundscapes_exist = false;
         private bool aae_breathing_exist = false;
         private bool aae_airlock_exist = false;
@@ -3646,7 +3647,7 @@ namespace Chatterer
                             src.audiosource.Stop();
                         }
                     }
-                    else
+                    else if (!aae_backgrounds_onlyinIVA)
                     {
                         //else play background audio
 
