@@ -573,7 +573,7 @@ namespace Chatterer
             gs_tooltip = new GUIStyle(GUI.skin.box);
             gs_tooltip.normal.background = GUI.skin.window.normal.background;
             gs_tooltip.normal.textColor = XKCDColors.LightGrey;
-            gs_tooltip.fontSize = 9;
+            gs_tooltip.fontSize = 11;
 
             button_txt_left_bold = new GUIStyle(GUI.skin.button);
             button_txt_left_bold.normal.textColor = Color.white;
@@ -1442,7 +1442,7 @@ namespace Chatterer
             
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Use per-vessel settings";
-            _content.tooltip = "Every vessel will save/load its own individual settings";
+            _content.tooltip = "Every vessel will keep its own individual settings";
             use_vessel_settings = GUILayout.Toggle(use_vessel_settings, _content);
             GUILayout.EndHorizontal();
 
@@ -1472,7 +1472,7 @@ namespace Chatterer
             }
 
             _content.text = "Enable RemoteTech integration";
-            _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
+            _content.tooltip = "Disable/Delay comms with KSC accordingly";
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
             GUILayout.EndHorizontal();
@@ -3270,14 +3270,16 @@ namespace Chatterer
             }
         }
 
-        //RemoteTech
+        //Tooltips
         private void tooltips(Rect pos)
         {
             if (show_tooltips && GUI.tooltip != "")
             {
                 float w = 5.5f * GUI.tooltip.Length;
                 float x = (Event.current.mousePosition.x < pos.width / 2) ? Event.current.mousePosition.x + 10 : Event.current.mousePosition.x - 10 - w;
-                GUI.Box(new Rect(x, Event.current.mousePosition.y, w, 25f), GUI.tooltip, gs_tooltip);
+                float h = 25f;
+                float t = Event.current.mousePosition.y - (h / 4);
+                GUI.Box(new Rect(x, t, w, h), GUI.tooltip, gs_tooltip);
             }
         }
         
