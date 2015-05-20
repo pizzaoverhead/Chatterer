@@ -636,7 +636,8 @@ namespace Chatterer
         protected void draw_GUI()
         {
             //Apply a skin
-            if (skin_index == 0) GUI.skin = null;
+            if (skin_index > g_skin_list.Count) skin_index = 0;
+            else if (skin_index == 0) GUI.skin = null;
             else GUI.skin = g_skin_list[skin_index - 1];
 
             if (gui_styles_set == false) set_gui_styles();  //run this once to set a few GUIStyles
