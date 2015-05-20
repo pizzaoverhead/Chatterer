@@ -94,12 +94,7 @@ namespace Chatterer
             GUILayout.EndHorizontal();
 
             if (show_tooltips && GUI.tooltip != "") tooltips(chatter_filter_settings_window_pos);
-            //{
-            //    float w = 5.5f * GUI.tooltip.Length;
-            //    float x = (Event.current.mousePosition.x < chatter_filter_settings_window_pos.width / 2) ? Event.current.mousePosition.x + 10 : Event.current.mousePosition.x - 10 - w;
-            //    GUI.Box(new Rect(x, Event.current.mousePosition.y, w, 25f), GUI.tooltip, gs_tooltip);
-            //}
-
+            
             GUILayout.EndVertical();
             GUI.DragWindow();
         }
@@ -152,13 +147,7 @@ namespace Chatterer
                 GUILayout.EndHorizontal();
 
                 if (show_tooltips && GUI.tooltip != "") tooltips(source.settings_window_pos);
-                //{
-                //    float w = 5.5f * GUI.tooltip.Length;
-                //    float x = (Event.current.mousePosition.x < source.settings_window_pos.width / 2) ? Event.current.mousePosition.x + 10 : Event.current.mousePosition.x - 10 - w;
-                //    GUI.Box(new Rect(x, Event.current.mousePosition.y, w, 25f), GUI.tooltip, gs_tooltip);
-                //}
-
-
+                
                 GUILayout.EndVertical();
                 GUI.DragWindow();
             }
