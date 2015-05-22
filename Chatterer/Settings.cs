@@ -45,6 +45,9 @@ namespace Chatterer
         private bool prev_use_vessel_settings = false;
         private string menu = "chatter";    //default to chatter menu because it has to have something
 
+        //AAE settings
+        private bool aae_backgrounds_onlyinIVA = false;
+
         //Sliders
         private float chatter_freq_slider = 3f;
         private int chatter_freq = 3;
@@ -100,6 +103,7 @@ namespace Chatterer
             plugin_settings_node.AddValue("insta_chatter_key", insta_chatter_key);
             plugin_settings_node.AddValue("insta_sstv_key", insta_sstv_key);
             plugin_settings_node.AddValue("show_advanced_options", show_advanced_options);
+            plugin_settings_node.AddValue("aae_backgrounds_onlyinIVA", aae_backgrounds_onlyinIVA);
 
             //also save values that are shared between the two configs
             save_shared_settings(plugin_settings_node);
@@ -139,6 +143,7 @@ namespace Chatterer
                 if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
                 if (plugin_settings_node.HasValue("insta_sstv_key")) insta_sstv_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_sstv_key"));
                 if (plugin_settings_node.HasValue("show_advanced_options")) show_advanced_options = Boolean.Parse(plugin_settings_node.GetValue("show_advanced_options"));
+                if (plugin_settings_node.HasValue("aae_backgrounds_onlyinIVA")) aae_backgrounds_onlyinIVA = Boolean.Parse(plugin_settings_node.GetValue("aae_backgrounds_onlyinIVA"));
 
                 load_shared_settings(plugin_settings_node); //load settings shared between both configs
 
@@ -194,6 +199,7 @@ namespace Chatterer
                 if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
                 if (plugin_settings_node.HasValue("insta_sstv_key")) insta_sstv_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_sstv_key"));
                 if (plugin_settings_node.HasValue("show_advanced_options")) show_advanced_options = Boolean.Parse(plugin_settings_node.GetValue("show_advanced_options"));
+                if (plugin_settings_node.HasValue("aae_backgrounds_onlyinIVA")) aae_backgrounds_onlyinIVA = Boolean.Parse(plugin_settings_node.GetValue("aae_backgrounds_onlyinIVA"));
 
                 load_shared_settings(plugin_settings_node); //load settings shared between both configs
 
