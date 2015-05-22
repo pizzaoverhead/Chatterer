@@ -36,7 +36,7 @@ namespace Chatterer
         private bool run_once = true;   //used to run some things just once in Update() that don't get done in Awake()
         //private bool power_available = true;
         private bool quindar_toggle = true;
-        private bool disable_beeps_during_chatter = true;
+        private bool disable_beeps_during_chatter = false;
         private bool remotetech_toggle = false;
         //private bool disable_power_usage = false;
         private bool show_tooltips = true;
