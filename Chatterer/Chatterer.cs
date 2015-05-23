@@ -92,6 +92,7 @@ namespace Chatterer
         public int loose_timer_limit;
         public float timer;
         public string current_clip;
+        public bool randomizeBeep;
         public int sel_filter;
         public AudioChorusFilter chorus_filter;
         public AudioDistortionFilter distortion_filter;
@@ -115,6 +116,7 @@ namespace Chatterer
             prev_loose_freq = 0;
             loose_timer_limit = 0;
             timer = 0;
+            randomizeBeep = false;
             sel_filter = 0;
             reverb_preset_index = 0;
         }
@@ -1163,7 +1165,7 @@ namespace Chatterer
                 _content.text = beep_timing_str;
                 _content.tooltip = "Switch between timing modes";
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("Timing:");
+                GUILayout.Label("Beep timing:");
                 if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
                 {
                     //timing mode is being switched
@@ -1180,25 +1182,37 @@ namespace Chatterer
                             //disallow random looped clips
                             bm.current_clip = "Default";
                         }
-                        //else
-                        //{
-                        //bm.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                        //}
                         set_beep_clip(bm);
                     }
                     else new_beep_loose_timer_limit(bm);   //set new loose time limit
                 }
-
-                //Sample selector
-                _content.text = bm.current_clip;
-                _content.tooltip = "Click to change the current beep sample";
-                GUILayout.Label("", GUILayout.ExpandWidth(true));    //spacer to align "Filters" to the right
-                GUILayout.Label("Sample:", GUILayout.ExpandWidth(false));
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) show_probe_sample_selector = !show_probe_sample_selector;
-
+                GUILayout.Label("", GUILayout.ExpandWidth(true));
+                GUILayout.Label("", GUILayout.ExpandWidth(true));
                 GUILayout.EndHorizontal();
 
+                // Separator
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(false));
+                GUILayout.Label(line_512x4, GUILayout.ExpandWidth(false), GUILayout.Width(275f), GUILayout.Height(10f));
+                GUILayout.EndHorizontal();
 
+                //Sample selector
+                GUILayout.BeginHorizontal();
+                _content.text = bm.current_clip;
+                _content.tooltip = "Click to change the current beep sample";
+                GUILayout.Label("Beep sample:", GUILayout.ExpandWidth(false));
+                if (!bm.randomizeBeep)
+                {
+                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) show_probe_sample_selector = !show_probe_sample_selector;
+                }
+                else GUILayout.Label(_content, GUILayout.ExpandWidth(false));
+
+                //Toggle for Random beep setting
+                _content.text = "Random";
+                _content.tooltip = "Play Probe sample files randomly";
+                GUILayout.Label("", GUILayout.ExpandWidth(true));
+                bm.randomizeBeep = GUILayout.Toggle(bm.randomizeBeep, _content, GUILayout.ExpandWidth(false));
+
+                GUILayout.EndHorizontal();
 
                 if (show_advanced_options)
                 {
@@ -3902,14 +3916,13 @@ namespace Chatterer
                                     {
                                         bm.timer = 0;
                                         //randomize beep if set to random (0)
-                                        if (bm.current_clip == "Random")
+                                        if (bm.randomizeBeep)
                                         {
-                                            //bm.audiosource.clip = all_beep_clips[rand.Next(0, all_beep_clips.Count)];
+                                            bm.current_clip = "Random";
                                             set_beep_clip(bm);
                                         }
                                         //play beep unless disable == true && exchange_playing == true
                                         if (sstv.isPlaying || ((initial_chatter.isPlaying || response_chatter.isPlaying) && disable_beeps_during_chatter)) return;   //no beep under these conditions
-                                        //if (disable_beeps_during_chatter == false || (disable_beeps_during_chatter == true && exchange_playing == false))
                                         else
                                         {
                                             //if (debugging) Debug.Log("[CHATR] timer limit reached, playing source " + bm.beep_name);
@@ -3941,13 +3954,13 @@ namespace Chatterer
                                         bm.timer = 0;   //reset timer
                                         new_beep_loose_timer_limit(bm);    //set a new loose limit
                                         //randomize beep if set to random (0)
-                                        if (bm.current_clip == "Random")
+                                        if (bm.randomizeBeep)
                                         {
-                                            //bm.audiosource.clip = all_beep_clips[rand.Next(0, all_beep_clips.Count)];
+                                            bm.current_clip = "Random";
                                             set_beep_clip(bm);
                                         }
                                         if (sstv.isPlaying || ((initial_chatter.isPlaying || response_chatter.isPlaying) && disable_beeps_during_chatter)) return;   //no beep under these conditions
-                                        //if (disable_beeps_during_chatter == false || (disable_beeps_during_chatter == true && exchange_playing == false) || sstv.isPlaying == false)
+                                        
                                         else
                                         {
                                             bm.audiosource.Play();  //else beep

@@ -258,7 +258,7 @@ namespace Chatterer
 
             node.AddValue("sel_beep_src", sel_beep_src);
             node.AddValue("sel_beep_page", sel_beep_page);
-
+            
             //AAE
             if (aae_backgrounds_exist)
             {
@@ -368,6 +368,7 @@ namespace Chatterer
                 beep_settings.AddValue("volume", source.audiosource.volume);
                 beep_settings.AddValue("pitch", source.audiosource.pitch);
                 beep_settings.AddValue("current_clip", source.current_clip);
+                beep_settings.AddValue("randomizeBeep", source.randomizeBeep);
                 beep_settings.AddValue("sel_filter", source.sel_filter);
                 beep_settings.AddValue("show_settings_window", source.show_settings_window);
                 beep_settings.AddValue("reverb_preset_index", source.reverb_preset_index);
@@ -515,7 +516,7 @@ namespace Chatterer
             if (node.HasValue("sel_beep_src")) sel_beep_src = Int32.Parse(node.GetValue("sel_beep_src"));
             if (sel_beep_src < 0 || sel_beep_src > 9) sel_beep_src = 0;
             if (node.HasValue("sel_beep_page")) sel_beep_page = Int32.Parse(node.GetValue("sel_beep_page"));
-
+            
             //AAE
             int i;
 
@@ -671,6 +672,7 @@ namespace Chatterer
                     if (_source.HasValue("volume")) beepsource_list[x].audiosource.volume = Single.Parse(_source.GetValue("volume"));
                     if (_source.HasValue("pitch")) beepsource_list[x].audiosource.pitch = Single.Parse(_source.GetValue("pitch"));
                     if (_source.HasValue("current_clip")) beepsource_list[x].current_clip = _source.GetValue("current_clip");
+                    if (_source.HasValue("randomizeBeep")) beepsource_list[x].randomizeBeep = Boolean.Parse(_source.GetValue("randomizeBeep"));
                     if (_source.HasValue("sel_filter")) beepsource_list[x].sel_filter = Int32.Parse(_source.GetValue("sel_filter"));
                     if (_source.HasValue("show_settings_window")) beepsource_list[x].show_settings_window = Boolean.Parse(_source.GetValue("show_settings_window"));
                     if (_source.HasValue("reverb_preset_index")) beepsource_list[x].reverb_preset_index = Int32.Parse(_source.GetValue("reverb_preset_index"));
