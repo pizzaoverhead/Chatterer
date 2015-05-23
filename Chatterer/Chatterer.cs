@@ -3157,6 +3157,10 @@ namespace Chatterer
             chatter_array[2].directory = "russian";
             chatter_array[2].is_active = true;
 
+            chatter_array.Add(new ChatterAudioList());
+            chatter_array[3].directory = "valentina";
+            chatter_array[3].is_active = true;
+
             if (debugging) Debug.Log("[CHATR] audioset defaults added :: new count = " + chatter_array.Count);
         }
 
