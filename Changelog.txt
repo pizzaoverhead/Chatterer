@@ -1,5 +1,12 @@
 Changelog:
 
+v0.9.2 [23 May 2015]
+- fixed "skin index get out of range" messing up the GUI in some situations
+- added an option to have ship background noises only when in IVA (under AAE tab)
+- set "disable beep during chatter" to false by default (for realism sake)
+- textures converted to DDS (thanks to Avera9eJoe) 
+(be sure to remove old .png files when upgrading)
+
 v0.9.1 [02 May 2015]
 - Recompiled for KSP v1.0.2
 

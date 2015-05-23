@@ -141,7 +141,7 @@ namespace Chatterer
     public partial class chatterer : MonoBehaviour
     {
         //Version
-        private string this_version = "0.9.1.86";
+        private string this_version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
         private string main_window_title = "Chatterer ";
         
         private static System.Random rand = new System.Random();
@@ -314,7 +314,6 @@ namespace Chatterer
 
         private string yep_yep = "";
         private bool yep_yep_loaded = false;
-
 
         //AAE
         private bool aae_backgrounds_exist = false;
@@ -573,7 +572,7 @@ namespace Chatterer
             gs_tooltip = new GUIStyle(GUI.skin.box);
             gs_tooltip.normal.background = GUI.skin.window.normal.background;
             gs_tooltip.normal.textColor = XKCDColors.LightGrey;
-            gs_tooltip.fontSize = 9;
+            gs_tooltip.fontSize = 11;
 
             button_txt_left_bold = new GUIStyle(GUI.skin.button);
             button_txt_left_bold.normal.textColor = Color.white;
@@ -636,7 +635,8 @@ namespace Chatterer
         protected void draw_GUI()
         {
             //Apply a skin
-            if (skin_index == 0) GUI.skin = null;
+            if (skin_index > g_skin_list.Count) skin_index = 0;
+            else if (skin_index == 0) GUI.skin = null;
             else GUI.skin = g_skin_list[skin_index - 1];
 
             if (gui_styles_set == false) set_gui_styles();  //run this once to set a few GUIStyles
@@ -1324,7 +1324,18 @@ namespace Chatterer
                     GUILayout.EndHorizontal();
                     i++;
                 }
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "Background sounds only in IVA";
+                _content.tooltip = "Play only when in internal view";
+                aae_backgrounds_onlyinIVA = GUILayout.Toggle(aae_backgrounds_onlyinIVA, _content);
+                GUILayout.EndHorizontal();
             }
+
+            //line to separate
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(false));
+            GUILayout.Label(line_512x4, GUILayout.ExpandWidth(false), GUILayout.Width(275f), GUILayout.Height(10f));
+            GUILayout.EndHorizontal();
 
             //EVA breathing
             if (aae_breathing_exist)
@@ -1442,7 +1453,7 @@ namespace Chatterer
             
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Use per-vessel settings";
-            _content.tooltip = "Every vessel will save/load its own individual settings";
+            _content.tooltip = "Every vessel will keep its own individual settings";
             use_vessel_settings = GUILayout.Toggle(use_vessel_settings, _content);
             GUILayout.EndHorizontal();
 
@@ -1472,7 +1483,7 @@ namespace Chatterer
             }
 
             _content.text = "Enable RemoteTech integration";
-            _content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
+            _content.tooltip = "Disable/Delay comms with KSC accordingly";
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
             GUILayout.EndHorizontal();
@@ -3270,14 +3281,16 @@ namespace Chatterer
             }
         }
 
-        //RemoteTech
+        //Tooltips
         private void tooltips(Rect pos)
         {
             if (show_tooltips && GUI.tooltip != "")
             {
                 float w = 5.5f * GUI.tooltip.Length;
                 float x = (Event.current.mousePosition.x < pos.width / 2) ? Event.current.mousePosition.x + 10 : Event.current.mousePosition.x - 10 - w;
-                GUI.Box(new Rect(x, Event.current.mousePosition.y, w, 25f), GUI.tooltip, gs_tooltip);
+                float h = 25f;
+                float t = Event.current.mousePosition.y - (h / 4);
+                GUI.Box(new Rect(x, t, w, h), GUI.tooltip, gs_tooltip);
             }
         }
         
@@ -3457,6 +3470,7 @@ namespace Chatterer
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
+            Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
         }
 
         private void Start()
@@ -3634,24 +3648,36 @@ namespace Chatterer
                 //BACKGROUND
                 if (aae_backgrounds_exist)
                 {
-                    //if EVA, stop background audio
-                    if (vessel.vesselType == VesselType.EVA || vessel.vesselType == VesselType.Flag)
+                    //if vessel not qualified to have onboard noises, stop background audio
+                    if (vessel.GetCrewCapacity() < 1 || vessel.vesselType != VesselType.Ship && vessel.vesselType != VesselType.Station && vessel.vesselType != VesselType.Base && vessel.vesselType != VesselType.Lander)
                     {
                         foreach (BackgroundSource src in backgroundsource_list)
                         {
-                            src.audiosource.Stop();
+                            if (src.audiosource.isPlaying == true)
+                            {
+                                src.audiosource.Stop();
+                            }
                         }
                     }
-                    else
+                    //check if user chose to have only background when on IVA, and then check if in IVA 
+                    else if ((aae_backgrounds_onlyinIVA && (CameraManager.Instance.currentCameraMode == CameraManager.CameraMode.IVA || CameraManager.Instance.currentCameraMode == CameraManager.CameraMode.Internal)) || !aae_backgrounds_onlyinIVA)
                     {
-                        //else play background audio
-
                         foreach (BackgroundSource src in backgroundsource_list)
                         {
                             if (src.audiosource.isPlaying == false)
                             {
                                 src.audiosource.loop = true;
                                 src.audiosource.Play();
+                            }
+                        }
+                    }
+                    else //else stop background audio
+                    {
+                        foreach (BackgroundSource src in backgroundsource_list)
+                        {
+                            if (src.audiosource.isPlaying == true)
+                            {
+                                src.audiosource.Stop();
                             }
                         }
                     }
