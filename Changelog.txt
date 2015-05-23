@@ -1,5 +1,9 @@
 Changelog:
 
+v0.9.3 [23 May 2015]
+(second update of the day)
+- Added random beeps setting
+
 v0.9.2 [23 May 2015]
 - fixed "skin index get out of range" messing up the GUI in some situations
 - added an option to have ship background noises only when in IVA (under AAE tab)
