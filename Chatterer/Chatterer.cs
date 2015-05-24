@@ -61,6 +61,7 @@ namespace Chatterer
         //class to manage chatter clips
         public List<AudioClip> capcom;
         public List<AudioClip> capsule;
+        public List<AudioClip> capsuleF;
         public string directory;
         public bool is_active;
 
@@ -68,6 +69,7 @@ namespace Chatterer
         {
             capcom = new List<AudioClip>();
             capsule = new List<AudioClip>();
+            capsuleF = new List<AudioClip>();
             directory = "dir";
             is_active = true;
         }
@@ -185,8 +187,10 @@ namespace Chatterer
         //Chatter audio lists
         private List<AudioClip> current_capcom_chatter = new List<AudioClip>();     //holds chatter of toggled sets
         private List<AudioClip> current_capsule_chatter = new List<AudioClip>();    //one of these becomes initial, the other response
+        private List<AudioClip> current_capsuleF_chatter = new List<AudioClip>(); //Female set
         private int current_capcom_clip;
         private int current_capsule_clip;
+        private int current_capsuleF_clip;
 
         private AudioClip quindar_clip;
 
@@ -2455,7 +2459,7 @@ namespace Chatterer
             //if exists, run GetFiles() for each of the file extensions
 
 
-            string[] set_types = { "capcom", "capsule" };
+            string[] set_types = { "capcom", "capsule", "capsuleF" };
             string[] audio_file_ext = { "*.wav", "*.ogg", "*.aif", "*.aiff" };
             int k;
 
@@ -2476,14 +2480,15 @@ namespace Chatterer
                         //if (debugging) Debug.Log("[CHATR] directory [" + chatter_array[k].directory + "] found OK");
                         foreach (string st in set_types)
                         {
-                            //search through each set_type (capcom, capsule)
+                            //search through each set_type (capcom, capsule, capsuleF)
                             if (Directory.Exists(chatter_root + chatter_array[k].directory + "/" + st))
                             {
                                 //if (debugging) Debug.Log("[CHATR] directory [" + chatter_array[k].directory + "/" + st + "] found OK");
 
                                 //if (debugging) Debug.Log("[CHATR] clearing existing " + chatter_array[k].directory + "/" + st + " audio");
                                 if (st == "capcom") chatter_array[k].capcom.Clear();
-                                else if (st == "capsule") chatter_array[k].capsule.Clear();  //clear any existing audio
+                                else if (st == "capsule") chatter_array[k].capsule.Clear();
+                                else if (st == "capsuleF") chatter_array[k].capsuleF.Clear();//clear any existing audio
 
                                 string[] st_array;
                                 foreach (string ext in audio_file_ext)
@@ -2525,6 +2530,11 @@ namespace Chatterer
                                                     chatter_array[k].capsule.Add(www_chatter.GetAudioClip(false));
                                                     //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
                                                 }
+                                                else if (st == "capsuleF")
+                                                {
+                                                    chatter_array[k].capsuleF.Add(www_chatter.GetAudioClip(false));
+                                                    //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                                }
                                             }
                                         }
                                         else
@@ -2540,6 +2550,11 @@ namespace Chatterer
                                                 else if (st == "capsule")
                                                 {
                                                     chatter_array[k].capsule.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
+                                                    //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
+                                                }
+                                                else if (st == "capsuleF")
+                                                {
+                                                    chatter_array[k].capsuleF.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
                                                     //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
                                                 }
                                             }
@@ -2693,6 +2708,7 @@ namespace Chatterer
             //load audio into current from sets that are toggled on
             current_capcom_chatter.Clear();
             current_capsule_chatter.Clear();
+            current_capsuleF_chatter.Clear();
 
             int i;
             for (i = 0; i < chatter_array.Count; i++)
@@ -2701,6 +2717,7 @@ namespace Chatterer
                 {
                     current_capcom_chatter.AddRange(chatter_array[i].capcom);
                     current_capsule_chatter.AddRange(chatter_array[i].capsule);
+                    current_capsuleF_chatter.AddRange(chatter_array[i].capsuleF);
                 }
             }
 
@@ -2736,6 +2753,7 @@ namespace Chatterer
             secs_since_initial_chatter = 0;
             current_capcom_clip = rand.Next(0, current_capcom_chatter.Count); // select a new capcom clip to play
             current_capsule_clip = rand.Next(0, current_capsule_chatter.Count); // select a new capsule clip to play
+            current_capsuleF_clip = rand.Next(0, current_capsuleF_chatter.Count); // select a new capsuleF clip to play
             response_delay_secs = rand.Next(2, 5);  // select another random int to set response delay time
 
             if (pod_begins_exchange) initial_chatter_source = 1;    //pod_begins_exchange set true OnUpdate when staging and on event change
@@ -2744,15 +2762,21 @@ namespace Chatterer
             if (initial_chatter_source == 0)
             {
                 initial_chatter_set = current_capcom_chatter;
-                response_chatter_set = current_capsule_chatter;
+                if (chatter_is_female) response_chatter_set = current_capsuleF_chatter;
+                else response_chatter_set = current_capsule_chatter;
+
                 initial_chatter_index = current_capcom_clip;
-                response_chatter_index = current_capsule_clip;
+                if (chatter_is_female) response_chatter_index = current_capsuleF_clip;
+                else response_chatter_index = current_capsule_clip;
             }
             else
             {
-                initial_chatter_set = current_capsule_chatter;
+                if (chatter_is_female) initial_chatter_set = current_capsuleF_chatter;
+                else initial_chatter_set = current_capsule_chatter;
                 response_chatter_set = current_capcom_chatter;
-                initial_chatter_index = current_capsule_clip;
+
+                if (chatter_is_female) initial_chatter_index = current_capsuleF_clip;
+                else initial_chatter_index = current_capsule_clip;
                 response_chatter_index = current_capcom_clip;
             }
             if (initial_chatter_set.Count > 0) initial_chatter.clip = initial_chatter_set[initial_chatter_index];
