@@ -507,7 +507,7 @@ namespace Chatterer
         private void checkChatterGender()
         {
             chatter_is_female = ProtoCrewMember.Gender.Female == vessel.GetVesselCrew()[0].gender ? true : false;
-            Debug.Log("[CHATR] (vessel != prev_vessel) is female :" + chatter_is_female.ToString());
+            if (debugging) Debug.Log("[CHATR] (vessel != prev_vessel) is female :" + chatter_is_female.ToString());
         }
 
         internal void OnDestroy() 
@@ -869,7 +869,7 @@ namespace Chatterer
                         GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
 
                         bool temp = chatter_array[i].is_active;
-                        _content.text = chatter_array[i].directory + " (" + (chatter_array[i].capcom.Count + chatter_array[i].capsule.Count).ToString() + " clips)";
+                        _content.text = chatter_array[i].directory + " (" + (chatter_array[i].capcom.Count + chatter_array[i].capsule.Count + chatter_array[i].capsuleF.Count).ToString() + " clips)";
                         _content.tooltip = "Toggle this chatter set on/off";
                         chatter_array[i].is_active = GUILayout.Toggle(chatter_array[i].is_active, _content, GUILayout.ExpandWidth(true));
                         _content.text = "Remove";
