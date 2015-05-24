@@ -1,6 +1,10 @@
 Changelog:
 
-v0.9.4 [24 May 2015]
+v0.9.5 [24 May 2015] (HOTFIX)
+- fixed EXP spam on probes or no crew onbard.
+(thanks taniwha)
+
+v0.9.4 [24 May 2015] (NUKED)
 - Added Female audioset (Talk to me Valentina)
 (Female capsule chatter will play when Kerbal in command (seat[0]) or EVA Kerbal is female)
 

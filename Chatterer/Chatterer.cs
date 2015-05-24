@@ -506,7 +506,10 @@ namespace Chatterer
 
         private void checkChatterGender()
         {
-            chatter_is_female = ProtoCrewMember.Gender.Female == vessel.GetVesselCrew()[0].gender ? true : false;
+            chatter_is_female = false;
+            var crew = vessel.GetVesselCrew();
+            if (crew.Count > 0) chatter_is_female = ProtoCrewMember.Gender.Female == crew[0].gender ? true : false;
+
             if (debugging) Debug.Log("[CHATR] (vessel != prev_vessel) is female :" + chatter_is_female.ToString());
         }
 
