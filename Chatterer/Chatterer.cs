@@ -194,6 +194,7 @@ namespace Chatterer
         private bool exchange_playing = false;
         private bool response_chatter_started = false;
         private bool pod_begins_exchange = false;
+        private bool chatter_is_female = false;
         private int initial_chatter_source; //whether capsule or capcom begins exchange
         private List<AudioClip> initial_chatter_set = new List<AudioClip>();    //random clip pulled from here
         private int initial_chatter_index;  //index of random clip
@@ -491,6 +492,20 @@ namespace Chatterer
                 aae_airlock.Play();
         }
 
+        void OnVesselChange(Vessel data)
+        {
+            Debug.Log("[CHATR] OnVesselChange(Vessel vessel) OK!");
+
+            //checkChatterGender();
+
+        }
+
+        private void checkChatterGender()
+        {
+            chatter_is_female = ProtoCrewMember.Gender.Female == vessel.GetVesselCrew()[0].gender ? true : false;
+            Debug.Log("[CHATR] (vessel != prev_vessel) is female :" + chatter_is_female.ToString());
+        }
+
         internal void OnDestroy() 
         {
             if (debugging) Debug.Log("[CHATR] OnDestroy() START");
@@ -507,6 +522,7 @@ namespace Chatterer
             GameEvents.onGameSceneLoadRequested.Remove(OnSceneChangeRequest);
             GameEvents.onCrewOnEva.Remove(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
+            GameEvents.onVesselChange.Remove(OnVesselChange);
             
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
@@ -3467,6 +3483,7 @@ namespace Chatterer
             quindar1.clip = quindar_clip;
             quindar2.clip = quindar_clip;
 
+            //checkChatterGender();
             initialize_new_exchange();
 
             load_sstv_audio();
@@ -3486,6 +3503,7 @@ namespace Chatterer
             GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
             GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
+            GameEvents.onVesselChange.Add(OnVesselChange);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
             Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
@@ -3546,6 +3564,7 @@ namespace Chatterer
                     vessel_prev_sit = vessel.situation;
                     vessel_prev_stage = vessel.currentStage;
                     vessel_part_count = vessel.parts.Count;
+                    checkChatterGender();
                     run_once = false;
 
                     if (use_vessel_settings)
@@ -3561,6 +3580,8 @@ namespace Chatterer
                 {
                     //active vessel has changed
                     if (debugging) Debug.Log("[CHATR] ActiveVessel has changed::prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
+
+                    checkChatterGender();
 
                     //stop_audio("all");
 
