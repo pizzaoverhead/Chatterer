@@ -870,6 +870,7 @@ namespace Chatterer
 
                         bool temp = chatter_array[i].is_active;
                         _content.text = chatter_array[i].directory + " (" + (chatter_array[i].capcom.Count + chatter_array[i].capsule.Count + chatter_array[i].capsuleF.Count).ToString() + " clips)";
+                        if (chatter_array[i].capsuleF.Count > 0) _content.text = _content.text + " (Female set in)";
                         _content.tooltip = "Toggle this chatter set on/off";
                         chatter_array[i].is_active = GUILayout.Toggle(chatter_array[i].is_active, _content, GUILayout.ExpandWidth(true));
                         _content.text = "Remove";
