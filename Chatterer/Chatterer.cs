@@ -361,9 +361,9 @@ namespace Chatterer
 
         //GUI
 
+        //integration with blizzy78's Toolbar plugin
         internal chatterer() 
         {
-            //integration with blizzy78's Toolbar plugin
             if (ToolbarButtonWrapper.ToolbarManagerPresent)
             {
                 if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
@@ -1820,13 +1820,8 @@ namespace Chatterer
                     if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
                     //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
 
-
-
-
                     OTP_source = source;
                     OTP_stored_clip = source.audiosource.clip;
-
-
 
                     //if (debugging) Debug.Log("[CHATR] OTP_stored_clip = " + OTP_stored_clip);
                     //source.current_clip = key;
@@ -1843,27 +1838,6 @@ namespace Chatterer
                     OTP_playing = true;
                     source.audiosource.Play();
 
-                    //problem may be right here when setting clip back right after playing
-                    //reset clip in Update() after playing has finished
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] AudioSource has played");
-                    //source.current_clip = stored_clip;
-                    //if (debugging) Debug.Log("[CHATR] source.current_clip = " +  source.current_clip);
-                    //set_beep_clip(source);
-
-                    //AudioClip temp_clip;
-                    //if (dict_probe_samples.TryGetValue(key, out temp_clip))
-                    //{
-                    //    if (debugging) Debug.Log("[CHATR] got temp_clip, key = " + key);
-                    //    source.audiosource.clip = temp_clip;
-                    //    if (debugging) Debug.Log("[CHATR] playing one time");
-                    //    source.audiosource.Play();
-                    //    source.current_clip = stored_clip;
-                    //    set_beep_clip(source);
-                    //    if (debugging) Debug.Log("[CHATR] stored clip replaced");
-                    //}
                 }
 
                 _content.text = "Set";
@@ -1874,15 +1848,6 @@ namespace Chatterer
                     source.current_clip = key;  //set current_clip
                     set_beep_clip(source);  //then assign AudioClip
                     if (debugging) Debug.Log("[CHATR] sample selector clip set :: clip = " + key);
-
-                    //set and play once when clicked
-                    //if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //else
-                    //{
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-                    //source.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                    //source.audiosource.Play();
-                    //}
 
                 }
 
@@ -1935,61 +1900,6 @@ namespace Chatterer
                 _content.tooltip = "Background sample file name";
                 GUILayout.Label(_content, sample_gs, GUILayout.ExpandWidth(true));
 
-                /*
-                _content.text = "►";
-                _content.tooltip = "Play this sample once";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-
-
-
-
-                    OTP_source = source;
-                    OTP_stored_clip = source.audiosource.clip;
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] OTP_stored_clip = " + OTP_stored_clip);
-                    //source.current_clip = key;
-                    //if (debugging) Debug.Log("[CHATR] set clip " + source.current_clip + " to play once");
-                    //set_beep_clip(source);
-                    //if (debugging) Debug.Log("[CHATR] source.audiosource.clip set");
-
-                    //AudioClip _clip;
-                    if (dict_probe_samples.TryGetValue(key, out _clip))
-                    {
-                        source.audiosource.clip = _clip;
-                    }
-
-                    OTP_playing = true;
-                    source.audiosource.Play();
-
-                    //problem may be right here when setting clip back right after playing
-                    //reset clip in Update() after playing has finished
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] AudioSource has played");
-                    //source.current_clip = stored_clip;
-                    //if (debugging) Debug.Log("[CHATR] source.current_clip = " +  source.current_clip);
-                    //set_beep_clip(source);
-
-                    //AudioClip temp_clip;
-                    //if (dict_probe_samples.TryGetValue(key, out temp_clip))
-                    //{
-                    //    if (debugging) Debug.Log("[CHATR] got temp_clip, key = " + key);
-                    //    source.audiosource.clip = temp_clip;
-                    //    if (debugging) Debug.Log("[CHATR] playing one time");
-                    //    source.audiosource.Play();
-                    //    source.current_clip = stored_clip;
-                    //    set_beep_clip(source);
-                    //    if (debugging) Debug.Log("[CHATR] stored clip replaced");
-                    //}
-                }
-                */
-
                 _content.text = "Set";
                 _content.tooltip = "Set this sample to play from this backgroundsource";
                 if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
@@ -2018,19 +1928,7 @@ namespace Chatterer
                         //set_beep_clip(beepsource);
                     }
 
-
-
-
                     if (debugging) Debug.Log("[CHATR] sample selector clip set :: clip = " + key);
-
-                    //set and play once when clicked
-                    //if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //else
-                    //{
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-                    //source.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                    //source.audiosource.Play();
-                    //}
 
                 }
 
@@ -2732,17 +2630,6 @@ namespace Chatterer
                     current_capsuleF_chatter.AddRange(chatter_array[i].capsuleF);
                 }
             }
-
-            //toggle has changed so resave audiosets.cfg
-            //now done in write_settings()
-            // i = 0;
-            //foreach (ConfigNode _node in audiosets.nodes)
-            //{
-            //    _node.SetValue("is_active", chatter_array[i].is_active.ToString());
-            //    i++;
-            //}
-
-            //audiosets.Save(audiosets_path);
 
             if (debugging) Debug.Log("[CHATR] toggled sets loaded OK");
         }
@@ -3558,13 +3445,6 @@ namespace Chatterer
             if (insta_chatter_key_just_changed && Input.GetKeyUp(insta_chatter_key)) insta_chatter_key_just_changed = false;
             if (insta_sstv_key_just_changed && Input.GetKeyUp(insta_sstv_key)) insta_sstv_key_just_changed = false;
 
-            ////Icon relocation
-            //if (changing_icon_pos && Input.GetMouseButtonDown(0))
-            //{
-            //    ui_icon_pos = new Rect(Input.mousePosition.x - 15f, Screen.height - Input.mousePosition.y - 15f, 30f, 30f);
-            //    changing_icon_pos = false;
-            //}
-            
             mute_check();
 
             radio_check();
@@ -3599,7 +3479,6 @@ namespace Chatterer
                     vessel_prev_sit = vessel.situation;
                     vessel_prev_stage = vessel.currentStage;
                     vessel_part_count = vessel.parts.Count;
-                    //checkChatterGender(); //For first load
                     run_once = false;
 
                     if (use_vessel_settings)
@@ -3616,21 +3495,7 @@ namespace Chatterer
                     //active vessel has changed
                     if (debugging) Debug.Log("[CHATR] ActiveVessel has changed::prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
 
-                    //checkChatterGender(); //Put this here waiting for a fix for NullREF on OnVesselChange() event
-
                     //stop_audio("all");
-
-
-                    //play a new clip any time vessel changes and new vessel has crew or is EVA
-                    //if (((power_available && vessel.GetCrewCount() > 0) || vessel.vesselType == VesselType.EVA) && chatter_freq > 0)
-                    //{
-                    //new active vessel has crew onboard or is EVA
-                    //play an auto clip
-                    //pod_begins_exchange = true;
-                    //begin_exchange(0);
-                    //}
-
-
 
                     if (use_vessel_settings)
                     {
@@ -3715,9 +3580,6 @@ namespace Chatterer
                 ///////////////////////
 
                 //Do AAE
-
-                //if (AAE_exists)
-                //{
 
                 //BACKGROUND
                 if (aae_backgrounds_exist)
