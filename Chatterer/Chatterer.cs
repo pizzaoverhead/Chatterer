@@ -61,6 +61,7 @@ namespace Chatterer
         //class to manage chatter clips
         public List<AudioClip> capcom;
         public List<AudioClip> capsule;
+        public List<AudioClip> capsuleF;
         public string directory;
         public bool is_active;
 
@@ -68,6 +69,7 @@ namespace Chatterer
         {
             capcom = new List<AudioClip>();
             capsule = new List<AudioClip>();
+            capsuleF = new List<AudioClip>();
             directory = "dir";
             is_active = true;
         }
@@ -185,8 +187,10 @@ namespace Chatterer
         //Chatter audio lists
         private List<AudioClip> current_capcom_chatter = new List<AudioClip>();     //holds chatter of toggled sets
         private List<AudioClip> current_capsule_chatter = new List<AudioClip>();    //one of these becomes initial, the other response
+        private List<AudioClip> current_capsuleF_chatter = new List<AudioClip>(); //Female set
         private int current_capcom_clip;
         private int current_capsule_clip;
+        private int current_capsuleF_clip;
 
         private AudioClip quindar_clip;
 
@@ -194,6 +198,7 @@ namespace Chatterer
         private bool exchange_playing = false;
         private bool response_chatter_started = false;
         private bool pod_begins_exchange = false;
+        private bool chatter_is_female = false;
         private int initial_chatter_source; //whether capsule or capcom begins exchange
         private List<AudioClip> initial_chatter_set = new List<AudioClip>();    //random clip pulled from here
         private int initial_chatter_index;  //index of random clip
@@ -491,6 +496,20 @@ namespace Chatterer
                 aae_airlock.Play();
         }
 
+        //void OnVesselChange(Vessel data)
+        //{
+        //    Debug.Log("[CHATR] OnVesselChange(Vessel vessel) OK!");
+
+        //    //checkChatterGender(); // Getting NullREF if done here or in Awake
+
+        //}
+
+        private void checkChatterGender()
+        {
+            chatter_is_female = ProtoCrewMember.Gender.Female == vessel.GetVesselCrew()[0].gender ? true : false;
+            if (debugging) Debug.Log("[CHATR] (vessel != prev_vessel) is female :" + chatter_is_female.ToString());
+        }
+
         internal void OnDestroy() 
         {
             if (debugging) Debug.Log("[CHATR] OnDestroy() START");
@@ -507,6 +526,7 @@ namespace Chatterer
             GameEvents.onGameSceneLoadRequested.Remove(OnSceneChangeRequest);
             GameEvents.onCrewOnEva.Remove(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
+            //GameEvents.onVesselChange.Remove(OnVesselChange);
             
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
@@ -849,7 +869,8 @@ namespace Chatterer
                         GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
 
                         bool temp = chatter_array[i].is_active;
-                        _content.text = chatter_array[i].directory + " (" + (chatter_array[i].capcom.Count + chatter_array[i].capsule.Count).ToString() + " clips)";
+                        _content.text = chatter_array[i].directory + " (" + (chatter_array[i].capcom.Count + chatter_array[i].capsule.Count + chatter_array[i].capsuleF.Count).ToString() + " clips)";
+                        if (chatter_array[i].capsuleF.Count > 0) _content.text = _content.text + " (Female set in)";
                         _content.tooltip = "Toggle this chatter set on/off";
                         chatter_array[i].is_active = GUILayout.Toggle(chatter_array[i].is_active, _content, GUILayout.ExpandWidth(true));
                         _content.text = "Remove";
@@ -2439,7 +2460,7 @@ namespace Chatterer
             //if exists, run GetFiles() for each of the file extensions
 
 
-            string[] set_types = { "capcom", "capsule" };
+            string[] set_types = { "capcom", "capsule", "capsuleF" };
             string[] audio_file_ext = { "*.wav", "*.ogg", "*.aif", "*.aiff" };
             int k;
 
@@ -2460,14 +2481,15 @@ namespace Chatterer
                         //if (debugging) Debug.Log("[CHATR] directory [" + chatter_array[k].directory + "] found OK");
                         foreach (string st in set_types)
                         {
-                            //search through each set_type (capcom, capsule)
+                            //search through each set_type (capcom, capsule, capsuleF)
                             if (Directory.Exists(chatter_root + chatter_array[k].directory + "/" + st))
                             {
                                 //if (debugging) Debug.Log("[CHATR] directory [" + chatter_array[k].directory + "/" + st + "] found OK");
 
                                 //if (debugging) Debug.Log("[CHATR] clearing existing " + chatter_array[k].directory + "/" + st + " audio");
                                 if (st == "capcom") chatter_array[k].capcom.Clear();
-                                else if (st == "capsule") chatter_array[k].capsule.Clear();  //clear any existing audio
+                                else if (st == "capsule") chatter_array[k].capsule.Clear();
+                                else if (st == "capsuleF") chatter_array[k].capsuleF.Clear();//clear any existing audio
 
                                 string[] st_array;
                                 foreach (string ext in audio_file_ext)
@@ -2509,6 +2531,11 @@ namespace Chatterer
                                                     chatter_array[k].capsule.Add(www_chatter.GetAudioClip(false));
                                                     //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
                                                 }
+                                                else if (st == "capsuleF")
+                                                {
+                                                    chatter_array[k].capsuleF.Add(www_chatter.GetAudioClip(false));
+                                                    //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                                }
                                             }
                                         }
                                         else
@@ -2524,6 +2551,11 @@ namespace Chatterer
                                                 else if (st == "capsule")
                                                 {
                                                     chatter_array[k].capsule.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
+                                                    //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
+                                                }
+                                                else if (st == "capsuleF")
+                                                {
+                                                    chatter_array[k].capsuleF.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
                                                     //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
                                                 }
                                             }
@@ -2677,6 +2709,7 @@ namespace Chatterer
             //load audio into current from sets that are toggled on
             current_capcom_chatter.Clear();
             current_capsule_chatter.Clear();
+            current_capsuleF_chatter.Clear();
 
             int i;
             for (i = 0; i < chatter_array.Count; i++)
@@ -2685,6 +2718,7 @@ namespace Chatterer
                 {
                     current_capcom_chatter.AddRange(chatter_array[i].capcom);
                     current_capsule_chatter.AddRange(chatter_array[i].capsule);
+                    current_capsuleF_chatter.AddRange(chatter_array[i].capsuleF);
                 }
             }
 
@@ -2720,6 +2754,7 @@ namespace Chatterer
             secs_since_initial_chatter = 0;
             current_capcom_clip = rand.Next(0, current_capcom_chatter.Count); // select a new capcom clip to play
             current_capsule_clip = rand.Next(0, current_capsule_chatter.Count); // select a new capsule clip to play
+            current_capsuleF_clip = rand.Next(0, current_capsuleF_chatter.Count); // select a new capsuleF clip to play
             response_delay_secs = rand.Next(2, 5);  // select another random int to set response delay time
 
             if (pod_begins_exchange) initial_chatter_source = 1;    //pod_begins_exchange set true OnUpdate when staging and on event change
@@ -2728,15 +2763,21 @@ namespace Chatterer
             if (initial_chatter_source == 0)
             {
                 initial_chatter_set = current_capcom_chatter;
-                response_chatter_set = current_capsule_chatter;
+                if (chatter_is_female) response_chatter_set = current_capsuleF_chatter;
+                else response_chatter_set = current_capsule_chatter;
+
                 initial_chatter_index = current_capcom_clip;
-                response_chatter_index = current_capsule_clip;
+                if (chatter_is_female) response_chatter_index = current_capsuleF_clip;
+                else response_chatter_index = current_capsule_clip;
             }
             else
             {
-                initial_chatter_set = current_capsule_chatter;
+                if (chatter_is_female) initial_chatter_set = current_capsuleF_chatter;
+                else initial_chatter_set = current_capsule_chatter;
                 response_chatter_set = current_capcom_chatter;
-                initial_chatter_index = current_capsule_clip;
+
+                if (chatter_is_female) initial_chatter_index = current_capsuleF_clip;
+                else initial_chatter_index = current_capsule_clip;
                 response_chatter_index = current_capcom_clip;
             }
             if (initial_chatter_set.Count > 0) initial_chatter.clip = initial_chatter_set[initial_chatter_index];
@@ -3157,6 +3198,10 @@ namespace Chatterer
             chatter_array[2].directory = "russian";
             chatter_array[2].is_active = true;
 
+            chatter_array.Add(new ChatterAudioList());
+            chatter_array[3].directory = "valentina";
+            chatter_array[3].is_active = true;
+
             if (debugging) Debug.Log("[CHATR] audioset defaults added :: new count = " + chatter_array.Count);
         }
 
@@ -3482,6 +3527,7 @@ namespace Chatterer
             GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
             GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
+            //GameEvents.onVesselChange.Add(OnVesselChange);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
             Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
@@ -3542,6 +3588,7 @@ namespace Chatterer
                     vessel_prev_sit = vessel.situation;
                     vessel_prev_stage = vessel.currentStage;
                     vessel_part_count = vessel.parts.Count;
+                    checkChatterGender(); //For first load
                     run_once = false;
 
                     if (use_vessel_settings)
@@ -3557,6 +3604,8 @@ namespace Chatterer
                 {
                     //active vessel has changed
                     if (debugging) Debug.Log("[CHATR] ActiveVessel has changed::prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
+
+                    checkChatterGender(); //Put this here waiting for a fix for NullREF on OnVesselChange() event
 
                     //stop_audio("all");
 

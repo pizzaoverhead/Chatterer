@@ -1,5 +1,7 @@
 Changelog:
 
+v0.9.4 [24 May 2015]
+
 v0.9.3 [23 May 2015]
 (second update of the day)
 - Added random beeps setting
