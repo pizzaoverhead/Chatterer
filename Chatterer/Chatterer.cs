@@ -498,17 +498,15 @@ namespace Chatterer
 
         void OnVesselChange(Vessel data)
         {
-            if (debugging) Debug.Log("[CHATR] OnVesselChange(Vessel vessel) OK!");
-
             if (FlightGlobals.ActiveVessel != null)
             {
                 vessel = FlightGlobals.ActiveVessel;
                 checkChatterGender();
 
-                if (prev_vessel != null)
+                if (prev_vessel != null) //prev_vessel = null on first flight load, so check this to avoid EXP throw
                 {
                     //active vessel has changed
-                    if (debugging) Debug.Log("[CHATR] ActiveVessel has changed::prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
+                    if (debugging) Debug.Log("[CHATR] OnVesselChange() :: prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
 
                     //stop_audio("all");
 
@@ -516,7 +514,7 @@ namespace Chatterer
                     {
                         ConfigNode all_but_prev_vessel = new ConfigNode();
 
-                        if (debugging) Debug.Log("[CHATR] Update() :: checking each vessel_id in vessel_settings_node");
+                        if (debugging) Debug.Log("[CHATR] checking each vessel_id in vessel_settings_node");
                         if (debugging) Debug.Log("[CHATR] prev_vessel.id = " + prev_vessel.id.ToString());
                         foreach (ConfigNode _vessel in vessel_settings_node.nodes)
                         {
@@ -533,7 +531,7 @@ namespace Chatterer
                                     //if (debugging) Debug.Log("[CHATR] prev_vessel old node removed");
                                     //temp_vessels_string = prev_vessel.id.ToString();
                                     all_but_prev_vessel.AddNode(_vessel);
-                                    if (debugging) Debug.Log("[CHATR] Update() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
+                                    if (debugging) Debug.Log("[CHATR] OnVesselChange() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
                                 }
                                 //else
                                 //{
@@ -548,14 +546,14 @@ namespace Chatterer
                         //}
 
                         vessel_settings_node = all_but_prev_vessel;
-                        //if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node = all_but_prev_vessel");
+                        //if (debugging) Debug.Log("[CHATR] OnVesselChange() :: vessel_settings node = all_but_prev_vessel");
 
                         new_vessel_node(prev_vessel);
-                        //if (debugging) Debug.Log("[CHATR] Update() :: new node created using prev_vessel and added to vessel_settings node");
+                        //if (debugging) Debug.Log("[CHATR] OnVesselChange() :: new node created using prev_vessel and added to vessel_settings node");
 
                         //save_vessel_settings_node();
                         vessel_settings_node.Save(settings_path + "vessels.cfg");
-                        if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node saved to vessel_settings.cfg");
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() :: vessel_settings node saved to vessel_settings.cfg");
 
 
                         load_vessel_settings_node();    //reload with current vessel settings
@@ -568,6 +566,21 @@ namespace Chatterer
                     //don't update vessel_part_count here!
 
                     prev_vessel = vessel;
+                }
+                else //Sets these values on first flight load
+                {
+                    prev_vessel = vessel;
+                    vessel_prev_sit = vessel.situation;
+                    vessel_prev_stage = vessel.currentStage;
+                    vessel_part_count = vessel.parts.Count;
+
+                    if (use_vessel_settings)
+                    {
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() FirstLoad :: calling load_vessel_settings_node()");
+                        load_vessel_settings_node(); //load and search for settings for this vessel
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() FirstLoad :: calling search_vessel_settings_node()");
+                        search_vessel_settings_node();
+                    }
                 }
             }
         }
@@ -1573,9 +1586,9 @@ namespace Chatterer
                 if (use_vessel_settings)
                 {
                     //just toggled on, load stuff
-                    if (debugging) Debug.Log("[CHATR] Update() :: calling load_vessel_settings_node()");
+                    if (debugging) Debug.Log("[CHATR] settings_gui() :: calling load_vessel_settings_node()");
                     load_vessel_settings_node(); //load and search for settings for this vessel
-                    if (debugging) Debug.Log("[CHATR] Update() :: calling search_vessel_settings_node()");
+                    if (debugging) Debug.Log("[CHATR] settings_gui() :: calling search_vessel_settings_node()");
                     search_vessel_settings_node();
                 }
                 prev_use_vessel_settings = use_vessel_settings;
@@ -3462,25 +3475,6 @@ namespace Chatterer
                     OTP_source.audiosource.clip = OTP_stored_clip;
                     //if (debugging) Debug.Log("[CHATR] OTP_source.current_clip = " + OTP_source.current_clip);
                     //set_beep_clip(OTP_source);
-                }
-
-                //RUN-ONCE
-                if (run_once)
-                {
-                    //get null refs trying to set these in Awake() so do them once here
-                    prev_vessel = vessel;
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    vessel_part_count = vessel.parts.Count;
-                    run_once = false;
-
-                    if (use_vessel_settings)
-                    {
-                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling load_vessel_settings_node()");
-                        load_vessel_settings_node(); //load and search for settings for this vessel
-                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling search_vessel_settings_node()");
-                        search_vessel_settings_node();
-                    }
                 }
 
                 if (gui_running == false) start_GUI();
