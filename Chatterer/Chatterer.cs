@@ -501,8 +501,7 @@ namespace Chatterer
             if (FlightGlobals.ActiveVessel != null)
             {
                 vessel = FlightGlobals.ActiveVessel;
-                checkChatterGender();
-
+                
                 if (prev_vessel != null) //prev_vessel = null on first flight load, so check this to avoid EXP throw
                 {
                     //active vessel has changed
@@ -2727,9 +2726,13 @@ namespace Chatterer
             set_new_delay_between_exchanges();
             secs_since_last_exchange = 0;
             secs_since_initial_chatter = 0;
+
+            checkChatterGender(); //Check chatter gender to play female/male voice accordingly
+
             current_capcom_clip = rand.Next(0, current_capcom_chatter.Count); // select a new capcom clip to play
             current_capsule_clip = rand.Next(0, current_capsule_chatter.Count); // select a new capsule clip to play
             current_capsuleF_clip = rand.Next(0, current_capsuleF_chatter.Count); // select a new capsuleF clip to play
+
             response_delay_secs = rand.Next(2, 5);  // select another random int to set response delay time
 
             if (pod_begins_exchange) initial_chatter_source = 1;    //pod_begins_exchange set true OnUpdate when staging and on event change
