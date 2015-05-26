@@ -2727,7 +2727,10 @@ namespace Chatterer
             secs_since_last_exchange = 0;
             secs_since_initial_chatter = 0;
 
-            checkChatterGender(); //Check chatter gender to play female/male voice accordingly
+            if (FlightGlobals.ActiveVessel != null) //Avoid EXP on first load where vessel isn't loaded yet
+            {
+                checkChatterGender(); //Check chatter gender to play female/male voice accordingly
+            }
 
             current_capcom_clip = rand.Next(0, current_capcom_chatter.Count); // select a new capcom clip to play
             current_capsule_clip = rand.Next(0, current_capsule_chatter.Count); // select a new capsule clip to play
