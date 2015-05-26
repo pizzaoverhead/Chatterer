@@ -33,7 +33,6 @@ namespace Chatterer
         private bool debugging = false;      //lots of extra log info if true
 
         //Plugin settings
-        private bool run_once = true;   //used to run some things just once in Update() that don't get done in Awake()
         //private bool power_available = true;
         private bool quindar_toggle = true;
         private bool disable_beeps_during_chatter = false;
