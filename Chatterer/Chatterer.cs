@@ -24,12 +24,13 @@
 
 /* DO ME
  * 
- * 1 - Separate the code in different .cs files accordingly to their function
- * 2 - Check RemoteTech 2 support :
- * - ensure sattelite connection/delay are right
- * - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
- * - add a parazited noise as chatter response if offline
- * 3 - Feminise voices if female Kerbal is speaking
+ * 1 - Continue to separate the code in different .cs files accordingly to their function
+ * 
+ * 2 - RemoteTech support :
+ *   - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
+ *   - add a parazited noise as chatter response if offline
+ *   
+ * 3 - Create an API for external access (Chatter/beeps/SSTV trigger, mute, ...)
  * 
  * //
  * 
@@ -3541,12 +3542,8 @@ namespace Chatterer
                     }
                 }
 
-                //consume_resources();    //try to use a little ElectricCharge
-
-
                 ///////////////////////
                 ///////////////////////
-
                 //Do AAE
 
                 //BACKGROUND
@@ -3672,19 +3669,6 @@ namespace Chatterer
                         }
                     }
                 }
-
-
-                //add the suspenseful music track on loop
-                //conditions?
-                //vessel.situation == suborbital, true alt <= 10000m, descent speed > 10m/s
-                //if (vessel.situation == Vessel.Situations.SUB_ORBITAL && vessel.heightFromTerrain < 10000f && vessel.verticalSpeed < -10f)
-                //{
-                //    //start suspense loop
-                //    //todo add suspense loop
-                //    //landingsource.loop = true;
-                //    //landingsource.Play();
-                //}
-
 
                 //END AAE
                 /////////////////////////////////////////////
@@ -4016,19 +4000,5 @@ namespace Chatterer
                 if (gui_running) stop_GUI();
             }
         }
-
-        //private void consume_resources()
-        //{
-        //    if (TimeWarp.deltaTime == 0) return;    //do nothing if paused
-        //    if (vessel.vesselType == VesselType.EVA || disable_power_usage) power_available = true;    //power always available when EVA
-        //    else if (chatter_freq > 0 || sstv_freq > 0 || (beepsource_list[0].precise && beepsource_list[0].precise_freq > -1) || (beepsource_list[1].precise && beepsource_list[1].precise_freq > -1) || (beepsource_list[2].precise && beepsource_list[2].precise_freq > -1) || (beepsource_list[0].precise == false && beepsource_list[0].loose_freq > 0) || (beepsource_list[1].precise == false && beepsource_list[1].loose_freq > 0) || (beepsource_list[2].precise == false && beepsource_list[2].loose_freq > 0))
-        //    {
-        //        //else if anything is set to play a sound at some time, request ElectricCharge to determine power availability
-        //        float recvd_amount = vessel.rootPart.RequestResource("ElectricCharge", 0.01f * TimeWarp.fixedDeltaTime);
-        //        if (recvd_amount > 0) power_available = true;    // doesn't always send 100% of demand so as long as it sends something
-        //        else power_available = false;
-        //    }
-        //}
-
     }
 }
