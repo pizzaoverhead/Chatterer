@@ -37,6 +37,7 @@ namespace Chatterer
         private bool quindar_toggle = true;
         private bool disable_beeps_during_chatter = false;
         private bool remotetech_toggle = false;
+        private bool sstv_on_science_toggle = true;
         //private bool disable_power_usage = false;
         private bool show_tooltips = true;
         private bool http_update_check = false;
@@ -256,6 +257,7 @@ namespace Chatterer
             node.AddValue("quindar_vol_slider", quindar_vol_slider);
             node.AddValue("sstv_freq", sstv_freq);
             node.AddValue("sstv_vol_slider", sstv_vol_slider);
+            node.AddValue("sstv_on_science_toggle", sstv_on_science_toggle);
 
             node.AddValue("sel_beep_src", sel_beep_src);
             node.AddValue("sel_beep_page", sel_beep_page);
@@ -513,6 +515,8 @@ namespace Chatterer
                 sstv_vol_slider = Single.Parse(node.GetValue("sstv_vol_slider"));
                 prev_sstv_vol_slider = sstv_vol_slider;
             }
+            if (node.HasValue("sstv_on_science_toggle")) sstv_on_science_toggle = Boolean.Parse(node.GetValue("sstv_on_science_toggle"));
+
             if (node.HasValue("sel_beep_src")) sel_beep_src = Int32.Parse(node.GetValue("sel_beep_src"));
             if (sel_beep_src < 0 || sel_beep_src > 9) sel_beep_src = 0;
             if (node.HasValue("sel_beep_page")) sel_beep_page = Int32.Parse(node.GetValue("sel_beep_page"));

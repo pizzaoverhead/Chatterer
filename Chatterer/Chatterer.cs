@@ -587,7 +587,7 @@ namespace Chatterer
 
         void OnScienceChanged(float sci, TransactionReasons scitxreason)
         {
-            if (scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
+            if (sstv_on_science_toggle && scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
             {
                 science_transmitted = true;
 
@@ -1411,6 +1411,12 @@ namespace Chatterer
                     sstv_timer = 0;
                     prev_sstv_freq = sstv_freq;
                 }
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "SSTV on science transmitted";
+                _content.tooltip = "Makes science yielling noises";
+                sstv_on_science_toggle = GUILayout.Toggle(sstv_on_science_toggle, _content);
+                GUILayout.EndHorizontal();
 
                 _content.text = "SSTV volume: " + (sstv_vol_slider * 100).ToString("F0") + "%";
                 _content.tooltip = "Volume of SSTV source";
@@ -3727,7 +3733,7 @@ namespace Chatterer
                         }
 
                         //on science transmitted
-                        if (all_sstv_clips.Count > 0)
+                        if (all_sstv_clips.Count > 0 && sstv_on_science_toggle == true)
                         {
                             if (science_transmitted == true) 
                             {
