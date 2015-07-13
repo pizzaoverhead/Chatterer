@@ -1049,5 +1049,76 @@ namespace Chatterer
 
             if (debugging) Debug.Log("[CHATR] all beep filter values pasted from filters_clipboard");
         }
+
+        //Create filter defaults to use when reseting filters
+        private void create_filter_defaults_node()
+        {
+            filter_defaults = new ConfigNode();
+            filter_defaults.name = "FILTERS";
+
+            ConfigNode _filter;
+
+            _filter = new ConfigNode();
+            _filter.name = "CHORUS";
+            //_filter.AddValue("enabled", false);
+            _filter.AddValue("dry_mix", 0.5f);
+            _filter.AddValue("wet_mix_1", 0.5f);
+            _filter.AddValue("wet_mix_2", 0.5f);
+            _filter.AddValue("wet_mix_3", 0.5f);
+            _filter.AddValue("delay", 40.0f);
+            _filter.AddValue("rate", 0.8f);
+            _filter.AddValue("depth", 0.03f);
+            filter_defaults.AddNode(_filter);
+
+            _filter = new ConfigNode();
+            _filter.name = "DISTORTION";
+            //_filter.AddValue("enabled", false);
+            _filter.AddValue("distortion_level", 0.5f);
+            filter_defaults.AddNode(_filter);
+
+            _filter = new ConfigNode();
+            _filter.name = "ECHO";
+            //_filter.AddValue("enabled", false);
+            _filter.AddValue("delay", 500.0f);
+            _filter.AddValue("decay_ratio", 0.5f);
+            _filter.AddValue("dry_mix", 1.0f);
+            _filter.AddValue("wet_mix", 1.0f);
+            filter_defaults.AddNode(_filter);
+
+            _filter = new ConfigNode();
+            _filter.name = "HIGHPASS";
+            //_filter.AddValue("enabled", false);
+            _filter.AddValue("cutoff_freq", 5000.0f);
+            //_filter.AddValue("resonance_q", "");  //TODO default highpass resonance q missing from Unity Doc webpage.  figure it out
+            filter_defaults.AddNode(_filter);
+
+            _filter = new ConfigNode();
+            _filter.name = "LOWPASS";
+            //_filter.AddValue("enabled", false);
+            _filter.AddValue("cutoff_freq", 5000.0f);
+            //_filter.AddValue("resonance_q", "");  //TODO default lowpass resonance q missing from Unity Doc webpage.  figure it out
+            filter_defaults.AddNode(_filter);
+
+            _filter = new ConfigNode();
+            _filter.name = "REVERB";
+            //_filter.AddValue("enabled", false);
+            _filter.AddValue("reverb_preset", AudioReverbPreset.User);
+            _filter.AddValue("dry_level", 0);
+            _filter.AddValue("room", 0);
+            _filter.AddValue("room_hf", 0);
+            _filter.AddValue("room_lf", 0);
+            _filter.AddValue("room_rolloff", 10.0f);
+            _filter.AddValue("decay_time", 1.0f);
+            _filter.AddValue("decay_hf_ratio", 0.5f);
+            _filter.AddValue("reflections_level", -10000.0f);
+            _filter.AddValue("reflections_delay", 0);
+            _filter.AddValue("reverb_level", 0);
+            _filter.AddValue("reverb_delay", 0.04f);
+            _filter.AddValue("diffusion", 100.0f);
+            _filter.AddValue("density", 100.0f);
+            _filter.AddValue("hf_reference", 5000.0f);
+            _filter.AddValue("lf_reference", 250.0f);
+            filter_defaults.AddNode(_filter);
+        }
     }
 }

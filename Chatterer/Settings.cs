@@ -33,11 +33,11 @@ namespace Chatterer
         private bool debugging = false;      //lots of extra log info if true
 
         //Plugin settings
-        private bool run_once = true;   //used to run some things just once in Update() that don't get done in Awake()
         //private bool power_available = true;
         private bool quindar_toggle = true;
         private bool disable_beeps_during_chatter = false;
         private bool remotetech_toggle = false;
+        private bool sstv_on_science_toggle = true;
         //private bool disable_power_usage = false;
         private bool show_tooltips = true;
         private bool http_update_check = false;
@@ -61,8 +61,8 @@ namespace Chatterer
         private float sstv_freq_slider = 0;
         private int sstv_freq = 0;
         private int prev_sstv_freq = 0;
-        private float sstv_vol_slider = 0.25f;
-        private float prev_sstv_vol_slider = 0.25f;
+        private float sstv_vol_slider = 0.15f;
+        private float prev_sstv_vol_slider = 0.15f;
 
         //Insta-chatter key
         private KeyCode insta_chatter_key = KeyCode.None;
@@ -96,6 +96,7 @@ namespace Chatterer
             plugin_settings_node = new ConfigNode();
             plugin_settings_node.name = "SETTINGS";
             plugin_settings_node.AddValue("debugging", debugging);
+            plugin_settings_node.AddValue("hide_all_windows", hide_all_windows);
             plugin_settings_node.AddValue("use_vessel_settings", use_vessel_settings);
             plugin_settings_node.AddValue("useBlizzy78Toolbar", useBlizzy78Toolbar);
             plugin_settings_node.AddValue("http_update_check", http_update_check);
@@ -136,6 +137,7 @@ namespace Chatterer
                 if (debugging) Debug.Log("[CHATR] plugin_settings != null");
                 //Load settings specific to plugin.cfg
                 if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
+                if (plugin_settings_node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(plugin_settings_node.GetValue("hide_all_windows"));
                 if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
                 if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
                 if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
@@ -192,6 +194,7 @@ namespace Chatterer
                 if (debugging) Debug.Log("[CHATR] plugin_defaults != null");
                 //Load settings specific to plugin.cfg
                 if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
+                if (plugin_settings_node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(plugin_settings_node.GetValue("hide_all_windows"));
                 if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
                 if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
                 if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
@@ -237,7 +240,6 @@ namespace Chatterer
         {
             node.AddValue("show_tooltips", show_tooltips);
             node.AddValue("main_window_pos", main_window_pos.x + "," + main_window_pos.y);
-            node.AddValue("hide_all_windows", hide_all_windows);
             node.AddValue("skin_index", skin_index);
             node.AddValue("active_menu", active_menu);
             node.AddValue("remotetech_toggle", remotetech_toggle);
@@ -255,6 +257,7 @@ namespace Chatterer
             node.AddValue("quindar_vol_slider", quindar_vol_slider);
             node.AddValue("sstv_freq", sstv_freq);
             node.AddValue("sstv_vol_slider", sstv_vol_slider);
+            node.AddValue("sstv_on_science_toggle", sstv_on_science_toggle);
 
             node.AddValue("sel_beep_src", sel_beep_src);
             node.AddValue("sel_beep_page", sel_beep_page);
@@ -462,7 +465,6 @@ namespace Chatterer
             }
 
             if (node.HasValue("show_tooltips")) show_tooltips = Boolean.Parse(node.GetValue("show_tooltips"));
-            if (node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(node.GetValue("hide_all_windows"));
             if (node.HasValue("skin_index")) skin_index = Int32.Parse(node.GetValue("skin_index"));
             if (node.HasValue("active_menu")) active_menu = Int32.Parse(node.GetValue("active_menu"));
             if (node.HasValue("remotetech_toggle")) remotetech_toggle = Boolean.Parse(node.GetValue("remotetech_toggle"));
@@ -513,6 +515,8 @@ namespace Chatterer
                 sstv_vol_slider = Single.Parse(node.GetValue("sstv_vol_slider"));
                 prev_sstv_vol_slider = sstv_vol_slider;
             }
+            if (node.HasValue("sstv_on_science_toggle")) sstv_on_science_toggle = Boolean.Parse(node.GetValue("sstv_on_science_toggle"));
+
             if (node.HasValue("sel_beep_src")) sel_beep_src = Int32.Parse(node.GetValue("sel_beep_src"));
             if (sel_beep_src < 0 || sel_beep_src > 9) sel_beep_src = 0;
             if (node.HasValue("sel_beep_page")) sel_beep_page = Int32.Parse(node.GetValue("sel_beep_page"));

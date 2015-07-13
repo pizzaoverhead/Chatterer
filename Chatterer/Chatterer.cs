@@ -24,12 +24,13 @@
 
 /* DO ME
  * 
- * 1 - Separate the code in different .cs files accordingly to their function
- * 2 - Check RemoteTech 2 support :
- * - ensure sattelite connection/delay are right
- * - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
- * - add a parazited noise as chatter response if offline
- * 3 - Feminise voices if female Kerbal is speaking
+ * 1 - Continue to separate the code in different .cs files accordingly to their function
+ * 
+ * 2 - RemoteTech support :
+ *   - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
+ *   - add a parazited noise as chatter response if offline
+ *   
+ * 3 - Create an API for external access (Chatter/beeps/SSTV trigger, mute, ...)
  * 
  * //
  * 
@@ -315,6 +316,7 @@ namespace Chatterer
         
         private bool chatter_exists = false;
         private bool sstv_exists = false;
+        private bool science_transmitted = false;  //for SSTV on science
         private bool beeps_exists = false;
         
         private List<GUISkin> g_skin_list;
@@ -361,9 +363,9 @@ namespace Chatterer
 
         //GUI
 
+        //integration with blizzy78's Toolbar plugin
         internal chatterer() 
         {
-            //integration with blizzy78's Toolbar plugin
             if (ToolbarButtonWrapper.ToolbarManagerPresent)
             {
                 if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
@@ -418,8 +420,16 @@ namespace Chatterer
              
             if (all_muted)
             {
-                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
-                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                if (initial_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 0) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                }
+                else if (response_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 1) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                }
                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
                 else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled_muted);
                 else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
@@ -427,8 +437,16 @@ namespace Chatterer
             }
             else
             {
-                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
-                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+                if (initial_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 0) SetAppLauncherButtonTexture(chatterer_button_RX);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX);
+                }
+                else if (response_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 1) SetAppLauncherButtonTexture(chatterer_button_RX);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX);
+                }
                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
                 else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled);
                 else SetAppLauncherButtonTexture(chatterer_button_idle);
@@ -496,13 +514,105 @@ namespace Chatterer
                 aae_airlock.Play();
         }
 
-        //void OnVesselChange(Vessel data)
-        //{
-        //    Debug.Log("[CHATR] OnVesselChange(Vessel vessel) OK!");
+        void OnVesselChange(Vessel data)
+        {
+            if (FlightGlobals.ActiveVessel != null)
+            {
+                vessel = FlightGlobals.ActiveVessel;
+                
+                if (prev_vessel != null) //prev_vessel = null on first flight load, so check this to avoid EXP throw
+                {
+                    //active vessel has changed
+                    if (debugging) Debug.Log("[CHATR] OnVesselChange() :: prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
 
-        //    //checkChatterGender(); // Getting NullREF if done here or in Awake
+                    stop_audio("all");
 
-        //}
+                    if (use_vessel_settings)
+                    {
+                        ConfigNode all_but_prev_vessel = new ConfigNode();
+
+                        if (debugging) Debug.Log("[CHATR] checking each vessel_id in vessel_settings_node");
+                        if (debugging) Debug.Log("[CHATR] prev_vessel.id = " + prev_vessel.id.ToString());
+                        foreach (ConfigNode _vessel in vessel_settings_node.nodes)
+                        {
+                            //search for previous vessel id
+                            if (_vessel.HasValue("vessel_id"))
+                            {
+                                string val = _vessel.GetValue("vessel_id");
+
+                                //if (debugging) Debug.Log("[CHATR] node vessel_id = " + val);
+
+                                if (val != prev_vessel.id.ToString())
+                                {
+                                    //vessel_settings_node.RemoveNode(prev_vessel.id.ToString());
+                                    //if (debugging) Debug.Log("[CHATR] prev_vessel old node removed");
+                                    //temp_vessels_string = prev_vessel.id.ToString();
+                                    all_but_prev_vessel.AddNode(_vessel);
+                                    if (debugging) Debug.Log("[CHATR] OnVesselChange() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
+                                }
+                                //else
+                                //{
+                                //    all_but_prev_vessel.AddNode(cn);
+                                //}
+                            }
+                        }
+                        //foreach (ConfigNode cn in vessel_settings_node.nodes)
+                        //{
+                        //vessel_settings_node.RemoveNodes("");
+                        //    if (debugging) Debug.Log("[CHATR] old nodes removed");
+                        //}
+
+                        vessel_settings_node = all_but_prev_vessel;
+                        //if (debugging) Debug.Log("[CHATR] OnVesselChange() :: vessel_settings node = all_but_prev_vessel");
+
+                        new_vessel_node(prev_vessel);
+                        //if (debugging) Debug.Log("[CHATR] OnVesselChange() :: new node created using prev_vessel and added to vessel_settings node");
+
+                        //save_vessel_settings_node();
+                        vessel_settings_node.Save(settings_path + "vessels.cfg");
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() :: vessel_settings node saved to vessel_settings.cfg");
+
+
+                        load_vessel_settings_node();    //reload with current vessel settings
+                        search_vessel_settings_node();  //search for current vessel
+                    }
+
+
+                    vessel_prev_sit = vessel.situation;
+                    vessel_prev_stage = vessel.currentStage;
+                    //don't update vessel_part_count here!
+
+                    prev_vessel = vessel;
+                }
+                else //Sets these values on first flight load
+                {
+                    prev_vessel = vessel;
+                    vessel_prev_sit = vessel.situation;
+                    vessel_prev_stage = vessel.currentStage;
+                    vessel_part_count = vessel.parts.Count;
+
+                    if (use_vessel_settings)
+                    {
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() FirstLoad :: calling load_vessel_settings_node()");
+                        load_vessel_settings_node(); //load and search for settings for this vessel
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() FirstLoad :: calling search_vessel_settings_node()");
+                        search_vessel_settings_node();
+                    }
+                }
+            }
+        }
+
+        void OnScienceChanged(float sci, TransactionReasons scitxreason)
+        {
+            if (sstv_on_science_toggle && scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
+            {
+                science_transmitted = true;
+
+                if (debugging) Debug.Log("[CHATR] Event scienceTX PASS");
+            }
+
+            if (debugging) Debug.Log("[CHATR] Event scienceTX triggered, reason : " + scitxreason.ToString());
+        }
 
         private void checkChatterGender()
         {
@@ -510,7 +620,11 @@ namespace Chatterer
             var crew = vessel.GetVesselCrew();
             if (crew.Count > 0) chatter_is_female = ProtoCrewMember.Gender.Female == crew[0].gender ? true : false;
 
-            if (debugging) Debug.Log("[CHATR] (vessel != prev_vessel) is female :" + chatter_is_female.ToString());
+            if (debugging)
+            {
+                if (crew.Count == 0) Debug.Log("[CHATR] No Chatter gender check (no crew in the vicinity)");
+                else Debug.Log("[CHATR] Chatter is female :" + chatter_is_female.ToString());
+            }
         }
 
         internal void OnDestroy() 
@@ -529,7 +643,8 @@ namespace Chatterer
             GameEvents.onGameSceneLoadRequested.Remove(OnSceneChangeRequest);
             GameEvents.onCrewOnEva.Remove(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
-            //GameEvents.onVesselChange.Remove(OnVesselChange);
+            GameEvents.onVesselChange.Remove(OnVesselChange);
+            GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
@@ -1314,6 +1429,12 @@ namespace Chatterer
                     prev_sstv_freq = sstv_freq;
                 }
 
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "SSTV on science transmitted";
+                _content.tooltip = "Makes science yielling noises";
+                sstv_on_science_toggle = GUILayout.Toggle(sstv_on_science_toggle, _content);
+                GUILayout.EndHorizontal();
+
                 _content.text = "SSTV volume: " + (sstv_vol_slider * 100).ToString("F0") + "%";
                 _content.tooltip = "Volume of SSTV source";
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
@@ -1501,9 +1622,9 @@ namespace Chatterer
                 if (use_vessel_settings)
                 {
                     //just toggled on, load stuff
-                    if (debugging) Debug.Log("[CHATR] Update() :: calling load_vessel_settings_node()");
+                    if (debugging) Debug.Log("[CHATR] settings_gui() :: calling load_vessel_settings_node()");
                     load_vessel_settings_node(); //load and search for settings for this vessel
-                    if (debugging) Debug.Log("[CHATR] Update() :: calling search_vessel_settings_node()");
+                    if (debugging) Debug.Log("[CHATR] settings_gui() :: calling search_vessel_settings_node()");
                     search_vessel_settings_node();
                 }
                 prev_use_vessel_settings = use_vessel_settings;
@@ -1812,13 +1933,8 @@ namespace Chatterer
                     if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
                     //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
 
-
-
-
                     OTP_source = source;
                     OTP_stored_clip = source.audiosource.clip;
-
-
 
                     //if (debugging) Debug.Log("[CHATR] OTP_stored_clip = " + OTP_stored_clip);
                     //source.current_clip = key;
@@ -1835,27 +1951,6 @@ namespace Chatterer
                     OTP_playing = true;
                     source.audiosource.Play();
 
-                    //problem may be right here when setting clip back right after playing
-                    //reset clip in Update() after playing has finished
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] AudioSource has played");
-                    //source.current_clip = stored_clip;
-                    //if (debugging) Debug.Log("[CHATR] source.current_clip = " +  source.current_clip);
-                    //set_beep_clip(source);
-
-                    //AudioClip temp_clip;
-                    //if (dict_probe_samples.TryGetValue(key, out temp_clip))
-                    //{
-                    //    if (debugging) Debug.Log("[CHATR] got temp_clip, key = " + key);
-                    //    source.audiosource.clip = temp_clip;
-                    //    if (debugging) Debug.Log("[CHATR] playing one time");
-                    //    source.audiosource.Play();
-                    //    source.current_clip = stored_clip;
-                    //    set_beep_clip(source);
-                    //    if (debugging) Debug.Log("[CHATR] stored clip replaced");
-                    //}
                 }
 
                 _content.text = "Set";
@@ -1866,15 +1961,6 @@ namespace Chatterer
                     source.current_clip = key;  //set current_clip
                     set_beep_clip(source);  //then assign AudioClip
                     if (debugging) Debug.Log("[CHATR] sample selector clip set :: clip = " + key);
-
-                    //set and play once when clicked
-                    //if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //else
-                    //{
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-                    //source.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                    //source.audiosource.Play();
-                    //}
 
                 }
 
@@ -1927,61 +2013,6 @@ namespace Chatterer
                 _content.tooltip = "Background sample file name";
                 GUILayout.Label(_content, sample_gs, GUILayout.ExpandWidth(true));
 
-                /*
-                _content.text = "►";
-                _content.tooltip = "Play this sample once";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-
-
-
-
-                    OTP_source = source;
-                    OTP_stored_clip = source.audiosource.clip;
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] OTP_stored_clip = " + OTP_stored_clip);
-                    //source.current_clip = key;
-                    //if (debugging) Debug.Log("[CHATR] set clip " + source.current_clip + " to play once");
-                    //set_beep_clip(source);
-                    //if (debugging) Debug.Log("[CHATR] source.audiosource.clip set");
-
-                    //AudioClip _clip;
-                    if (dict_probe_samples.TryGetValue(key, out _clip))
-                    {
-                        source.audiosource.clip = _clip;
-                    }
-
-                    OTP_playing = true;
-                    source.audiosource.Play();
-
-                    //problem may be right here when setting clip back right after playing
-                    //reset clip in Update() after playing has finished
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] AudioSource has played");
-                    //source.current_clip = stored_clip;
-                    //if (debugging) Debug.Log("[CHATR] source.current_clip = " +  source.current_clip);
-                    //set_beep_clip(source);
-
-                    //AudioClip temp_clip;
-                    //if (dict_probe_samples.TryGetValue(key, out temp_clip))
-                    //{
-                    //    if (debugging) Debug.Log("[CHATR] got temp_clip, key = " + key);
-                    //    source.audiosource.clip = temp_clip;
-                    //    if (debugging) Debug.Log("[CHATR] playing one time");
-                    //    source.audiosource.Play();
-                    //    source.current_clip = stored_clip;
-                    //    set_beep_clip(source);
-                    //    if (debugging) Debug.Log("[CHATR] stored clip replaced");
-                    //}
-                }
-                */
-
                 _content.text = "Set";
                 _content.tooltip = "Set this sample to play from this backgroundsource";
                 if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
@@ -2010,19 +2041,7 @@ namespace Chatterer
                         //set_beep_clip(beepsource);
                     }
 
-
-
-
                     if (debugging) Debug.Log("[CHATR] sample selector clip set :: clip = " + key);
-
-                    //set and play once when clicked
-                    //if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //else
-                    //{
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-                    //source.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                    //source.audiosource.Play();
-                    //}
 
                 }
 
@@ -2725,17 +2744,6 @@ namespace Chatterer
                 }
             }
 
-            //toggle has changed so resave audiosets.cfg
-            //now done in write_settings()
-            // i = 0;
-            //foreach (ConfigNode _node in audiosets.nodes)
-            //{
-            //    _node.SetValue("is_active", chatter_array[i].is_active.ToString());
-            //    i++;
-            //}
-
-            //audiosets.Save(audiosets_path);
-
             if (debugging) Debug.Log("[CHATR] toggled sets loaded OK");
         }
 
@@ -2755,9 +2763,16 @@ namespace Chatterer
             set_new_delay_between_exchanges();
             secs_since_last_exchange = 0;
             secs_since_initial_chatter = 0;
+
+            if (FlightGlobals.ActiveVessel != null) //Avoid EXP on first load where vessel isn't loaded yet
+            {
+                checkChatterGender(); //Check chatter gender to play female/male voice accordingly
+            }
+
             current_capcom_clip = rand.Next(0, current_capcom_chatter.Count); // select a new capcom clip to play
             current_capsule_clip = rand.Next(0, current_capsule_chatter.Count); // select a new capsule clip to play
             current_capsuleF_clip = rand.Next(0, current_capsuleF_chatter.Count); // select a new capsuleF clip to play
+
             response_delay_secs = rand.Next(2, 5);  // select another random int to set response delay time
 
             if (pod_begins_exchange) initial_chatter_source = 1;    //pod_begins_exchange set true OnUpdate when staging and on event change
@@ -2930,6 +2945,7 @@ namespace Chatterer
                 response_chatter.Stop();
                 quindar1.Stop();
                 quindar2.Stop();
+                sstv.Stop();
                 exchange_playing = false;
             }
             else if (audio_type == "beeps")
@@ -2941,77 +2957,6 @@ namespace Chatterer
                     bm.timer = 0;
                 }
             }
-        }
-
-        //Create filter defaults to use when reseting filters
-        private void create_filter_defaults_node()
-        {
-            filter_defaults = new ConfigNode();
-            filter_defaults.name = "FILTERS";
-
-            ConfigNode _filter;
-
-            _filter = new ConfigNode();
-            _filter.name = "CHORUS";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("dry_mix", 0.5f);
-            _filter.AddValue("wet_mix_1", 0.5f);
-            _filter.AddValue("wet_mix_2", 0.5f);
-            _filter.AddValue("wet_mix_3", 0.5f);
-            _filter.AddValue("delay", 40.0f);
-            _filter.AddValue("rate", 0.8f);
-            _filter.AddValue("depth", 0.03f);
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "DISTORTION";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("distortion_level", 0.5f);
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "ECHO";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("delay", 500.0f);
-            _filter.AddValue("decay_ratio", 0.5f);
-            _filter.AddValue("dry_mix", 1.0f);
-            _filter.AddValue("wet_mix", 1.0f);
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "HIGHPASS";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("cutoff_freq", 5000.0f);
-            //_filter.AddValue("resonance_q", "");  //TODO default highpass resonance q missing from Unity Doc webpage.  figure it out
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "LOWPASS";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("cutoff_freq", 5000.0f);
-            //_filter.AddValue("resonance_q", "");  //TODO default lowpass resonance q missing from Unity Doc webpage.  figure it out
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "REVERB";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("reverb_preset", AudioReverbPreset.User);
-            _filter.AddValue("dry_level", 0);
-            _filter.AddValue("room", 0);
-            _filter.AddValue("room_hf", 0);
-            _filter.AddValue("room_lf", 0);
-            _filter.AddValue("room_rolloff", 10.0f);
-            _filter.AddValue("decay_time", 1.0f);
-            _filter.AddValue("decay_hf_ratio", 0.5f);
-            _filter.AddValue("reflections_level", -10000.0f);
-            _filter.AddValue("reflections_delay", 0);
-            _filter.AddValue("reverb_level", 0);
-            _filter.AddValue("reverb_delay", 0.04f);
-            _filter.AddValue("diffusion", 100.0f);
-            _filter.AddValue("density", 100.0f);
-            _filter.AddValue("hf_reference", 5000.0f);
-            _filter.AddValue("lf_reference", 250.0f);
-            filter_defaults.AddNode(_filter);
         }
 
         //Copy/Paste beepsource
@@ -3525,12 +3470,20 @@ namespace Chatterer
 
             build_skin_list();
 
-            // Setup & callbacks for KSP Application Launcher
+            // Setup & callbacks
+            //
+            
+            //for KSP Application Launcher
             GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
             GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
+
+            //to trigger Chatter
             GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
-            //GameEvents.onVesselChange.Add(OnVesselChange);
+            GameEvents.onVesselChange.Add(OnVesselChange);
+
+            //to trigger SSTV on science tx
+            GameEvents.OnScienceChanged.Add(OnScienceChanged);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
             Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
@@ -3550,13 +3503,6 @@ namespace Chatterer
             if (insta_chatter_key_just_changed && Input.GetKeyUp(insta_chatter_key)) insta_chatter_key_just_changed = false;
             if (insta_sstv_key_just_changed && Input.GetKeyUp(insta_sstv_key)) insta_sstv_key_just_changed = false;
 
-            ////Icon relocation
-            //if (changing_icon_pos && Input.GetMouseButtonDown(0))
-            //{
-            //    ui_icon_pos = new Rect(Input.mousePosition.x - 15f, Screen.height - Input.mousePosition.y - 15f, 30f, 30f);
-            //    changing_icon_pos = false;
-            //}
-            
             mute_check();
 
             radio_check();
@@ -3583,110 +3529,6 @@ namespace Chatterer
                     //set_beep_clip(OTP_source);
                 }
 
-                //RUN-ONCE
-                if (run_once)
-                {
-                    //get null refs trying to set these in Awake() so do them once here
-                    prev_vessel = vessel;
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    vessel_part_count = vessel.parts.Count;
-                    checkChatterGender(); //For first load
-                    run_once = false;
-
-                    if (use_vessel_settings)
-                    {
-                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling load_vessel_settings_node()");
-                        load_vessel_settings_node(); //load and search for settings for this vessel
-                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling search_vessel_settings_node()");
-                        search_vessel_settings_node();
-                    }
-                }
-
-                if (vessel != prev_vessel)
-                {
-                    //active vessel has changed
-                    if (debugging) Debug.Log("[CHATR] ActiveVessel has changed::prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
-
-                    checkChatterGender(); //Put this here waiting for a fix for NullREF on OnVesselChange() event
-
-                    //stop_audio("all");
-
-
-                    //play a new clip any time vessel changes and new vessel has crew or is EVA
-                    //if (((power_available && vessel.GetCrewCount() > 0) || vessel.vesselType == VesselType.EVA) && chatter_freq > 0)
-                    //{
-                    //new active vessel has crew onboard or is EVA
-                    //play an auto clip
-                    //pod_begins_exchange = true;
-                    //begin_exchange(0);
-                    //}
-
-
-
-                    if (use_vessel_settings)
-                    {
-
-                        ConfigNode all_but_prev_vessel = new ConfigNode();
-
-                        if (debugging) Debug.Log("[CHATR] Update() :: checking each vessel_id in vessel_settings_node");
-                        if (debugging) Debug.Log("[CHATR] prev_vessel.id = " + prev_vessel.id.ToString());
-                        foreach (ConfigNode _vessel in vessel_settings_node.nodes)
-                        {
-
-
-                            //search for previous vessel id
-                            if (_vessel.HasValue("vessel_id"))
-                            {
-                                string val = _vessel.GetValue("vessel_id");
-
-                                //if (debugging) Debug.Log("[CHATR] node vessel_id = " + val);
-
-                                if (val != prev_vessel.id.ToString())
-                                {
-                                    //vessel_settings_node.RemoveNode(prev_vessel.id.ToString());
-                                    //if (debugging) Debug.Log("[CHATR] prev_vessel old node removed");
-                                    //temp_vessels_string = prev_vessel.id.ToString();
-                                    all_but_prev_vessel.AddNode(_vessel);
-                                    if (debugging) Debug.Log("[CHATR] Update() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
-                                }
-                                //else
-                                //{
-                                //    all_but_prev_vessel.AddNode(cn);
-                                //}
-                            }
-                        }
-                        //foreach (ConfigNode cn in vessel_settings_node.nodes)
-                        //{
-                        //vessel_settings_node.RemoveNodes("");
-                        //    if (debugging) Debug.Log("[CHATR] old nodes removed");
-                        //}
-
-                        vessel_settings_node = all_but_prev_vessel;
-                        //if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node = all_but_prev_vessel");
-
-                        new_vessel_node(prev_vessel);
-                        //if (debugging) Debug.Log("[CHATR] Update() :: new node created using prev_vessel and added to vessel_settings node");
-
-                        //save_vessel_settings_node();
-                        vessel_settings_node.Save(settings_path + "vessels.cfg");
-                        if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node saved to vessel_settings.cfg");
-
-
-                        load_vessel_settings_node();    //reload with current vessel settings
-                        search_vessel_settings_node();  //search for current vessel
-                    }
-
-
-
-
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    //don't update vessel_part_count here!
-
-                    prev_vessel = vessel;
-                }
-
                 if (gui_running == false) start_GUI();
                 
                 //update remotetech info if needed
@@ -3700,16 +3542,9 @@ namespace Chatterer
                     }
                 }
 
-                //consume_resources();    //try to use a little ElectricCharge
-
-
                 ///////////////////////
                 ///////////////////////
-
                 //Do AAE
-
-                //if (AAE_exists)
-                //{
 
                 //BACKGROUND
                 if (aae_backgrounds_exist)
@@ -3835,19 +3670,6 @@ namespace Chatterer
                     }
                 }
 
-
-                //add the suspenseful music track on loop
-                //conditions?
-                //vessel.situation == suborbital, true alt <= 10000m, descent speed > 10m/s
-                //if (vessel.situation == Vessel.Situations.SUB_ORBITAL && vessel.heightFromTerrain < 10000f && vessel.verticalSpeed < -10f)
-                //{
-                //    //start suspense loop
-                //    //todo add suspense loop
-                //    //landingsource.loop = true;
-                //    //landingsource.Play();
-                //}
-
-
                 //END AAE
                 /////////////////////////////////////////////
                 /////////////////////////////////////////////
@@ -3880,10 +3702,10 @@ namespace Chatterer
                         else Debug.LogWarning("[CHATR] No SSTV clips to play");
                     }
 
-                    //timed sstv
+                    //timed/on science sstv
                     if (all_sstv_clips.Count > 0)
                     {
-                        //if clips exist, do things
+                        //timed : if clips exist, do things
                         if (sstv_freq > 0)
                         {
                             sstv_timer += Time.deltaTime;
@@ -3908,6 +3730,33 @@ namespace Chatterer
                                     //sstv_timer = 0;
                                     //new_sstv_loose_timer_limit();
                                 }
+                            }
+                        }
+
+                        //on science transmitted
+                        if (all_sstv_clips.Count > 0 && sstv_on_science_toggle == true)
+                        {
+                            if (science_transmitted == true) 
+                            {
+                                if (sstv.isPlaying == false && (remotetech_toggle == false || (remotetech_toggle && inRadioContact)))
+                                {
+                                    //stop and reset any currently playing chatter
+                                    if (exchange_playing)
+                                    {
+                                        exchange_playing = false;
+                                        initial_chatter.Stop();
+                                        response_chatter.Stop();
+                                        initialize_new_exchange();
+                                    }
+
+                                    //get a random one and play
+                                    sstv.clip = all_sstv_clips[rand.Next(0, all_sstv_clips.Count)];
+                                    sstv.Play();
+
+                                    if (debugging) Debug.Log("[CHATR] beginning exchange,science-SSTV...");
+                                }
+
+                                science_transmitted = false;
                             }
                         }
                     }
@@ -4151,19 +4000,5 @@ namespace Chatterer
                 if (gui_running) stop_GUI();
             }
         }
-
-        //private void consume_resources()
-        //{
-        //    if (TimeWarp.deltaTime == 0) return;    //do nothing if paused
-        //    if (vessel.vesselType == VesselType.EVA || disable_power_usage) power_available = true;    //power always available when EVA
-        //    else if (chatter_freq > 0 || sstv_freq > 0 || (beepsource_list[0].precise && beepsource_list[0].precise_freq > -1) || (beepsource_list[1].precise && beepsource_list[1].precise_freq > -1) || (beepsource_list[2].precise && beepsource_list[2].precise_freq > -1) || (beepsource_list[0].precise == false && beepsource_list[0].loose_freq > 0) || (beepsource_list[1].precise == false && beepsource_list[1].loose_freq > 0) || (beepsource_list[2].precise == false && beepsource_list[2].loose_freq > 0))
-        //    {
-        //        //else if anything is set to play a sound at some time, request ElectricCharge to determine power availability
-        //        float recvd_amount = vessel.rootPart.RequestResource("ElectricCharge", 0.01f * TimeWarp.fixedDeltaTime);
-        //        if (recvd_amount > 0) power_available = true;    // doesn't always send 100% of demand so as long as it sends something
-        //        else power_available = false;
-        //    }
-        //}
-
     }
 }
