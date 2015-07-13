@@ -61,8 +61,8 @@ namespace Chatterer
         private float sstv_freq_slider = 0;
         private int sstv_freq = 0;
         private int prev_sstv_freq = 0;
-        private float sstv_vol_slider = 0.25f;
-        private float prev_sstv_vol_slider = 0.25f;
+        private float sstv_vol_slider = 0.15f;
+        private float prev_sstv_vol_slider = 0.15f;
 
         //Insta-chatter key
         private KeyCode insta_chatter_key = KeyCode.None;
