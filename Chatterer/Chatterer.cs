@@ -524,7 +524,7 @@ namespace Chatterer
                     //active vessel has changed
                     if (debugging) Debug.Log("[CHATR] OnVesselChange() :: prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
 
-                    //stop_audio("all");
+                    stop_audio("all");
 
                     if (use_vessel_settings)
                     {
@@ -2944,6 +2944,7 @@ namespace Chatterer
                 response_chatter.Stop();
                 quindar1.Stop();
                 quindar2.Stop();
+                sstv.Stop();
                 exchange_playing = false;
             }
             else if (audio_type == "beeps")
