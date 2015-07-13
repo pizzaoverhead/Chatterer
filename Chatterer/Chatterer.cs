@@ -419,8 +419,16 @@ namespace Chatterer
              
             if (all_muted)
             {
-                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX_muted);
-                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                if (initial_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 0) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                }
+                else if (response_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 1) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                }
                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
                 else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled_muted);
                 else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
@@ -428,8 +436,16 @@ namespace Chatterer
             }
             else
             {
-                if (initial_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_TX);
-                else if (response_chatter.isPlaying) SetAppLauncherButtonTexture(chatterer_button_RX);
+                if (initial_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 0) SetAppLauncherButtonTexture(chatterer_button_RX);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX);
+                }
+                else if (response_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 1) SetAppLauncherButtonTexture(chatterer_button_RX);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX);
+                }
                 else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
                 else if (remotetech_toggle == true && !inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled);
                 else SetAppLauncherButtonTexture(chatterer_button_idle);
