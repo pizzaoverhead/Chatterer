@@ -315,6 +315,7 @@ namespace Chatterer
         
         private bool chatter_exists = false;
         private bool sstv_exists = false;
+        private bool science_transmitted = false;  //for SSTV on science
         private bool beeps_exists = false;
         
         private List<GUISkin> g_skin_list;
@@ -584,6 +585,18 @@ namespace Chatterer
             }
         }
 
+        void OnScienceChanged(float sci, TransactionReasons scitxreason)
+        {
+            if (scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
+            {
+                science_transmitted = true;
+
+                if (debugging) Debug.Log("[CHATR] Event scienceTX PASS");
+            }
+
+            if (debugging) Debug.Log("[CHATR] Event scienceTX triggered, reason : " + scitxreason.ToString());
+        }
+
         private void checkChatterGender()
         {
             chatter_is_female = false;
@@ -614,6 +627,7 @@ namespace Chatterer
             GameEvents.onCrewOnEva.Remove(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
             GameEvents.onVesselChange.Remove(OnVesselChange);
+            GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
@@ -3432,12 +3446,20 @@ namespace Chatterer
 
             build_skin_list();
 
-            // Setup & callbacks for KSP Application Launcher
+            // Setup & callbacks
+            //
+            
+            //for KSP Application Launcher
             GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
             GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
+
+            //to trigger Chatter
             GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
             GameEvents.onVesselChange.Add(OnVesselChange);
+
+            //to trigger SSTV on science tx
+            GameEvents.OnScienceChanged.Add(OnScienceChanged);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
             Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
@@ -3673,10 +3695,10 @@ namespace Chatterer
                         else Debug.LogWarning("[CHATR] No SSTV clips to play");
                     }
 
-                    //timed sstv
+                    //timed/on science sstv
                     if (all_sstv_clips.Count > 0)
                     {
-                        //if clips exist, do things
+                        //timed : if clips exist, do things
                         if (sstv_freq > 0)
                         {
                             sstv_timer += Time.deltaTime;
@@ -3701,6 +3723,33 @@ namespace Chatterer
                                     //sstv_timer = 0;
                                     //new_sstv_loose_timer_limit();
                                 }
+                            }
+                        }
+
+                        //on science transmitted
+                        if (all_sstv_clips.Count > 0)
+                        {
+                            if (science_transmitted == true) 
+                            {
+                                if (sstv.isPlaying == false && (remotetech_toggle == false || (remotetech_toggle && inRadioContact)))
+                                {
+                                    //stop and reset any currently playing chatter
+                                    if (exchange_playing)
+                                    {
+                                        exchange_playing = false;
+                                        initial_chatter.Stop();
+                                        response_chatter.Stop();
+                                        initialize_new_exchange();
+                                    }
+
+                                    //get a random one and play
+                                    sstv.clip = all_sstv_clips[rand.Next(0, all_sstv_clips.Count)];
+                                    sstv.Play();
+
+                                    if (debugging) Debug.Log("[CHATR] beginning exchange,science-SSTV...");
+                                }
+
+                                science_transmitted = false;
                             }
                         }
                     }
