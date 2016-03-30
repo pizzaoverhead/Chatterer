@@ -653,19 +653,19 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] OnDestroy() END");
         }
 
-        private void start_GUI()
+        private void OnGUI() //start the GUI
         {
-            if (debugging) Debug.Log("[CHATR] start_GUI()");
+            if (debugging & !gui_running) Debug.Log("[CHATR] start_GUI()");
             
-            RenderingManager.AddToPostDrawQueue(3, new Callback(draw_GUI));	//start the GUI
+            draw_GUI(); 
+
             gui_running = true;
         }
 
-        private void stop_GUI()
+        private void stop_GUI() //stop the GUI (virtualy, is this actually still needed ?)
         {
             if (debugging) Debug.Log("[CHATR] stop_GUI()");
             
-            RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI)); //stop the GUI
             gui_running = false;
         }
 
@@ -3530,8 +3530,6 @@ namespace Chatterer
                     //set_beep_clip(OTP_source);
                 }
 
-                if (gui_running == false) start_GUI();
-                
                 //update remotetech info if needed
                 if (remotetech_toggle)
                 {
