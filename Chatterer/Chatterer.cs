@@ -54,6 +54,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using UnityEngine;
+using KSP.UI.Screens;
 
 namespace Chatterer
 {
