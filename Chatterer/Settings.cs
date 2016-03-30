@@ -328,14 +328,14 @@ namespace Chatterer
             _filter.name = "HIGHPASS";
             _filter.AddValue("enabled", chatter_highpass_filter.enabled);
             _filter.AddValue("cutoff_freq", chatter_highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_highpass_filter.highpassResonaceQ);
+            _filter.AddValue("resonance_q", chatter_highpass_filter.highpassResonanceQ);
             node.AddNode(_filter);
 
             _filter = new ConfigNode();
             _filter.name = "LOWPASS";
             _filter.AddValue("enabled", chatter_lowpass_filter.enabled);
             _filter.AddValue("cutoff_freq", chatter_lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_lowpass_filter.lowpassResonaceQ);
+            _filter.AddValue("resonance_q", chatter_lowpass_filter.lowpassResonanceQ);
             node.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -356,7 +356,7 @@ namespace Chatterer
             _filter.AddValue("diffusion", chatter_reverb_filter.diffusion);
             _filter.AddValue("density", chatter_reverb_filter.density);
             _filter.AddValue("hf_reference", chatter_reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", chatter_reverb_filter.lFReference);
+            _filter.AddValue("lf_reference", chatter_reverb_filter.lfReference);
             node.AddNode(_filter);
 
 
@@ -412,14 +412,14 @@ namespace Chatterer
                 _filter.name = "HIGHPASS";
                 _filter.AddValue("enabled", source.highpass_filter.enabled);
                 _filter.AddValue("cutoff_freq", source.highpass_filter.cutoffFrequency);
-                _filter.AddValue("resonance_q", source.highpass_filter.highpassResonaceQ);
+                _filter.AddValue("resonance_q", source.highpass_filter.highpassResonanceQ);
                 beep_settings.AddNode(_filter);
 
                 _filter = new ConfigNode();
                 _filter.name = "LOWPASS";
                 _filter.AddValue("enabled", source.lowpass_filter.enabled);
                 _filter.AddValue("cutoff_freq", source.lowpass_filter.cutoffFrequency);
-                _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonaceQ);
+                _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonanceQ);
                 beep_settings.AddNode(_filter);
 
                 _filter = new ConfigNode();
@@ -440,7 +440,7 @@ namespace Chatterer
                 _filter.AddValue("diffusion", source.reverb_filter.diffusion);
                 _filter.AddValue("density", source.reverb_filter.density);
                 _filter.AddValue("hf_reference", source.reverb_filter.hfReference);
-                _filter.AddValue("lf_reference", source.reverb_filter.lFReference);
+                _filter.AddValue("lf_reference", source.reverb_filter.lfReference);
                 beep_settings.AddNode(_filter);
 
                 node.AddNode(beep_settings);
@@ -622,13 +622,13 @@ namespace Chatterer
                 {
                     if (_filter.HasValue("enabled")) chatter_highpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
                     if (_filter.HasValue("cutoff_freq")) chatter_highpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                    if (_filter.HasValue("resonance_q")) chatter_highpass_filter.highpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
+                    if (_filter.HasValue("resonance_q")) chatter_highpass_filter.highpassResonanceQ = Single.Parse(_filter.GetValue("resonance_q"));
                 }
                 else if (_filter.name == "LOWPASS")
                 {
                     if (_filter.HasValue("enabled")) chatter_lowpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
                     if (_filter.HasValue("cutoff_freq")) chatter_lowpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                    if (_filter.HasValue("resonance_q")) chatter_lowpass_filter.lowpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
+                    if (_filter.HasValue("resonance_q")) chatter_lowpass_filter.lowpassResonanceQ = Single.Parse(_filter.GetValue("resonance_q"));
                 }
                 else if (_filter.name == "REVERB")
                 {
@@ -648,7 +648,7 @@ namespace Chatterer
                     if (_filter.HasValue("diffusion")) chatter_reverb_filter.diffusion = Single.Parse(_filter.GetValue("diffusion"));
                     if (_filter.HasValue("density")) chatter_reverb_filter.density = Single.Parse(_filter.GetValue("density"));
                     if (_filter.HasValue("hf_reference")) chatter_reverb_filter.hfReference = Single.Parse(_filter.GetValue("hf_reference"));
-                    if (_filter.HasValue("lf_reference")) chatter_reverb_filter.lFReference = Single.Parse(_filter.GetValue("lf_reference"));
+                    if (_filter.HasValue("lf_reference")) chatter_reverb_filter.lfReference = Single.Parse(_filter.GetValue("lf_reference"));
                 }
             }
 
@@ -721,13 +721,13 @@ namespace Chatterer
                         {
                             if (_filter.HasValue("enabled")) beepsource_list[x].highpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
                             if (_filter.HasValue("cutoff_freq")) beepsource_list[x].highpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                            if (_filter.HasValue("resonance_q")) beepsource_list[x].highpass_filter.highpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
+                            if (_filter.HasValue("resonance_q")) beepsource_list[x].highpass_filter.highpassResonanceQ = Single.Parse(_filter.GetValue("resonance_q"));
                         }
                         else if (_filter.name == "LOWPASS")
                         {
                             if (_filter.HasValue("enabled")) beepsource_list[x].lowpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
                             if (_filter.HasValue("cutoff_freq")) beepsource_list[x].lowpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                            if (_filter.HasValue("resonance_q")) beepsource_list[x].lowpass_filter.lowpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
+                            if (_filter.HasValue("resonance_q")) beepsource_list[x].lowpass_filter.lowpassResonanceQ = Single.Parse(_filter.GetValue("resonance_q"));
                         }
                         else if (_filter.name == "REVERB")
                         {
@@ -747,7 +747,7 @@ namespace Chatterer
                             if (_filter.HasValue("diffusion")) beepsource_list[x].reverb_filter.diffusion = Single.Parse(_filter.GetValue("diffusion"));
                             if (_filter.HasValue("density")) beepsource_list[x].reverb_filter.density = Single.Parse(_filter.GetValue("density"));
                             if (_filter.HasValue("hf_reference")) beepsource_list[x].reverb_filter.hfReference = Single.Parse(_filter.GetValue("hf_reference"));
-                            if (_filter.HasValue("lf_reference")) beepsource_list[x].reverb_filter.lFReference = Single.Parse(_filter.GetValue("lf_reference"));
+                            if (_filter.HasValue("lf_reference")) beepsource_list[x].reverb_filter.lfReference = Single.Parse(_filter.GetValue("lf_reference"));
                         }
                     }
                 }
