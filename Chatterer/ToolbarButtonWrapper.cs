@@ -514,7 +514,7 @@ namespace Chatterer
             if (HighLogic.LoadedScene > GameScenes.SPACECENTER)
             {
                 debugmsg.message = Msg;
-                ScreenMessages.PostScreenMessage(debugmsg, true);
+                //ScreenMessages.PostScreenMessage(debugmsg, true);
             }
 
             KSPLog.print(Msg);
