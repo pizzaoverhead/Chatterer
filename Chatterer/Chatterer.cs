@@ -388,12 +388,12 @@ namespace Chatterer
                         if (hide_all_windows)
                         {
                             launcherButton.SetTrue();
-                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.toggleButton.CurrentState);
                         }
                         else if (!hide_all_windows)
                         {
                             launcherButton.SetFalse();
-                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.toggleButton.CurrentState);
                         }
                     }
                 });
