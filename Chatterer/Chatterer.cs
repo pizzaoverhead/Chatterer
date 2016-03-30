@@ -2185,7 +2185,7 @@ namespace Chatterer
             beepsource_list[x].beep_name = beepsource_list.Count.ToString();
             beepsource_list[x].audiosource = beepsource_list[x].beep_player.AddComponent<AudioSource>();
             beepsource_list[x].audiosource.volume = 0.3f;   //default 30%
-            beepsource_list[x].audiosource.panLevel = 0;
+            beepsource_list[x].audiosource.spatialBlend = 0.0f;
             //beepsource_list[x].audiosource.clip = all_beep_clips[0];
             beepsource_list[x].current_clip = "First";
             beepsource_list[x].chorus_filter = beepsource_list[x].beep_player.AddComponent<AudioChorusFilter>();
@@ -2219,7 +2219,7 @@ namespace Chatterer
             backgroundsource_list[x].background_player.name = "rbr_background_player_" + backgroundsource_list.Count;
             backgroundsource_list[x].audiosource = backgroundsource_list[x].background_player.AddComponent<AudioSource>();
             backgroundsource_list[x].audiosource.volume = 0.3f;
-            backgroundsource_list[x].audiosource.panLevel = 0;
+            backgroundsource_list[x].audiosource.spatialBlend = 0.0f;
             backgroundsource_list[x].current_clip = "Default";
 
             if (dict_background_samples.Count > 0)
@@ -3325,16 +3325,16 @@ namespace Chatterer
             chatter_player.name = "rbr_chatter_player";
             initial_chatter = chatter_player.AddComponent<AudioSource>();
             initial_chatter.volume = chatter_vol_slider;
-            initial_chatter.panLevel = 0;   //set as 2D audio
+            initial_chatter.spatialBlend = 0.0f;   //set as 2D audio
             response_chatter = chatter_player.AddComponent<AudioSource>();
             response_chatter.volume = chatter_vol_slider;
-            response_chatter.panLevel = 0;
+            response_chatter.spatialBlend = 0.0f;
             quindar1 = chatter_player.AddComponent<AudioSource>();
             quindar1.volume = quindar_vol_slider;
-            quindar1.panLevel = 0;
+            quindar1.spatialBlend = 0.0f;
             quindar2 = chatter_player.AddComponent<AudioSource>();
             quindar2.volume = quindar_vol_slider;
-            quindar2.panLevel = 0;
+            quindar2.spatialBlend = 0.0f;
             chatter_chorus_filter = chatter_player.AddComponent<AudioChorusFilter>();
             chatter_chorus_filter.enabled = false;
             chatter_distortion_filter = chatter_player.AddComponent<AudioDistortionFilter>();
@@ -3356,7 +3356,7 @@ namespace Chatterer
             if (aae_soundscapes_exist)
             {
                 aae_soundscape = aae_soundscape_player.AddComponent<AudioSource>();
-                aae_soundscape.panLevel = 0;
+                aae_soundscape.spatialBlend = 0.0f;
                 aae_soundscape.volume = 0.3f;
                 set_soundscape_clip();
                 new_soundscape_loose_timer_limit();
@@ -3364,7 +3364,7 @@ namespace Chatterer
 
             //AAE EVA breathing
             aae_breathing = aae_ambient_player.AddComponent<AudioSource>();
-            aae_breathing.panLevel = 0;
+            aae_breathing.spatialBlend = 0.0f;
             aae_breathing.volume = 1.0f;
             aae_breathing.loop = true;
             string breathing_path = "Chatterer/Sounds/AAE/effect/breathing";
@@ -3381,7 +3381,7 @@ namespace Chatterer
 
             //AAE airlock
             aae_airlock = aae_ambient_player.AddComponent<AudioSource>();
-            aae_airlock.panLevel = 0;
+            aae_airlock.spatialBlend = 0.0f;
             aae_airlock.volume = 1.0f;
             string airlock_path = "Chatterer/Sounds/AAE/effect/airlock";
             if (GameDatabase.Instance.ExistsAudioClip(airlock_path))
@@ -3397,7 +3397,7 @@ namespace Chatterer
 
             //AAE wind
             aae_wind = aae_ambient_player.AddComponent<AudioSource>();
-            aae_wind.panLevel = 0;
+            aae_wind.spatialBlend = 0.0f;
             aae_wind.volume = 1.0f;
             string wind_path = "Chatterer/Sounds/AAE/wind/mario1298__weak-wind";
             if (GameDatabase.Instance.ExistsAudioClip(wind_path))
@@ -3413,12 +3413,12 @@ namespace Chatterer
 
             //yepyep
             yep_yepsource = aae_ambient_player.AddComponent<AudioSource>();
-            yep_yepsource.panLevel = 0;
+            yep_yepsource.spatialBlend = 0.0f;
             yep_yepsource.volume = 1.0f;
 
             //AAE landing
             landingsource = aae_ambient_player.AddComponent<AudioSource>();
-            landingsource.panLevel = 0;
+            landingsource.spatialBlend = 0.0f;
             landingsource.volume = 0.5f;
             string landing_path = "Chatterer/Sounds/AAE/loop/suspense1";
             if (GameDatabase.Instance.ExistsAudioClip(landing_path))
@@ -3463,7 +3463,7 @@ namespace Chatterer
             sstv_player.name = "rbr_sstv_player";
             sstv = sstv_player.AddComponent<AudioSource>();
             sstv.volume = sstv_vol_slider;
-            sstv.panLevel = 0;
+            sstv.spatialBlend = 0.0f;
 
             new_sstv_loose_timer_limit();
 
