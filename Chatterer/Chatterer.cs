@@ -2778,6 +2778,7 @@ namespace Chatterer
 
             if (pod_begins_exchange) initial_chatter_source = 1;    //pod_begins_exchange set true OnUpdate when staging and on event change
             else initial_chatter_source = rand.Next(0, 2);   //if i_c_s == 0, con sends first message; if i_c_S == 1, pod sends first message
+            pod_begins_exchange = false; // Reset so pod doesn't always being exchange.
 
             if (initial_chatter_source == 0)
             {
