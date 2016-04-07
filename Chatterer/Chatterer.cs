@@ -4000,5 +4000,56 @@ namespace Chatterer
                 if (gui_running) stop_GUI();
             }
         }
+
+        // Returns true when the pod is speaking to CapCom, or the pods is
+        // transmitting SSTV data.
+        public bool VesselIsTransmitting()
+        {
+            if (sstv.isPlaying)
+            {
+                return true;
+            }
+            else
+            {
+                bool podInitiatedExchange = (initial_chatter_source == 1);
+                if (exchange_playing)
+                {
+                    return (podInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        // Returns true when CapCom is speaking to the capsule.
+        public bool VesselIsReceiving()
+        {
+            bool capcomInitiatedExchange = (initial_chatter_source == 0);
+            if (exchange_playing)
+            {
+                return (capcomInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        // Initiate insta-chatter as if the player pressed the insta-chatter
+        // button.  Treat it as always pod-initiated. like a crewmember
+        // decided to talk to mission control.
+        public void InitiateChatter()
+        {
+            if (insta_chatter_key_just_changed == false && exchange_playing == false && sstv.isPlaying == false)
+            {
+                //no chatter or sstv playing, play insta-chatter
+                if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
+
+                pod_begins_exchange = true;
+                begin_exchange(0);
+            }
+        }
     }
 }
