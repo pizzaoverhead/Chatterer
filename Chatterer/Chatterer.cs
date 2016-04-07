@@ -4011,9 +4011,9 @@ namespace Chatterer
             }
             else
             {
-                bool podInitiatedExchange = (initial_chatter_source == 1);
                 if (exchange_playing)
                 {
+                    bool podInitiatedExchange = (initial_chatter_source == 1);
                     return (podInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
                 }
                 else
@@ -4026,9 +4026,9 @@ namespace Chatterer
         // Returns true when CapCom is speaking to the capsule.
         public bool VesselIsReceiving()
         {
-            bool capcomInitiatedExchange = (initial_chatter_source == 0);
             if (exchange_playing)
             {
+                bool capcomInitiatedExchange = (initial_chatter_source == 0);
                 return (capcomInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
             }
             else
