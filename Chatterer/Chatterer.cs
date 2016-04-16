@@ -2219,7 +2219,7 @@ namespace Chatterer
             backgroundsource_list[x].background_player.name = "rbr_background_player_" + backgroundsource_list.Count;
             backgroundsource_list[x].audiosource = backgroundsource_list[x].background_player.AddComponent<AudioSource>();
             backgroundsource_list[x].audiosource.volume = 0.3f;
-            backgroundsource_list[x].audiosource.spatialBlend = 0.0f;
+            backgroundsource_list[x].audiosource.spatialBlend = 1.0f;
             backgroundsource_list[x].current_clip = "Default";
 
             if (dict_background_samples.Count > 0)
