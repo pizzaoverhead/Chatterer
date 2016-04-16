@@ -3647,7 +3647,7 @@ namespace Chatterer
                 if (aae_wind_exist)
                 {
                     //check that body has atmosphere, vessel is within it
-                    if (vessel.mainBody.atmosphere && vessel.atmDensity > 0)
+                    if (vessel.mainBody.atmosphere && vessel.atmDensity > 0 && (CameraManager.Instance.currentCameraMode != CameraManager.CameraMode.IVA && CameraManager.Instance.currentCameraMode != CameraManager.CameraMode.Internal))
                     {
                         //set volume according to atmosphere density
                         aae_wind.volume = aae_wind_vol_slider * Math.Min((float)vessel.atmDensity, 1);
