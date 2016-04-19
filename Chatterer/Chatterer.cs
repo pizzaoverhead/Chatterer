@@ -54,6 +54,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using UnityEngine;
+using KSP.UI.Screens;
 
 namespace Chatterer
 {
@@ -387,12 +388,12 @@ namespace Chatterer
                         if (hide_all_windows)
                         {
                             launcherButton.SetTrue();
-                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.toggleButton.CurrentState);
                         }
                         else if (!hide_all_windows)
                         {
                             launcherButton.SetFalse();
-                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.toggleButton.CurrentState);
                         }
                     }
                 });
@@ -652,19 +653,19 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] OnDestroy() END");
         }
 
-        private void start_GUI()
+        private void OnGUI() //start the GUI
         {
-            if (debugging) Debug.Log("[CHATR] start_GUI()");
+            if (debugging & !gui_running) Debug.Log("[CHATR] start_GUI()");
             
-            RenderingManager.AddToPostDrawQueue(3, new Callback(draw_GUI));	//start the GUI
+            draw_GUI(); 
+
             gui_running = true;
         }
 
-        private void stop_GUI()
+        private void stop_GUI() //stop the GUI (virtualy, is this actually still needed ?)
         {
             if (debugging) Debug.Log("[CHATR] stop_GUI()");
             
-            RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI)); //stop the GUI
             gui_running = false;
         }
 
@@ -2184,7 +2185,7 @@ namespace Chatterer
             beepsource_list[x].beep_name = beepsource_list.Count.ToString();
             beepsource_list[x].audiosource = beepsource_list[x].beep_player.AddComponent<AudioSource>();
             beepsource_list[x].audiosource.volume = 0.3f;   //default 30%
-            beepsource_list[x].audiosource.panLevel = 0;
+            beepsource_list[x].audiosource.spatialBlend = 0.0f;
             //beepsource_list[x].audiosource.clip = all_beep_clips[0];
             beepsource_list[x].current_clip = "First";
             beepsource_list[x].chorus_filter = beepsource_list[x].beep_player.AddComponent<AudioChorusFilter>();
@@ -2218,7 +2219,7 @@ namespace Chatterer
             backgroundsource_list[x].background_player.name = "rbr_background_player_" + backgroundsource_list.Count;
             backgroundsource_list[x].audiosource = backgroundsource_list[x].background_player.AddComponent<AudioSource>();
             backgroundsource_list[x].audiosource.volume = 0.3f;
-            backgroundsource_list[x].audiosource.panLevel = 0;
+            backgroundsource_list[x].audiosource.spatialBlend = 0.0f;
             backgroundsource_list[x].current_clip = "Default";
 
             if (dict_background_samples.Count > 0)
@@ -2777,6 +2778,7 @@ namespace Chatterer
 
             if (pod_begins_exchange) initial_chatter_source = 1;    //pod_begins_exchange set true OnUpdate when staging and on event change
             else initial_chatter_source = rand.Next(0, 2);   //if i_c_s == 0, con sends first message; if i_c_S == 1, pod sends first message
+            pod_begins_exchange = false; // Reset so pod doesn't always being exchange.
 
             if (initial_chatter_source == 0)
             {
@@ -3009,14 +3011,14 @@ namespace Chatterer
             _filter.name = "HIGHPASS";
             _filter.AddValue("enabled", source.highpass_filter.enabled);
             _filter.AddValue("cutoff_freq", source.highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.highpass_filter.highpassResonaceQ);
+            _filter.AddValue("resonance_q", source.highpass_filter.highpassResonanceQ);
             beepsource_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
             _filter.name = "LOWPASS";
             _filter.AddValue("enabled", source.lowpass_filter.enabled);
             _filter.AddValue("cutoff_freq", source.lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonaceQ);
+            _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonanceQ);
             beepsource_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -3037,7 +3039,7 @@ namespace Chatterer
             _filter.AddValue("diffusion", source.reverb_filter.diffusion);
             _filter.AddValue("density", source.reverb_filter.density);
             _filter.AddValue("hf_reference", source.reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", source.reverb_filter.lFReference);
+            _filter.AddValue("lf_reference", source.reverb_filter.lfReference);
             beepsource_clipboard.AddNode(_filter);
 
             if (debugging) Debug.Log("[CHATR] single beepsource values copied to beepsource_clipboard");
@@ -3099,13 +3101,13 @@ namespace Chatterer
                 {
                     if (filter.HasValue("enabled")) source.highpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
                     if (filter.HasValue("cutoff_freq")) source.highpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) source.highpass_filter.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+                    if (filter.HasValue("resonance_q")) source.highpass_filter.highpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
                 }
                 else if (filter.name == "LOWPASS")
                 {
                     if (filter.HasValue("enabled")) source.lowpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
                     if (filter.HasValue("cutoff_freq")) source.lowpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) source.lowpass_filter.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+                    if (filter.HasValue("resonance_q")) source.lowpass_filter.lowpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
                 }
                 else if (filter.name == "REVERB")
                 {
@@ -3125,7 +3127,7 @@ namespace Chatterer
                     if (filter.HasValue("diffusion")) source.reverb_filter.diffusion = Single.Parse(filter.GetValue("diffusion"));
                     if (filter.HasValue("density")) source.reverb_filter.density = Single.Parse(filter.GetValue("density"));
                     if (filter.HasValue("hf_reference")) source.reverb_filter.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-                    if (filter.HasValue("lf_reference")) source.reverb_filter.lFReference = Single.Parse(filter.GetValue("lf_reference"));
+                    if (filter.HasValue("lf_reference")) source.reverb_filter.lfReference = Single.Parse(filter.GetValue("lf_reference"));
                 }
             }
             if (debugging) Debug.Log("[CHATR] single beepsource values pasted from beepsource_clipboard");
@@ -3324,16 +3326,16 @@ namespace Chatterer
             chatter_player.name = "rbr_chatter_player";
             initial_chatter = chatter_player.AddComponent<AudioSource>();
             initial_chatter.volume = chatter_vol_slider;
-            initial_chatter.panLevel = 0;   //set as 2D audio
+            initial_chatter.spatialBlend = 0.0f;   //set as 2D audio
             response_chatter = chatter_player.AddComponent<AudioSource>();
             response_chatter.volume = chatter_vol_slider;
-            response_chatter.panLevel = 0;
+            response_chatter.spatialBlend = 0.0f;
             quindar1 = chatter_player.AddComponent<AudioSource>();
             quindar1.volume = quindar_vol_slider;
-            quindar1.panLevel = 0;
+            quindar1.spatialBlend = 0.0f;
             quindar2 = chatter_player.AddComponent<AudioSource>();
             quindar2.volume = quindar_vol_slider;
-            quindar2.panLevel = 0;
+            quindar2.spatialBlend = 0.0f;
             chatter_chorus_filter = chatter_player.AddComponent<AudioChorusFilter>();
             chatter_chorus_filter.enabled = false;
             chatter_distortion_filter = chatter_player.AddComponent<AudioDistortionFilter>();
@@ -3355,7 +3357,7 @@ namespace Chatterer
             if (aae_soundscapes_exist)
             {
                 aae_soundscape = aae_soundscape_player.AddComponent<AudioSource>();
-                aae_soundscape.panLevel = 0;
+                aae_soundscape.spatialBlend = 0.0f;
                 aae_soundscape.volume = 0.3f;
                 set_soundscape_clip();
                 new_soundscape_loose_timer_limit();
@@ -3363,7 +3365,7 @@ namespace Chatterer
 
             //AAE EVA breathing
             aae_breathing = aae_ambient_player.AddComponent<AudioSource>();
-            aae_breathing.panLevel = 0;
+            aae_breathing.spatialBlend = 0.0f;
             aae_breathing.volume = 1.0f;
             aae_breathing.loop = true;
             string breathing_path = "Chatterer/Sounds/AAE/effect/breathing";
@@ -3380,7 +3382,7 @@ namespace Chatterer
 
             //AAE airlock
             aae_airlock = aae_ambient_player.AddComponent<AudioSource>();
-            aae_airlock.panLevel = 0;
+            aae_airlock.spatialBlend = 0.0f;
             aae_airlock.volume = 1.0f;
             string airlock_path = "Chatterer/Sounds/AAE/effect/airlock";
             if (GameDatabase.Instance.ExistsAudioClip(airlock_path))
@@ -3396,7 +3398,7 @@ namespace Chatterer
 
             //AAE wind
             aae_wind = aae_ambient_player.AddComponent<AudioSource>();
-            aae_wind.panLevel = 0;
+            aae_wind.spatialBlend = 0.0f;
             aae_wind.volume = 1.0f;
             string wind_path = "Chatterer/Sounds/AAE/wind/mario1298__weak-wind";
             if (GameDatabase.Instance.ExistsAudioClip(wind_path))
@@ -3412,12 +3414,12 @@ namespace Chatterer
 
             //yepyep
             yep_yepsource = aae_ambient_player.AddComponent<AudioSource>();
-            yep_yepsource.panLevel = 0;
+            yep_yepsource.spatialBlend = 0.0f;
             yep_yepsource.volume = 1.0f;
 
             //AAE landing
             landingsource = aae_ambient_player.AddComponent<AudioSource>();
-            landingsource.panLevel = 0;
+            landingsource.spatialBlend = 0.0f;
             landingsource.volume = 0.5f;
             string landing_path = "Chatterer/Sounds/AAE/loop/suspense1";
             if (GameDatabase.Instance.ExistsAudioClip(landing_path))
@@ -3462,7 +3464,7 @@ namespace Chatterer
             sstv_player.name = "rbr_sstv_player";
             sstv = sstv_player.AddComponent<AudioSource>();
             sstv.volume = sstv_vol_slider;
-            sstv.panLevel = 0;
+            sstv.spatialBlend = 0.0f;
 
             new_sstv_loose_timer_limit();
 
@@ -3529,8 +3531,6 @@ namespace Chatterer
                     //set_beep_clip(OTP_source);
                 }
 
-                if (gui_running == false) start_GUI();
-                
                 //update remotetech info if needed
                 if (remotetech_toggle)
                 {
@@ -3647,7 +3647,7 @@ namespace Chatterer
                 if (aae_wind_exist)
                 {
                     //check that body has atmosphere, vessel is within it
-                    if (vessel.mainBody.atmosphere && vessel.atmDensity > 0)
+                    if (vessel.mainBody.atmosphere && vessel.atmDensity > 0 && (CameraManager.Instance.currentCameraMode != CameraManager.CameraMode.IVA && CameraManager.Instance.currentCameraMode != CameraManager.CameraMode.Internal))
                     {
                         //set volume according to atmosphere density
                         aae_wind.volume = aae_wind_vol_slider * Math.Min((float)vessel.atmDensity, 1);
@@ -3998,6 +3998,57 @@ namespace Chatterer
             {
                 //FlightGlobals.ActiveVessel is null
                 if (gui_running) stop_GUI();
+            }
+        }
+
+        // Returns true when the pod is speaking to CapCom, or the pods is
+        // transmitting SSTV data.
+        public bool VesselIsTransmitting()
+        {
+            if (sstv.isPlaying)
+            {
+                return true;
+            }
+            else
+            {
+                if (exchange_playing)
+                {
+                    bool podInitiatedExchange = (initial_chatter_source == 1);
+                    return (podInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        // Returns true when CapCom is speaking to the capsule.
+        public bool VesselIsReceiving()
+        {
+            if (exchange_playing)
+            {
+                bool capcomInitiatedExchange = (initial_chatter_source == 0);
+                return (capcomInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        // Initiate insta-chatter as if the player pressed the insta-chatter
+        // button.  Treat it as always pod-initiated. like a crewmember
+        // decided to talk to mission control.
+        public void InitiateChatter()
+        {
+            if (insta_chatter_key_just_changed == false && exchange_playing == false && sstv.isPlaying == false)
+            {
+                //no chatter or sstv playing, play insta-chatter
+                if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
+
+                pod_begins_exchange = true;
+                begin_exchange(0);
             }
         }
     }

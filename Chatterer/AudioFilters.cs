@@ -380,11 +380,11 @@ namespace Chatterer
                 ahpf.cutoffFrequency = GUILayout.HorizontalSlider(ahpf.cutoffFrequency, 10f, 22000f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
-                _content.text = "Resonance Q: " + ahpf.highpassResonaceQ.ToString("F2");
+                _content.text = "Resonance Q: " + ahpf.highpassResonanceQ.ToString("F2");
                 _content.tooltip = "Highpass self-resonance dampening";
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                ahpf.highpassResonaceQ = GUILayout.HorizontalSlider(ahpf.highpassResonaceQ, 1f, 10f, GUILayout.Width(90f));
+                ahpf.highpassResonanceQ = GUILayout.HorizontalSlider(ahpf.highpassResonanceQ, 1f, 10f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
@@ -394,7 +394,7 @@ namespace Chatterer
                 {
                     hipass_clipboard = new ConfigNode();
                     hipass_clipboard.AddValue("cutoff_freq", ahpf.cutoffFrequency);
-                    hipass_clipboard.AddValue("resonance_q", ahpf.highpassResonaceQ);
+                    hipass_clipboard.AddValue("resonance_q", ahpf.highpassResonanceQ);
                     if (debugging) Debug.Log("[CHATR] highpass filter values copied to highpass clipboard");
                 }
                 if (hipass_clipboard != null)
@@ -404,7 +404,7 @@ namespace Chatterer
                     if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
                     {
                         ahpf.cutoffFrequency = Single.Parse(hipass_clipboard.GetValue("cutoff_freq"));
-                        ahpf.highpassResonaceQ = Single.Parse(hipass_clipboard.GetValue("resonance_q"));
+                        ahpf.highpassResonanceQ = Single.Parse(hipass_clipboard.GetValue("resonance_q"));
                         if (debugging) Debug.Log("[CHATR] highpass filter values loaded from highpass clipboard");
                     }
                 }
@@ -429,11 +429,11 @@ namespace Chatterer
                 alpf.cutoffFrequency = GUILayout.HorizontalSlider(alpf.cutoffFrequency, 10f, 22000f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
-                _content.text = "Resonance Q: " + alpf.lowpassResonaceQ.ToString("F2");
+                _content.text = "Resonance Q: " + alpf.lowpassResonanceQ.ToString("F2");
                 _content.tooltip = "Lowpass self-resonance dampening";
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                alpf.lowpassResonaceQ = GUILayout.HorizontalSlider(alpf.lowpassResonaceQ, 1f, 10f, GUILayout.Width(90f));
+                alpf.lowpassResonanceQ = GUILayout.HorizontalSlider(alpf.lowpassResonanceQ, 1f, 10f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
@@ -443,7 +443,7 @@ namespace Chatterer
                 {
                     lopass_clipboard = new ConfigNode();
                     lopass_clipboard.AddValue("cutoff_freq", alpf.cutoffFrequency);
-                    lopass_clipboard.AddValue("resonance_q", alpf.lowpassResonaceQ);
+                    lopass_clipboard.AddValue("resonance_q", alpf.lowpassResonanceQ);
                     if (debugging) Debug.Log("[CHATR] lowpass filter values copied to lowpass clipboard");
                 }
                 if (lopass_clipboard != null)
@@ -453,7 +453,7 @@ namespace Chatterer
                     if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
                     {
                         alpf.cutoffFrequency = Single.Parse(lopass_clipboard.GetValue("cutoff_freq"));
-                        alpf.lowpassResonaceQ = Single.Parse(lopass_clipboard.GetValue("resonance_q"));
+                        alpf.lowpassResonanceQ = Single.Parse(lopass_clipboard.GetValue("resonance_q"));
                         if (debugging) Debug.Log("[CHATR] lowpass filter values loaded from lowpass clipboard");
                     }
                 }
@@ -631,11 +631,11 @@ namespace Chatterer
                 arf.hfReference = GUILayout.HorizontalSlider(arf.hfReference, 20f, 20000f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
-                _content.text = "LF reference: " + arf.lFReference.ToString("F0") + " Hz";
+                _content.text = "LF reference: " + arf.lfReference.ToString("F0") + " Hz";
                 _content.tooltip = "Reference low-frequency in Hz";
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.lFReference = GUILayout.HorizontalSlider(arf.lFReference, 20f, 1000f, GUILayout.Width(90f));
+                arf.lfReference = GUILayout.HorizontalSlider(arf.lfReference, 20f, 1000f, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
@@ -659,7 +659,7 @@ namespace Chatterer
                     reverb_clipboard.AddValue("diffusion", arf.diffusion);
                     reverb_clipboard.AddValue("density", arf.density);
                     reverb_clipboard.AddValue("hf_reference", arf.hfReference);
-                    reverb_clipboard.AddValue("lf_reference", arf.lFReference);
+                    reverb_clipboard.AddValue("lf_reference", arf.lfReference);
                     if (debugging) Debug.Log("[CHATR] reverb filter values copied to reverb clipboard");
                 }
                 if (reverb_clipboard != null)
@@ -683,7 +683,7 @@ namespace Chatterer
                         arf.diffusion = Single.Parse(reverb_clipboard.GetValue("diffusion"));
                         arf.density = Single.Parse(reverb_clipboard.GetValue("density"));
                         arf.hfReference = Single.Parse(reverb_clipboard.GetValue("hf_reference"));
-                        arf.lFReference = Single.Parse(reverb_clipboard.GetValue("lf_reference"));
+                        arf.lfReference = Single.Parse(reverb_clipboard.GetValue("lf_reference"));
                         if (debugging) Debug.Log("[CHATR] reverb filter values loaded from reverb clipboard");
                     }
                 }
@@ -746,7 +746,7 @@ namespace Chatterer
                 if (filter.name == "HIGHPASS")
                 {
                     if (filter.HasValue("cutoff_freq")) ahpf.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) ahpf.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+                    if (filter.HasValue("resonance_q")) ahpf.highpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
                 }
             }
         }
@@ -759,7 +759,7 @@ namespace Chatterer
                 if (filter.name == "LOWPASS")
                 {
                     if (filter.HasValue("cutoff_freq")) alpf.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) alpf.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+                    if (filter.HasValue("resonance_q")) alpf.lowpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
                 }
             }
         }
@@ -786,7 +786,7 @@ namespace Chatterer
                     if (filter.HasValue("diffusion")) arf.diffusion = Single.Parse(filter.GetValue("diffusion"));
                     if (filter.HasValue("density")) arf.density = Single.Parse(filter.GetValue("density"));
                     if (filter.HasValue("hf_reference")) arf.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-                    if (filter.HasValue("lf_reference")) arf.lFReference = Single.Parse(filter.GetValue("lf_reference"));
+                    if (filter.HasValue("lf_reference")) arf.lfReference = Single.Parse(filter.GetValue("lf_reference"));
                 }
             }
         }
@@ -831,14 +831,14 @@ namespace Chatterer
             _filter.name = "HIGHPASS";
             _filter.AddValue("enabled", chatter_highpass_filter.enabled);
             _filter.AddValue("cutoff_freq", chatter_highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_highpass_filter.highpassResonaceQ);
+            _filter.AddValue("resonance_q", chatter_highpass_filter.highpassResonanceQ);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
             _filter.name = "LOWPASS";
             _filter.AddValue("enabled", chatter_lowpass_filter.enabled);
             _filter.AddValue("cutoff_freq", chatter_lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_lowpass_filter.lowpassResonaceQ);
+            _filter.AddValue("resonance_q", chatter_lowpass_filter.lowpassResonanceQ);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -859,7 +859,7 @@ namespace Chatterer
             _filter.AddValue("diffusion", chatter_reverb_filter.diffusion);
             _filter.AddValue("density", chatter_reverb_filter.density);
             _filter.AddValue("hf_reference", chatter_reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", chatter_reverb_filter.lFReference);
+            _filter.AddValue("lf_reference", chatter_reverb_filter.lfReference);
             filters_clipboard.AddNode(_filter);
 
             if (debugging) Debug.Log("[CHATR] all chatter filter values copied to filters_clipboard");
@@ -893,12 +893,12 @@ namespace Chatterer
             filter = filters_clipboard.GetNode("HIGHPASS");
             if (filter.HasValue("enabled")) chatter_highpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
             if (filter.HasValue("cutoff_freq")) chatter_highpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) chatter_highpass_filter.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+            if (filter.HasValue("resonance_q")) chatter_highpass_filter.highpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
 
             filter = filters_clipboard.GetNode("LOWPASS");
             if (filter.HasValue("enabled")) chatter_lowpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
             if (filter.HasValue("cutoff_freq")) chatter_lowpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) chatter_lowpass_filter.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+            if (filter.HasValue("resonance_q")) chatter_lowpass_filter.lowpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
 
             filter = filters_clipboard.GetNode("REVERB");
             if (filter.HasValue("enabled")) chatter_reverb_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
@@ -917,7 +917,7 @@ namespace Chatterer
             if (filter.HasValue("diffusion")) chatter_reverb_filter.diffusion = Single.Parse(filter.GetValue("diffusion"));
             if (filter.HasValue("density")) chatter_reverb_filter.density = Single.Parse(filter.GetValue("density"));
             if (filter.HasValue("hf_reference")) chatter_reverb_filter.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-            if (filter.HasValue("lf_reference")) chatter_reverb_filter.lFReference = Single.Parse(filter.GetValue("lf_reference"));
+            if (filter.HasValue("lf_reference")) chatter_reverb_filter.lfReference = Single.Parse(filter.GetValue("lf_reference"));
 
             if (debugging) Debug.Log("[CHATR] all chatter filter values pasted from filters_clipboard");
         }
@@ -959,14 +959,14 @@ namespace Chatterer
             _filter.name = "HIGHPASS";
             _filter.AddValue("enabled", source.highpass_filter.enabled);
             _filter.AddValue("cutoff_freq", source.highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.highpass_filter.highpassResonaceQ);
+            _filter.AddValue("resonance_q", source.highpass_filter.highpassResonanceQ);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
             _filter.name = "LOWPASS";
             _filter.AddValue("enabled", source.lowpass_filter.enabled);
             _filter.AddValue("cutoff_freq", source.lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonaceQ);
+            _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonanceQ);
             filters_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -987,7 +987,7 @@ namespace Chatterer
             _filter.AddValue("diffusion", source.reverb_filter.diffusion);
             _filter.AddValue("density", source.reverb_filter.density);
             _filter.AddValue("hf_reference", source.reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", source.reverb_filter.lFReference);
+            _filter.AddValue("lf_reference", source.reverb_filter.lfReference);
             filters_clipboard.AddNode(_filter);
 
             if (debugging) Debug.Log("[CHATR] all beep filter values copied to filters_clipboard");
@@ -1021,12 +1021,12 @@ namespace Chatterer
             filter = filters_clipboard.GetNode("HIGHPASS");
             if (filter.HasValue("enabled")) source.highpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
             if (filter.HasValue("cutoff_freq")) source.highpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) source.highpass_filter.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+            if (filter.HasValue("resonance_q")) source.highpass_filter.highpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
 
             filter = filters_clipboard.GetNode("LOWPASS");
             if (filter.HasValue("enabled")) source.lowpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
             if (filter.HasValue("cutoff_freq")) source.lowpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) source.lowpass_filter.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+            if (filter.HasValue("resonance_q")) source.lowpass_filter.lowpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
 
             filter = filters_clipboard.GetNode("REVERB");
             if (filter.HasValue("enabled")) source.reverb_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
@@ -1045,7 +1045,7 @@ namespace Chatterer
             if (filter.HasValue("diffusion")) source.reverb_filter.diffusion = Single.Parse(filter.GetValue("diffusion"));
             if (filter.HasValue("density")) source.reverb_filter.density = Single.Parse(filter.GetValue("density"));
             if (filter.HasValue("hf_reference")) source.reverb_filter.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-            if (filter.HasValue("lf_reference")) source.reverb_filter.lFReference = Single.Parse(filter.GetValue("lf_reference"));
+            if (filter.HasValue("lf_reference")) source.reverb_filter.lfReference = Single.Parse(filter.GetValue("lf_reference"));
 
             if (debugging) Debug.Log("[CHATR] all beep filter values pasted from filters_clipboard");
         }
