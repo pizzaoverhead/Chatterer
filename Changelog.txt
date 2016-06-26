@@ -1,5 +1,8 @@
 Changelog:
 
+v0.9.90 [26 Jun 2016]
+- Recompiled for KSP v1.1.3.1289
+
 v0.9.8 [19 Apr 2016]
 - Recompiled for KSP v1.1.0.1230
 - Fix for capsule always initiating exchange once set to true / Thanks to MoarDV
