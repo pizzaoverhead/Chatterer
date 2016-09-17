@@ -36,7 +36,7 @@ namespace Chatterer
         //private bool power_available = true;
         private bool quindar_toggle = true;
         private bool disable_beeps_during_chatter = false;
-        private bool remotetech_toggle = false;
+        //private bool remotetech_toggle = false;
         private bool sstv_on_science_toggle = true;
         //private bool disable_power_usage = false;
         private bool show_tooltips = true;
@@ -242,7 +242,7 @@ namespace Chatterer
             node.AddValue("main_window_pos", main_window_pos.x + "," + main_window_pos.y);
             node.AddValue("skin_index", skin_index);
             node.AddValue("active_menu", active_menu);
-            node.AddValue("remotetech_toggle", remotetech_toggle);
+            //node.AddValue("remotetech_toggle", remotetech_toggle);
 
             node.AddValue("chatter_freq", chatter_freq);
             node.AddValue("chatter_vol_slider", chatter_vol_slider);
@@ -467,7 +467,7 @@ namespace Chatterer
             if (node.HasValue("show_tooltips")) show_tooltips = Boolean.Parse(node.GetValue("show_tooltips"));
             if (node.HasValue("skin_index")) skin_index = Int32.Parse(node.GetValue("skin_index"));
             if (node.HasValue("active_menu")) active_menu = Int32.Parse(node.GetValue("active_menu"));
-            if (node.HasValue("remotetech_toggle")) remotetech_toggle = Boolean.Parse(node.GetValue("remotetech_toggle"));
+            //if (node.HasValue("remotetech_toggle")) remotetech_toggle = Boolean.Parse(node.GetValue("remotetech_toggle"));
 
             if (node.HasValue("chatter_freq"))
             {
