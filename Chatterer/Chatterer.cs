@@ -615,6 +615,14 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] Event scienceTX triggered, reason : " + scitxreason.ToString());
         }
 
+        void OnCommHomeStatusChange(Vessel data0, bool data1)
+        {
+            if (data1 == true) inRadioContact = true;
+            else inRadioContact = false;
+
+            if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
+        }
+
         private void checkChatterGender()
         {
             chatter_is_female = false;
@@ -646,7 +654,8 @@ namespace Chatterer
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
             GameEvents.onVesselChange.Remove(OnVesselChange);
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
-            
+            GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
+
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
 
@@ -3486,6 +3495,9 @@ namespace Chatterer
 
             //to trigger SSTV on science tx
             GameEvents.OnScienceChanged.Add(OnScienceChanged);
+
+            // for CommNet management
+            GameEvents.CommNet.OnCommHomeStatusChange.Add(OnCommHomeStatusChange);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
             Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
