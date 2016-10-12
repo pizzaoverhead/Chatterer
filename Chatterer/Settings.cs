@@ -21,9 +21,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using UnityEngine;
 
 namespace Chatterer
@@ -36,7 +33,7 @@ namespace Chatterer
         //private bool power_available = true;
         private bool quindar_toggle = true;
         private bool disable_beeps_during_chatter = false;
-        private bool remotetech_toggle = false;
+        //private bool remotetech_toggle = false;
         private bool sstv_on_science_toggle = true;
         //private bool disable_power_usage = false;
         private bool show_tooltips = true;
@@ -98,7 +95,7 @@ namespace Chatterer
             plugin_settings_node.AddValue("debugging", debugging);
             plugin_settings_node.AddValue("hide_all_windows", hide_all_windows);
             plugin_settings_node.AddValue("use_vessel_settings", use_vessel_settings);
-            plugin_settings_node.AddValue("useBlizzy78Toolbar", useBlizzy78Toolbar);
+            //plugin_settings_node.AddValue("useBlizzy78Toolbar", useBlizzy78Toolbar);
             plugin_settings_node.AddValue("http_update_check", http_update_check);
             plugin_settings_node.AddValue("disable_beeps_during_chatter", disable_beeps_during_chatter);
             plugin_settings_node.AddValue("insta_chatter_key", insta_chatter_key);
@@ -139,7 +136,7 @@ namespace Chatterer
                 if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
                 if (plugin_settings_node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(plugin_settings_node.GetValue("hide_all_windows"));
                 if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
-                if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
+                //if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
                 if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
                 if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
                 if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
@@ -196,7 +193,7 @@ namespace Chatterer
                 if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
                 if (plugin_settings_node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(plugin_settings_node.GetValue("hide_all_windows"));
                 if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
-                if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
+                //if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
                 if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
                 if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
                 if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
@@ -242,7 +239,7 @@ namespace Chatterer
             node.AddValue("main_window_pos", main_window_pos.x + "," + main_window_pos.y);
             node.AddValue("skin_index", skin_index);
             node.AddValue("active_menu", active_menu);
-            node.AddValue("remotetech_toggle", remotetech_toggle);
+            //node.AddValue("remotetech_toggle", remotetech_toggle);
 
             node.AddValue("chatter_freq", chatter_freq);
             node.AddValue("chatter_vol_slider", chatter_vol_slider);
@@ -467,7 +464,7 @@ namespace Chatterer
             if (node.HasValue("show_tooltips")) show_tooltips = Boolean.Parse(node.GetValue("show_tooltips"));
             if (node.HasValue("skin_index")) skin_index = Int32.Parse(node.GetValue("skin_index"));
             if (node.HasValue("active_menu")) active_menu = Int32.Parse(node.GetValue("active_menu"));
-            if (node.HasValue("remotetech_toggle")) remotetech_toggle = Boolean.Parse(node.GetValue("remotetech_toggle"));
+            //if (node.HasValue("remotetech_toggle")) remotetech_toggle = Boolean.Parse(node.GetValue("remotetech_toggle"));
 
             if (node.HasValue("chatter_freq"))
             {
