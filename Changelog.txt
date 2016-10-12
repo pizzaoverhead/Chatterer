@@ -1,5 +1,14 @@
 Changelog:
 
+v0.9.91 [12 Oct 2016]
+- Recompiled for KSP v1.2.0.1586
+- Removed obsolete KSPUtil reference
+- Replaced RemoteTech behaviours with stock CommNet thingy
+- Removed "using System.Linq" as advised by Squad to help performances
+- Removed RemoteTech support (for now because of Linq use)
+- Removed Blizzy78's toolbar support (for now because of Linq use)
+- Removed other useless "using ..." 
+
 v0.9.90 [26 Jun 2016]
 - Recompiled for KSP v1.1.3.1289
 
