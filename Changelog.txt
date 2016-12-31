@@ -1,5 +1,10 @@
 Changelog:
 
+v0.9.92 [31 Dec 2016]
+- Recompiled for KSP v1.2.2.1622
+- Removed Linq reference (for good ><)
+- Reimplemented Blizzy78's Toolbar support
+
 v0.9.91 [12 Oct 2016]
 - Recompiled for KSP v1.2.0.1586
 - Removed obsolete KSPUtil reference

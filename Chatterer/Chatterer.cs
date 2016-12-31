@@ -218,9 +218,9 @@ namespace Chatterer
         private int num_beep_pages;
         private int prev_num_pages;
 
-        ////integration with blizzy78's Toolbar plugin
-        //private ToolbarButtonWrapper chatterer_toolbar_button;
-        //private bool useBlizzy78Toolbar = false;
+        //integration with blizzy78's Toolbar plugin
+        private IButton chatterer_toolbar_button;
+        private bool useBlizzy78Toolbar = false;
 
         //KSP Stock application launcherButton
         private ApplicationLauncherButton launcherButton = null;
@@ -362,46 +362,47 @@ namespace Chatterer
 
         //GUI
 
-        ////integration with blizzy78's Toolbar plugin
-        //internal chatterer() 
-        //{
-        //    if (ToolbarButtonWrapper.ToolbarManagerPresent)
-        //    {
-        //        if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
+        //integration with blizzy78's Toolbar plugin
+        
+        internal chatterer()
+        {
+            if (ToolbarManager.ToolbarAvailable)
+            {
+                if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
 
-        //        chatterer_toolbar_button = ToolbarButtonWrapper.TryWrapToolbarButton("Chatterer", "UI");
-        //        chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
-        //        chatterer_toolbar_button.ToolTip = "Open/Close Chatterer UI";
-        //        chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
-        //        chatterer_toolbar_button.AddButtonClickHandler((e) =>
-        //        {
-        //            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, when hide_all_windows = " + hide_all_windows);
+                chatterer_toolbar_button = ToolbarManager.Instance.add("Chatterer", "UI");
+                chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
+                chatterer_toolbar_button.ToolTip = "Open/Close Chatterer UI";
+                chatterer_toolbar_button.Visibility = new GameScenesVisibility(GameScenes.FLIGHT);
+                chatterer_toolbar_button.OnClick += ((e) =>
+                {
+                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, when hide_all_windows = " + hide_all_windows);
 
-        //            if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
-        //            {
-        //                UIToggle();
-        //            }
-        //            else if (launcherButton != null)
-        //            {
-        //                if (hide_all_windows)
-        //                {
-        //                    launcherButton.SetTrue();
-        //                    if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.toggleButton.CurrentState);
-        //                }
-        //                else if (!hide_all_windows)
-        //                {
-        //                    launcherButton.SetFalse();
-        //                    if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.toggleButton.CurrentState);
-        //                }
-        //            }
-        //        });
-        //    }
-        //}
+                    if (launcherButton == null && ToolbarManager.ToolbarAvailable)
+                    {
+                        UIToggle();
+                    }
+                    else if (launcherButton != null)
+                    {
+                        if (hide_all_windows)
+                        {
+                            launcherButton.SetTrue();
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.toggleButton.CurrentState);
+                        }
+                        else if (!hide_all_windows)
+                        {
+                            launcherButton.SetFalse();
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.toggleButton.CurrentState);
+                        }
+                    }
+                });
+            }
+        }
 
         private void OnGUIApplicationLauncherReady()
         {
             // Create the button in the KSP AppLauncher
-            if (launcherButton == null) //&& !useBlizzy78Toolbar)
+            if (launcherButton == null && !useBlizzy78Toolbar)
             {
                 if (debugging) Debug.Log("[CHATR] Building ApplicationLauncherButton");
                                 
@@ -642,13 +643,13 @@ namespace Chatterer
         {
             if (debugging) Debug.Log("[CHATR] OnDestroy() START");
 
-            //// Remove the button from the Blizzy's toolbar
-            //if (chatterer_toolbar_button != null)
-            //{
-            //    chatterer_toolbar_button.Destroy();
+            // Remove the button from the Blizzy's toolbar
+            if (chatterer_toolbar_button != null)
+            {
+                chatterer_toolbar_button.Destroy();
 
-            //    if (debugging) Debug.Log("[CHATR] OnDestroy() Blizzy78's toolbar button removed");
-            //}
+                if (debugging) Debug.Log("[CHATR] OnDestroy() Blizzy78's toolbar button removed");
+            }
 
             // Un-register the callbacks
             GameEvents.onGUIApplicationLauncherReady.Remove(OnGUIApplicationLauncherReady);
@@ -876,7 +877,7 @@ namespace Chatterer
             string closeUI = "Close";
             if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false)))
             {
-                if (launcherButton == null) //&& ToolbarButtonWrapper.ToolbarManagerPresent)
+                if (launcherButton == null && ToolbarManager.ToolbarAvailable)
                 {
                     UIToggle();
                 }
@@ -1643,16 +1644,16 @@ namespace Chatterer
                 prev_use_vessel_settings = use_vessel_settings;
             }
 
-            //if (ToolbarButtonWrapper.ToolbarManagerPresent)
-            //{
-            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //    _content.text = "Use Blizzy78's toolbar only";
-            //    _content.tooltip = "Hide stock Applaunch button";
-            //    useBlizzy78Toolbar = GUILayout.Toggle(useBlizzy78Toolbar, _content);
-            //    if (useBlizzy78Toolbar && launcherButton != null) launcherButtonRemove();
-            //    if (!useBlizzy78Toolbar && launcherButton == null) OnGUIApplicationLauncherReady();
-            //    GUILayout.EndHorizontal();
-            //}
+            if (ToolbarManager.ToolbarAvailable)
+            {
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "Use Blizzy78's toolbar only";
+                _content.tooltip = "Hide stock Applaunch button";
+                useBlizzy78Toolbar = GUILayout.Toggle(useBlizzy78Toolbar, _content);
+                if (useBlizzy78Toolbar && launcherButton != null) launcherButtonRemove();
+                if (!useBlizzy78Toolbar && launcherButton == null) OnGUIApplicationLauncherReady();
+                GUILayout.EndHorizontal();
+            }
 
             //_content.text = "Enable RemoteTech integration";
             //_content.tooltip = "Disable/Delay comms with KSC accordingly";
