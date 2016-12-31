@@ -363,40 +363,7 @@ namespace Chatterer
         //GUI
 
         //integration with blizzy78's Toolbar plugin
-        //internal chatterer()
-        //{
-        //    if (ToolbarManager.ToolbarAvailable)
-        //    {
-        //        if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
-
-        //        chatterer_toolbar_button = ToolbarManager.TryWrapToolbarButton("Chatterer", "UI");
-        //        chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
-        //        chatterer_toolbar_button.ToolTip = "Open/Close Chatterer UI";
-        //        chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
-        //        chatterer_toolbar_button.AddButtonClickHandler((e) =>
-        //        {
-        //            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, when hide_all_windows = " + hide_all_windows);
-
-        //            if (launcherButton == null && ToolbarManager.ToolbarAvailable)
-        //            {
-        //                UIToggle();
-        //            }
-        //            else if (launcherButton != null)
-        //            {
-        //                if (hide_all_windows)
-        //                {
-        //                    launcherButton.SetTrue();
-        //                    if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.toggleButton.CurrentState);
-        //                }
-        //                else if (!hide_all_windows)
-        //                {
-        //                    launcherButton.SetFalse();
-        //                    if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.toggleButton.CurrentState);
-        //                }
-        //            }
-        //        });
-        //    }
-        //}
+        
         internal chatterer()
         {
             if (ToolbarManager.ToolbarAvailable)
