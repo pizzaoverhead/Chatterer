@@ -1,5 +1,10 @@
 Changelog:
 
+v0.9.93 [27 May 2017]
+- Recompiled for KSP v1.3.0.1804
+- Fix for chatter spam on jumps (avoid exchange to trigger every time vessel leaves the ground)
+- Automatically mute all sounds when game is paused
+
 v0.9.92 [31 Dec 2016]
 - Recompiled for KSP v1.2.2.1622
 - Removed Linq reference (for good ><)

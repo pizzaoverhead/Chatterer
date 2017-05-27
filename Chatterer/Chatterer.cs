@@ -626,6 +626,20 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
         }
 
+        void OnGamePause()
+        {
+            if (!all_muted) mute_all = true;
+
+            if (debugging) Debug.Log("[CHATR] OnGamePause() : Mute = " + mute_all);
+        }
+
+        void OnGameUnpause()
+        {
+            if (all_muted) mute_all = false;
+
+            if (debugging) Debug.Log("[CHATR] OnGameUnpause() : Mute = " + mute_all);
+        }
+
         private void checkChatterGender()
         {
             chatter_is_female = false;
@@ -659,6 +673,8 @@ namespace Chatterer
             GameEvents.onVesselChange.Remove(OnVesselChange);
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
+            GameEvents.onGamePause.Remove(OnGamePause);
+            GameEvents.onGameUnpause.Remove(OnGameUnpause);
 
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
@@ -3487,6 +3503,10 @@ namespace Chatterer
             // for CommNet management
             GameEvents.CommNet.OnCommHomeStatusChange.Add(OnCommHomeStatusChange);
 
+            // for whatnot
+            GameEvents.onGamePause.Add(OnGamePause);
+            GameEvents.onGameUnpause.Add(OnGameUnpause);
+
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
             Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
         }
@@ -3980,8 +4000,17 @@ namespace Chatterer
                                 {
                                     //situation (lander, orbiting, etc) has changed
                                     if (debugging) Debug.Log("[CHATR] beginning exchange,event::prev = " + vessel_prev_sit + " ::new = " + vessel.situation.ToString());
-                                    pod_begins_exchange = true;
-                                    begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
+                                    
+                                    if (secs_since_last_exchange > secs_between_exchanges / 2)
+                                    {
+                                        pod_begins_exchange = true;
+                                        begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
+                                    }
+                                    
+                                    else
+                                    {
+                                        if (debugging) Debug.Log("[CHATR] prevent exchange on situation change, minimum time interval : " + (secs_between_exchanges / 2).ToString("F0") + "s / time remaining : " + ((secs_between_exchanges / 2) - (secs_since_last_exchange)).ToString("F0") + "s.");
+                                    }
                                 }
                             }
                         }
