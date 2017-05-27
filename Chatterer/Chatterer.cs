@@ -626,6 +626,20 @@ namespace Chatterer
             if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
         }
 
+        void OnGamePause()
+        {
+            if (!all_muted) mute_all = true;
+
+            if (debugging) Debug.Log("[CHATR] OnGamePause() : Mute = " + mute_all);
+        }
+
+        void OnGameUnpause()
+        {
+            if (all_muted) mute_all = false;
+
+            if (debugging) Debug.Log("[CHATR] OnGameUnpause() : Mute = " + mute_all);
+        }
+
         private void checkChatterGender()
         {
             chatter_is_female = false;
@@ -659,6 +673,8 @@ namespace Chatterer
             GameEvents.onVesselChange.Remove(OnVesselChange);
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
+            GameEvents.onGamePause.Remove(OnGamePause);
+            GameEvents.onGameUnpause.Remove(OnGameUnpause);
 
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
@@ -3486,6 +3502,10 @@ namespace Chatterer
 
             // for CommNet management
             GameEvents.CommNet.OnCommHomeStatusChange.Add(OnCommHomeStatusChange);
+
+            // for whatnot
+            GameEvents.onGamePause.Add(OnGamePause);
+            GameEvents.onGameUnpause.Add(OnGameUnpause);
 
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
             Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
