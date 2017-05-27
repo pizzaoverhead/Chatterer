@@ -3980,8 +3980,17 @@ namespace Chatterer
                                 {
                                     //situation (lander, orbiting, etc) has changed
                                     if (debugging) Debug.Log("[CHATR] beginning exchange,event::prev = " + vessel_prev_sit + " ::new = " + vessel.situation.ToString());
-                                    pod_begins_exchange = true;
-                                    begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
+                                    
+                                    if (secs_since_last_exchange > secs_between_exchanges / 2)
+                                    {
+                                        pod_begins_exchange = true;
+                                        begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
+                                    }
+                                    
+                                    else
+                                    {
+                                        if (debugging) Debug.Log("[CHATR] prevent exchange on situation change, minimum time interval : " + (secs_between_exchanges / 2).ToString("F0") + "s / time remaining : " + ((secs_between_exchanges / 2) - (secs_since_last_exchange)).ToString("F0") + "s.");
+                                    }
                                 }
                             }
                         }
