@@ -1,5 +1,9 @@
 Changelog:
 
+v0.9.94 [12 Mar 2018]
+- Recompiled for KSP v1.4.0.2077
+- Fixed reverb_filter deprecated function roomRolloff preventing plugin execution in KSP v1.4
+
 v0.9.93 [27 May 2017]
 - Recompiled for KSP v1.3.0.1804
 - Fix for chatter spam on jumps (avoid exchange to trigger every time vessel leaves the ground)

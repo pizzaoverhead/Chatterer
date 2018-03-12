@@ -559,13 +559,6 @@ namespace Chatterer
                 arf.roomLF = GUILayout.HorizontalSlider(arf.roomLF, -10000f, 0, GUILayout.Width(90f));
                 GUILayout.EndHorizontal();
 
-                _content.text = "Room roll-off: " + arf.roomRolloff.ToString("F2");
-                _content.tooltip = "Rolloff factor for room effect";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.roomRolloff = GUILayout.HorizontalSlider(arf.roomRolloff, 0, 10f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
                 _content.text = "Decay time: " + (arf.decayTime * 100).ToString("F0") + " s";
                 _content.tooltip = "Reverb decay time at low-frequencies";
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
@@ -647,7 +640,6 @@ namespace Chatterer
                     reverb_clipboard.AddValue("room", arf.room);
                     reverb_clipboard.AddValue("room_hf", arf.roomHF);
                     reverb_clipboard.AddValue("room_lf", arf.roomLF);
-                    reverb_clipboard.AddValue("room_rolloff", arf.roomRolloff);
                     reverb_clipboard.AddValue("decay_time", arf.decayTime);
                     reverb_clipboard.AddValue("decay_hf_ratio", arf.decayHFRatio);
                     reverb_clipboard.AddValue("reflections_level", arf.reflectionsLevel);
@@ -671,7 +663,6 @@ namespace Chatterer
                         arf.room = Single.Parse(reverb_clipboard.GetValue("room"));
                         arf.roomHF = Single.Parse(reverb_clipboard.GetValue("room_hf"));
                         arf.roomLF = Single.Parse(reverb_clipboard.GetValue("room_lf"));
-                        arf.roomRolloff = Single.Parse(reverb_clipboard.GetValue("room_rolloff"));
                         arf.decayTime = Single.Parse(reverb_clipboard.GetValue("decay_time"));
                         arf.decayHFRatio = Single.Parse(reverb_clipboard.GetValue("decay_hf_ratio"));
                         arf.reflectionsLevel = Single.Parse(reverb_clipboard.GetValue("reflections_level"));
@@ -774,7 +765,6 @@ namespace Chatterer
                     if (filter.HasValue("room")) arf.room = Single.Parse(filter.GetValue("room"));
                     if (filter.HasValue("room_hf")) arf.roomHF = Single.Parse(filter.GetValue("room_hf"));
                     if (filter.HasValue("room_lf")) arf.roomLF = Single.Parse(filter.GetValue("room_lf"));
-                    if (filter.HasValue("room_rolloff")) arf.roomRolloff = Single.Parse(filter.GetValue("room_rolloff"));
                     if (filter.HasValue("decay_time")) arf.decayTime = Single.Parse(filter.GetValue("decay_time"));
                     if (filter.HasValue("decay_hf_ratio")) arf.decayHFRatio = Single.Parse(filter.GetValue("decay_hf_ratio"));
                     if (filter.HasValue("reflections_level")) arf.reflectionsLevel = Single.Parse(filter.GetValue("reflections_level"));
@@ -847,7 +837,6 @@ namespace Chatterer
             _filter.AddValue("room", chatter_reverb_filter.room);
             _filter.AddValue("room_hf", chatter_reverb_filter.roomHF);
             _filter.AddValue("room_lf", chatter_reverb_filter.roomLF);
-            _filter.AddValue("room_rolloff", chatter_reverb_filter.roomRolloff);
             _filter.AddValue("decay_time", chatter_reverb_filter.decayTime);
             _filter.AddValue("decay_hf_ratio", chatter_reverb_filter.decayHFRatio);
             _filter.AddValue("reflections_level", chatter_reverb_filter.reflectionsLevel);
@@ -905,7 +894,6 @@ namespace Chatterer
             if (filter.HasValue("room")) chatter_reverb_filter.room = Single.Parse(filter.GetValue("room"));
             if (filter.HasValue("room_hf")) chatter_reverb_filter.roomHF = Single.Parse(filter.GetValue("room_hf"));
             if (filter.HasValue("room_lf")) chatter_reverb_filter.roomLF = Single.Parse(filter.GetValue("room_lf"));
-            if (filter.HasValue("room_rolloff")) chatter_reverb_filter.roomRolloff = Single.Parse(filter.GetValue("room_rolloff"));
             if (filter.HasValue("decay_time")) chatter_reverb_filter.decayTime = Single.Parse(filter.GetValue("decay_time"));
             if (filter.HasValue("decay_hf_ratio")) chatter_reverb_filter.decayHFRatio = Single.Parse(filter.GetValue("decay_hf_ratio"));
             if (filter.HasValue("reflections_level")) chatter_reverb_filter.reflectionsLevel = Single.Parse(filter.GetValue("reflections_level"));
@@ -975,7 +963,6 @@ namespace Chatterer
             _filter.AddValue("room", source.reverb_filter.room);
             _filter.AddValue("room_hf", source.reverb_filter.roomHF);
             _filter.AddValue("room_lf", source.reverb_filter.roomLF);
-            _filter.AddValue("room_rolloff", source.reverb_filter.roomRolloff);
             _filter.AddValue("decay_time", source.reverb_filter.decayTime);
             _filter.AddValue("decay_hf_ratio", source.reverb_filter.decayHFRatio);
             _filter.AddValue("reflections_level", source.reverb_filter.reflectionsLevel);
@@ -1033,7 +1020,6 @@ namespace Chatterer
             if (filter.HasValue("room")) source.reverb_filter.room = Single.Parse(filter.GetValue("room"));
             if (filter.HasValue("room_hf")) source.reverb_filter.roomHF = Single.Parse(filter.GetValue("room_hf"));
             if (filter.HasValue("room_lf")) source.reverb_filter.roomLF = Single.Parse(filter.GetValue("room_lf"));
-            if (filter.HasValue("room_rolloff")) source.reverb_filter.roomRolloff = Single.Parse(filter.GetValue("room_rolloff"));
             if (filter.HasValue("decay_time")) source.reverb_filter.decayTime = Single.Parse(filter.GetValue("decay_time"));
             if (filter.HasValue("decay_hf_ratio")) source.reverb_filter.decayHFRatio = Single.Parse(filter.GetValue("decay_hf_ratio"));
             if (filter.HasValue("reflections_level")) source.reverb_filter.reflectionsLevel = Single.Parse(filter.GetValue("reflections_level"));
