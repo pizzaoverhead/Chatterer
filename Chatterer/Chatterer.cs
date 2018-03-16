@@ -604,6 +604,7 @@ namespace Chatterer
 
         void OnStageSeparation(EventReport data)
         {
+            if (debugging) Debug.Log("[CHATR] beginning exchange, OnStageSeparation");
             begin_exchange(0);
         }
 
