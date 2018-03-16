@@ -602,6 +602,11 @@ namespace Chatterer
             }
         }
 
+        void OnStageSeparation(EventReport data)
+        {
+            begin_exchange(0);
+        }
+
         void OnScienceChanged(float sci, TransactionReasons scitxreason)
         {
             if (sstv_on_science_toggle && scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
@@ -671,6 +676,7 @@ namespace Chatterer
             GameEvents.onCrewOnEva.Remove(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
             GameEvents.onVesselChange.Remove(OnVesselChange);
+            GameEvents.onStageSeparation.Remove(OnStageSeparation);
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
             GameEvents.onGamePause.Remove(OnGamePause);
@@ -3494,6 +3500,7 @@ namespace Chatterer
             GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
             GameEvents.onVesselChange.Add(OnVesselChange);
+            GameEvents.onStageSeparation.Add(OnStageSeparation);
 
             //to trigger SSTV on science tx
             GameEvents.OnScienceChanged.Add(OnScienceChanged);
