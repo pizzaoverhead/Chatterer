@@ -2957,6 +2957,41 @@ namespace Chatterer
             }
         }
 
+        private void end_exchange(float delay)
+        {
+            if (vessel.GetCrewCount() > 0 && response_chatter_started == false)
+            {
+                if (response_chatter_set.Count > 0 && (inRadioContact))
+                {
+                    if (debugging) Debug.Log("[CHATR] playing response");
+                    response_chatter_started = true;
+                    if (initial_chatter_source == 1 && quindar_toggle)
+                    {
+                        quindar1.Play();
+                        //print("playing response first quindar");
+                        response_chatter.PlayDelayed(quindar1.clip.length);
+                        //print("playing response chatter");
+                        quindar2.PlayDelayed(quindar1.clip.length + response_chatter.clip.length);
+                        //print("playing response second quindar");
+                    }
+                    else response_chatter.Play();
+                }
+                else if (response_chatter_set.Count > 0 && !inRadioContact)
+                {
+                    if (exchange_playing == true)
+                    {
+                        if (debugging) Debug.Log("[CHATR] No connection, no response ... you are alone !");
+                        exchange_playing = false;
+                    }
+                }
+                else
+                {
+                    if (debugging) Debug.LogWarning("[CHATR] response_chatter_set has no audioclips, abandoning exchange");
+                    exchange_playing = false;   //exchange is over
+                }
+            }
+        }
+
         private void stop_audio(string audio_type)
         {
             if (audio_type == "all")
@@ -3933,54 +3968,19 @@ namespace Chatterer
                                 if (initial_chatter.isPlaying == false)
                                 {
                                     //initial chatter has finished playing
-                                    //wait some seconds and respond
-                                    secs_since_initial_chatter += Time.deltaTime;
-                                    if (secs_since_initial_chatter > response_delay_secs)
+                                    //so respond
+
+                                    end_exchange(response_delay_secs);
+
                                     {
-                                        //if (debugging) Debug.Log("[CHATR] response delay has elapsed...");
-                                        if (response_chatter.isPlaying == false)
+                                        if (response_chatter.isPlaying == false && response_chatter_started)
                                         {
-                                            //play response clip if not already playing
-                                            //print("response not currently playing...");
-
-                                            if (response_chatter_started)
-                                            {
-                                                //has started flag is tripped but no chatter playing
-                                                //response has ended
-                                                if (debugging) Debug.Log("[CHATR] response has finished");
-                                                exchange_playing = false;
-                                                response_chatter_started = false;
-                                                return;
-                                            }
-
-                                            if (response_chatter_set.Count > 0 && (inRadioContact))
-                                            {
-                                                if (debugging) Debug.Log("[CHATR] playing response");
-                                                response_chatter_started = true;
-                                                if (initial_chatter_source == 1 && quindar_toggle)
-                                                {
-                                                    quindar1.Play();
-                                                    //print("playing response first quindar");
-                                                    response_chatter.PlayDelayed(quindar1.clip.length);
-                                                    //print("playing response chatter");
-                                                    quindar2.PlayDelayed(quindar1.clip.length + response_chatter.clip.length);
-                                                    //print("playing response second quindar");
-                                                }
-                                                else response_chatter.Play();
-                                            }
-                                            else if (response_chatter_set.Count > 0 && !inRadioContact)
-                                            {
-                                                if (exchange_playing == true)
-                                                {
-                                                    if (debugging) Debug.Log("[CHATR] No connection, no response ... you are alone !");
-                                                    exchange_playing = false;
-                                                }
-                                            }
-                                            else
-                                            {
-                                                if (debugging) Debug.LogWarning("[CHATR] response_chatter_set has no audioclips, abandoning exchange");
-                                                exchange_playing = false;   //exchange is over
-                                            }
+                                            //has started flag is tripped but no chatter playing
+                                            //response has ended
+                                            if (debugging) Debug.Log("[CHATR] response has finished");
+                                            exchange_playing = false;
+                                            response_chatter_started = false;
+                                            return;
                                         }
                                     }
                                 }
