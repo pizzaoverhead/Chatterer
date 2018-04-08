@@ -278,7 +278,6 @@ namespace Chatterer
         private float sstv_timer = 0;
         private float sstv_timer_limit = 0;
         private float secs_since_last_exchange = 0;
-        private float secs_since_initial_chatter = 0;
         private float secs_between_exchanges = 0;
         
         //these are updated and trigger chatter when changed
@@ -961,7 +960,6 @@ namespace Chatterer
                 if (chatter_freq == 0)
                 {
                     exchange_playing = false;
-                    secs_since_initial_chatter = 0;
                 }
                 secs_since_last_exchange = 0;
                 set_new_delay_between_exchanges();
@@ -2799,8 +2797,7 @@ namespace Chatterer
             //print("initialize_new_exchange()...");
             set_new_delay_between_exchanges();
             secs_since_last_exchange = 0;
-            secs_since_initial_chatter = 0;
-
+            
             if (FlightGlobals.ActiveVessel != null) //Avoid EXP on first load where vessel isn't loaded yet
             {
                 checkChatterGender(); //Check chatter gender to play female/male voice accordingly
