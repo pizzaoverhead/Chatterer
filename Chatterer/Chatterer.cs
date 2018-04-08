@@ -2891,65 +2891,68 @@ namespace Chatterer
 
         private void begin_exchange(float delay)
         {
-            exchange_playing = true;
-            initialize_new_exchange();
-
-            if (initial_chatter_source == 1)
+            if (vessel.GetCrewCount() > 0)
             {
-                //capsule starts the exchange
-                //always play regardless of radio contact state
-                Debug.Log("[CHATR] Capsule starts the exchange...");
+                exchange_playing = true;
+                initialize_new_exchange();
 
-                //play initial capsule chatter
-                //initial_chatter_set[initial_chatter_index].PlayDelayed(delay);
-                if (initial_chatter_set.Count > 0)
+                if (initial_chatter_source == 1)
                 {
-                    initial_chatter.PlayDelayed(delay);
-                }
-                else
-                {
-                    exchange_playing = false;
-                    Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
-                }
+                    //capsule starts the exchange
+                    //always play regardless of radio contact state
+                    Debug.Log("[CHATR] Capsule starts the exchange...");
 
-                ////add RT delay to response delay if enabled and in contact
-                //if (remotetech_toggle && inRadioContact) response_delay_secs += Convert.ToInt32(controlDelay);
-
-                ////if RT is enabled but not in radio contact, play no response
-                //if (remotetech_toggle && inRadioContact == false) exchange_playing = false;
-
-                //if there is no radio contact with KSC, play no response
-                if (!inRadioContact) exchange_playing = false;
-                
-            }
-
-            if (initial_chatter_source == 0)
-            {
-                //capcom starts the exchange
-                Debug.Log("[CHATR] Capcom starts the exchange...");
-                
-                if (inRadioContact)
-                {
-                    //in radio contact,
-                    //play initial capcom
-                    
+                    //play initial capsule chatter
+                    //initial_chatter_set[initial_chatter_index].PlayDelayed(delay);
                     if (initial_chatter_set.Count > 0)
                     {
-                        //initial_chatter.PlayDelayed(delay);
-                        if (quindar_toggle) play_quindar(delay);    // play with quindar
-                        else initial_chatter.PlayDelayed(delay); // play without quindar
+                        initial_chatter.PlayDelayed(delay);
                     }
                     else
                     {
                         exchange_playing = false;
                         Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
                     }
+
+                    ////add RT delay to response delay if enabled and in contact
+                    //if (remotetech_toggle && inRadioContact) response_delay_secs += Convert.ToInt32(controlDelay);
+
+                    ////if RT is enabled but not in radio contact, play no response
+                    //if (remotetech_toggle && inRadioContact == false) exchange_playing = false;
+
+                    //if there is no radio contact with KSC, play no response
+                    if (!inRadioContact) exchange_playing = false;
+
                 }
-                else
+
+                if (initial_chatter_source == 0)
                 {
-                    //not in radio contact,
-                    //play no initial chatter or response
-                    exchange_playing = false;
+                    //capcom starts the exchange
+                    Debug.Log("[CHATR] Capcom starts the exchange...");
+
+                    if (inRadioContact)
+                    {
+                        //in radio contact,
+                        //play initial capcom
+
+                        if (initial_chatter_set.Count > 0)
+                        {
+                            //initial_chatter.PlayDelayed(delay);
+                            if (quindar_toggle) play_quindar(delay);    // play with quindar
+                            else initial_chatter.PlayDelayed(delay); // play without quindar
+                        }
+                        else
+                        {
+                            exchange_playing = false;
+                            Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
+                        }
+                    }
+                    else
+                    {
+                        //not in radio contact,
+                        //play no initial chatter or response
+                        exchange_playing = false;
+                    }
                 }
             }
         }
