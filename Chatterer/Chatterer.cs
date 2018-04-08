@@ -2921,7 +2921,7 @@ namespace Chatterer
                     //if (remotetech_toggle && inRadioContact == false) exchange_playing = false;
 
                     //if there is no radio contact with KSC, play no response
-                    if (!inRadioContact) exchange_playing = false;
+                    //if (!inRadioContact) exchange_playing = false;
 
                 }
 
