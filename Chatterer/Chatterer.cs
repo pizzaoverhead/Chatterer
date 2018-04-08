@@ -2967,14 +2967,14 @@ namespace Chatterer
                     response_chatter_started = true;
                     if (initial_chatter_source == 1 && quindar_toggle)
                     {
-                        quindar1.Play();
+                        quindar1.PlayDelayed(delay);
                         //print("playing response first quindar");
-                        response_chatter.PlayDelayed(quindar1.clip.length);
+                        response_chatter.PlayDelayed(delay + quindar1.clip.length);
                         //print("playing response chatter");
-                        quindar2.PlayDelayed(quindar1.clip.length + response_chatter.clip.length);
+                        quindar2.PlayDelayed(delay + quindar1.clip.length + response_chatter.clip.length);
                         //print("playing response second quindar");
                     }
-                    else response_chatter.Play();
+                    else response_chatter.PlayDelayed(delay);
                 }
                 else if (response_chatter_set.Count > 0 && !inRadioContact)
                 {
