@@ -3946,10 +3946,9 @@ namespace Chatterer
                     if (vessel.GetCrewCount() > 0)
                     {
                         //Has crew onboard
-                        //do insta-chatter if chatter is off
-                        if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key) && exchange_playing == false && sstv.isPlaying == false)
+                        //do insta-chatter if insta-chatter chatter key is pressed
+                        if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key))
                         {
-                            //no chatter or sstv playing, play insta-chatter
                             if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
                             begin_exchange(0);
                         }
