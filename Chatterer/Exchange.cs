@@ -30,7 +30,7 @@ namespace Chatterer
                     {
                         if (initial_chatter.isPlaying == false)
                         {
-                            initial_chatter.Play();
+                            initial_chatter.PlayDelayed(delay);
 
                             yield return new WaitForSeconds(initial_chatter.clip.length);
                             //initial chatter has finished playing
@@ -109,13 +109,13 @@ namespace Chatterer
                             }
                             else response_chatter.PlayDelayed(delay);
                         }
-                        if (initial_chatter_source == 0)
+                        else if (initial_chatter_source == 0)
                         {
                             if (response_chatter.isPlaying == false)
                             {
                                 if (debugging) Debug.Log("[CHATR] Capsule responding");
 
-                                response_chatter.Play();
+                                response_chatter.PlayDelayed(delay);
 
                                 yield return new WaitForSeconds(response_chatter.clip.length);
                                 //response chatter has finished playing
