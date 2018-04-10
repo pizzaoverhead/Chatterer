@@ -31,6 +31,9 @@ namespace Chatterer
                         if (initial_chatter.isPlaying == false)
                         {
                             initial_chatter.Play();
+
+                            yield return new WaitForSeconds(initial_chatter.clip.length);
+                            //initial chatter has finished playing
                         }
                         else if (debugging) Debug.LogWarning("[CHATR] initial_chatter already playing, move on...");
                     }
@@ -81,9 +84,6 @@ namespace Chatterer
                     }
                 }
 
-                yield return new WaitWhile(() => initial_chatter.isPlaying);
-                //initial chatter has finished playing
-
                 if (debugging) Debug.Log("[CHATR] Responding Cor_exchange, delay = " + response_delay_secs);
                 yield return new WaitForSeconds(response_delay_secs);
                 
@@ -113,9 +113,12 @@ namespace Chatterer
                         {
                             if (response_chatter.isPlaying == false)
                             {
-                                if (debugging) Debug.Log("[CHATR] Capcom responding");
+                                if (debugging) Debug.Log("[CHATR] Capsule responding");
 
                                 response_chatter.Play();
+
+                                yield return new WaitForSeconds(response_chatter.clip.length);
+                                //response chatter has finished playing
                             }
                             else if (debugging) Debug.LogWarning("[CHATR] response_chatter already playing, move on...");
                         }
@@ -134,9 +137,6 @@ namespace Chatterer
                         exchange_playing = false;   //exchange is over
                     }
                 }
-
-                yield return new WaitWhile(() => response_chatter.isPlaying);
-                //response chatter has finished playing
 
                 response_chatter_started = false;
                 exchange_playing = false;
