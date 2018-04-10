@@ -53,8 +53,7 @@ namespace Chatterer
                     //if (!inRadioContact) exchange_playing = false;
 
                 }
-
-                if (initial_chatter_source == 0)
+                else if (initial_chatter_source == 0)
                 {
                     //capcom starts the exchange
                     if (debugging) Debug.Log("[CHATR] Capcom starts the exchange...");
@@ -80,6 +79,7 @@ namespace Chatterer
                     {
                         //not in radio contact,
                         //play no initial chatter or response
+                        if (debugging) Debug.Log("[CHATR] No radio contact, Capcom is speaking with void.");
                         exchange_playing = false;
                     }
                 }
