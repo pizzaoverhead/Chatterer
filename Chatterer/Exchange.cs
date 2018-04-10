@@ -28,7 +28,11 @@ namespace Chatterer
                     //play initial capsule chatter
                     if (initial_chatter_set.Count > 0)
                     {
-                        initial_chatter.Play();
+                        if (initial_chatter.isPlaying == false)
+                        {
+                            initial_chatter.Play();
+                        }
+                        else if (debugging) Debug.LogWarning("[CHATR] initial_chatter already playing, move on...");
                     }
                     else
                     {
@@ -107,9 +111,13 @@ namespace Chatterer
                         }
                         if (initial_chatter_source == 0)
                         {
-                            if (debugging) Debug.Log("[CHATR] Capsule responding");
+                            if (response_chatter.isPlaying == false)
+                            {
+                                if (debugging) Debug.Log("[CHATR] Capcom responding");
 
-                            response_chatter.Play();
+                                response_chatter.Play();
+                            }
+                            else if (debugging) Debug.LogWarning("[CHATR] response_chatter already playing, move on...");
                         }
                     }
                     else if (response_chatter_set.Count > 0 && !inRadioContact)
