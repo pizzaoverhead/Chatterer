@@ -593,30 +593,23 @@ namespace Chatterer
             begin_exchange(0);
         }
 
-        //// [DISABLED] Way to buggy for now
-        //
-        //void OnVesselSituationChange(GameEvents.HostedFromToAction<Vessel, Vessel.Situations> data)
-        //{
-        //    if (FlightGlobals.ActiveVessel != null)
-        //    {
-        //        if ((data.host.SituationString == "DOCKED" || data.host.SituationString == "SPLASHED" || data.host.SituationString != "SUB_ORBITAL" || data.host.SituationString != "ORBITING" || data.host.SituationString != "ESCAPING") && sstv.isPlaying == false)
-        //        {
-        //            //situation (lander, orbiting, etc) has changed
-        //            if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSituationChange : " + data.host.SituationString);
-
-        //            if (secs_since_last_exchange > secs_between_exchanges / 2)
-        //            {
-        //                pod_begins_exchange = true;
-        //                begin_exchange(0);  //for delay try (rand.Next(0, 3)) for 0-2 seconds for randomness
-        //            }
-
-        //            else
-        //            {
-        //                if (debugging) Debug.Log("[CHATR] prevent exchange on situation change, minimum time interval : " + (secs_between_exchanges / 2).ToString("F0") + "s / time remaining : " + ((secs_between_exchanges / 2) - (secs_since_last_exchange)).ToString("F0") + "s.");
-        //            }
-        //        }
-        //    }
-        //}
+        void OnVesselSituationChange(GameEvents.HostedFromToAction<Vessel, Vessel.Situations> data)
+        {
+            if (FlightGlobals.ActiveVessel != null && data.host.isActiveVessel)
+            {
+                if ((data.host.SituationString == "DOCKED" || data.host.SituationString == "SPLASHED" || data.host.SituationString == "SUB_ORBITAL" || data.host.SituationString == "ORBITING" || data.host.SituationString == "ESCAPING") && sstv.isPlaying == false)
+                {
+                    if (secs_since_last_exchange > 30.0f)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSituationChange : " + data.host.SituationString);
+                        
+                        pod_begins_exchange = true;
+                        begin_exchange(0);  //for delay try (rand.Next(0, 3)) for 0-2 seconds for randomness
+                    }
+                    else if (debugging) Debug.Log("[CHATR] prevent spam from situation change, time remaining : " + (30.0f - secs_since_last_exchange).ToString("F0") + "s.");
+                }
+            }
+        }
 
         void OnVesselSOIChanged(GameEvents.HostedFromToAction<Vessel, CelestialBody> data)
         {
@@ -694,7 +687,7 @@ namespace Chatterer
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
             GameEvents.onVesselChange.Remove(OnVesselChange);
             GameEvents.onStageSeparation.Remove(OnStageSeparation);
-            //GameEvents.onVesselSituationChange.Remove(OnVesselSituationChange);
+            GameEvents.onVesselSituationChange.Remove(OnVesselSituationChange);
             GameEvents.onVesselSOIChanged.Remove(OnVesselSOIChanged);
 
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
@@ -3455,7 +3448,7 @@ namespace Chatterer
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
             GameEvents.onVesselChange.Add(OnVesselChange);
             GameEvents.onStageSeparation.Add(OnStageSeparation);
-            //GameEvents.onVesselSituationChange.Add(OnVesselSituationChange);
+            GameEvents.onVesselSituationChange.Add(OnVesselSituationChange);
             GameEvents.onVesselSOIChanged.Add(OnVesselSOIChanged);
 
             //to trigger SSTV on science tx
@@ -3873,12 +3866,12 @@ namespace Chatterer
                     else begin_exchange(0);
                 }
 
-                if (chatter_exists && vessel.GetCrewCount() > 0 && chatter_freq > 0 && exchange_playing == false)
+                if (chatter_exists && vessel.GetCrewCount() > 0 && exchange_playing == false)
                 {
                     //No exchange currently playing
                     secs_since_last_exchange += Time.deltaTime;
 
-                    if (secs_since_last_exchange > secs_between_exchanges && sstv.isPlaying == false)
+                    if (secs_since_last_exchange > secs_between_exchanges && chatter_freq > 0 && sstv.isPlaying == false)
                     {
                         if (debugging) Debug.Log("[CHATR] beginning exchange,auto");
                         begin_exchange(0);
