@@ -618,6 +618,12 @@ namespace Chatterer
         //    }
         //}
 
+        void OnVesselSOIChanged(GameEvents.HostedFromToAction<Vessel, CelestialBody> data)
+        {
+            if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSOIChanged : " + data.to.bodyName);
+            begin_exchange(0);
+        }
+
         void OnScienceChanged(float sci, TransactionReasons scitxreason)
         {
             if (sstv_on_science_toggle && scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
@@ -689,6 +695,7 @@ namespace Chatterer
             GameEvents.onVesselChange.Remove(OnVesselChange);
             GameEvents.onStageSeparation.Remove(OnStageSeparation);
             //GameEvents.onVesselSituationChange.Remove(OnVesselSituationChange);
+            GameEvents.onVesselSOIChanged.Remove(OnVesselSOIChanged);
 
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
@@ -3449,6 +3456,7 @@ namespace Chatterer
             GameEvents.onVesselChange.Add(OnVesselChange);
             GameEvents.onStageSeparation.Add(OnStageSeparation);
             //GameEvents.onVesselSituationChange.Add(OnVesselSituationChange);
+            GameEvents.onVesselSOIChanged.Add(OnVesselSOIChanged);
 
             //to trigger SSTV on science tx
             GameEvents.OnScienceChanged.Add(OnScienceChanged);
