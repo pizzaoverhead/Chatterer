@@ -613,8 +613,11 @@ namespace Chatterer
 
         void OnVesselSOIChanged(GameEvents.HostedFromToAction<Vessel, CelestialBody> data)
         {
-            if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSOIChanged : " + data.to.bodyName);
-            begin_exchange(0);
+            if (data.host.isActiveVessel)
+            {
+                if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSOIChanged : " + data.to.bodyName);
+                begin_exchange(0);
+            }
         }
 
         void OnScienceChanged(float sci, TransactionReasons scitxreason)
