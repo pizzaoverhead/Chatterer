@@ -3850,66 +3850,19 @@ namespace Chatterer
                     else begin_exchange(0);
                 }
 
-                //if (chatter_exists)
-                //{
-                //    if (vessel.GetCrewCount() > 0)
-                //    {
-                //        //Has crew onboard
-                //        //do insta-chatter if insta-chatter chatter key is pressed
-                //        if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key))
-                //        {
-                //            if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
-                //            begin_exchange(0);
-                //        }
+                if (chatter_exists && vessel.GetCrewCount() > 0 && chatter_freq > 0 && exchange_playing == false)
+                {
+                    //No exchange currently playing
+                    secs_since_last_exchange += Time.deltaTime;
 
-                //        //exchange_playing check added because insta-chatter response was blocked when chatter is turned off
-                //        if (chatter_freq > 0 || exchange_playing)
-                //        {
-                //            //Chatter is on
-                //            //consume_resources();
-                //            if (exchange_playing)
-                //            {
-                //                //Exchange in progress
-                //                if (initial_chatter.isPlaying == false)
-                //                {
-                //                    //initial chatter has finished playing
-                //                    //so respond
+                    if (secs_since_last_exchange > secs_between_exchanges && sstv.isPlaying == false)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange,auto");
+                        begin_exchange(0);
+                    }
+                }
 
-                //                    end_exchange(response_delay_secs);
-
-                //                    {
-                //                        if (response_chatter.isPlaying == false && response_chatter_started)
-                //                        {
-                //                            //has started flag is tripped but no chatter playing
-                //                            //response has ended
-                //                            if (debugging) Debug.Log("[CHATR] response has finished");
-                //                            exchange_playing = false;
-                //                            response_chatter_started = false;
-                //                            return;
-                //                        }
-                //                    }
-                //                }
-                //            }
-                //            else
-                //            {
-                //                //No exchange currently playing
-                //                secs_since_last_exchange += Time.deltaTime;
-
-                //                if (secs_since_last_exchange > secs_between_exchanges && sstv.isPlaying == false)
-                //                {
-                //                    if (debugging) Debug.Log("[CHATR] beginning exchange,auto");
-                //                    begin_exchange(0);
-                //                }
-
-                //                if (vessel.parts.Count != vessel_part_count || vessel_prev_stage != vessel.currentStage && sstv.isPlaying == false)
-                //                {
-                //                    //IMPROVE this so it doesn't chatter every vessel switch
-                //                    //part count or stage has changed
-                //                    if (debugging) Debug.Log("[CHATR] beginning exchange,parts/staging");
-                //                    pod_begins_exchange = true;
-                //                    begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
-                //                }
-
+                ////
                 //                if (vessel.vesselType != VesselType.EVA && vessel.situation != vessel_prev_sit && sstv.isPlaying == false)
                 //                {
                 //                    //situation (lander, orbiting, etc) has changed
@@ -3926,10 +3879,7 @@ namespace Chatterer
                 //                        if (debugging) Debug.Log("[CHATR] prevent exchange on situation change, minimum time interval : " + (secs_between_exchanges / 2).ToString("F0") + "s / time remaining : " + ((secs_between_exchanges / 2) - (secs_since_last_exchange)).ToString("F0") + "s.");
                 //                    }
                 //                }
-                //            }
-                //        }
-                //    }
-                //}
+               
 
 
                 vessel_prev_sit = vessel.situation;
