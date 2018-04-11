@@ -593,6 +593,31 @@ namespace Chatterer
             begin_exchange(0);
         }
 
+        //// [DISABLED] Way to buggy for now
+        //
+        //void OnVesselSituationChange(GameEvents.HostedFromToAction<Vessel, Vessel.Situations> data)
+        //{
+        //    if (FlightGlobals.ActiveVessel != null)
+        //    {
+        //        if ((vessel.situation != Vessel.Situations.DOCKED || vessel.situation != Vessel.Situations.PRELAUNCH || vessel.situation != Vessel.Situations.FLYING || vessel.situation != Vessel.Situations.LANDED) && sstv.isPlaying == false)
+        //        {
+        //            //situation (lander, orbiting, etc) has changed
+        //            if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSituationChange : " + vessel.situation.ToString());
+
+        //            if (secs_since_last_exchange > secs_between_exchanges / 2)
+        //            {
+        //                pod_begins_exchange = true;
+        //                begin_exchange(0);  //for delay try (rand.Next(0, 3)) for 0-2 seconds for randomness
+        //            }
+
+        //            else
+        //            {
+        //                if (debugging) Debug.Log("[CHATR] prevent exchange on situation change, minimum time interval : " + (secs_between_exchanges / 2).ToString("F0") + "s / time remaining : " + ((secs_between_exchanges / 2) - (secs_since_last_exchange)).ToString("F0") + "s.");
+        //            }
+        //        }
+        //    }
+        //}
+
         void OnScienceChanged(float sci, TransactionReasons scitxreason)
         {
             if (sstv_on_science_toggle && scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
@@ -663,6 +688,8 @@ namespace Chatterer
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
             GameEvents.onVesselChange.Remove(OnVesselChange);
             GameEvents.onStageSeparation.Remove(OnStageSeparation);
+            //GameEvents.onVesselSituationChange.Remove(OnVesselSituationChange);
+
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
             GameEvents.onGamePause.Remove(OnGamePause);
@@ -3421,6 +3448,7 @@ namespace Chatterer
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
             GameEvents.onVesselChange.Add(OnVesselChange);
             GameEvents.onStageSeparation.Add(OnStageSeparation);
+            //GameEvents.onVesselSituationChange.Add(OnVesselSituationChange);
 
             //to trigger SSTV on science tx
             GameEvents.OnScienceChanged.Add(OnScienceChanged);
@@ -3848,26 +3876,6 @@ namespace Chatterer
                         begin_exchange(0);
                     }
                 }
-
-                //// To put in a "onVesselSituationChange()" thingy
-                ////
-                //                if (vessel.vesselType != VesselType.EVA && vessel.situation != vessel_prev_sit && sstv.isPlaying == false)
-                //                {
-                //                    //situation (lander, orbiting, etc) has changed
-                //                    if (debugging) Debug.Log("[CHATR] beginning exchange,event::prev = " + vessel_prev_sit + " ::new = " + vessel.situation.ToString());
-                                    
-                //                    if (secs_since_last_exchange > secs_between_exchanges / 2)
-                //                    {
-                //                        pod_begins_exchange = true;
-                //                        begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
-                //                    }
-                                    
-                //                    else
-                //                    {
-                //                        if (debugging) Debug.Log("[CHATR] prevent exchange on situation change, minimum time interval : " + (secs_between_exchanges / 2).ToString("F0") + "s / time remaining : " + ((secs_between_exchanges / 2) - (secs_since_last_exchange)).ToString("F0") + "s.");
-                //                    }
-                //                }
-               
             }
             else
             {
