@@ -2905,6 +2905,12 @@ namespace Chatterer
                     bm.timer = 0;
                 }
             }
+            else if (audio_type == "chatter")
+            {
+                initial_chatter.Stop();
+                response_chatter.Stop();
+                exchange_playing = false;
+            }
         }
 
         //Copy/Paste beepsource
@@ -3836,7 +3842,12 @@ namespace Chatterer
                 {
                     if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
 
-                    begin_exchange(0);
+                    if (exchange_playing == true)
+                    {
+                        if (debugging) Debug.Log("[CHATR] insta-chatter : exchange already playing, be patient ...");
+                        
+                    }
+                    else begin_exchange(0);
                 }
 
                 //if (chatter_exists)
