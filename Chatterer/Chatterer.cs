@@ -196,7 +196,6 @@ namespace Chatterer
 
         //Chatter variables
         private bool exchange_playing = false;
-        private bool response_chatter_started = false;
         private bool pod_begins_exchange = false;
         private bool chatter_is_female = false;
         private int initial_chatter_source; //whether capsule or capcom begins exchange
@@ -2839,19 +2838,6 @@ namespace Chatterer
             else Debug.LogWarning("[CHATR] Response chatter set is empty");
         }
 
-        private void play_quindar(float delay)
-        {
-            //play quindar after initial delay
-            //print("playing initial first quindar :: delay length = " + delay.ToString());
-            quindar1.PlayDelayed(delay);
-            // then play the initial chatter after a delay for quindar + initial delay
-            //print("playing initial chatter :: delay length = " + (delay + quindar.clip.length).ToString());
-            initial_chatter.PlayDelayed(delay + quindar1.clip.length);
-            //replay quindar once more with initial delay, quindar delay, and initial chatter delay
-            //print("playing initial second quindar :: delay length = " + (delay + quindar.clip.length + initial_chatter_set[initial_chatter_index].clip.length).ToString());
-            quindar2.PlayDelayed(delay + quindar1.clip.length + initial_chatter.clip.length);
-        }
-
         private void load_radio()
         {
             //try to load from disk first
@@ -2888,7 +2874,10 @@ namespace Chatterer
 
         private void begin_exchange(float delay)
         {
-            StartCoroutine(Exchange(delay));
+            if (chatter_exists && (vessel.GetCrewCount() > 0) && exchange_playing == false)
+            {
+                StartCoroutine(Exchange(delay));
+            }
         }
 
         private void stop_audio(string audio_type)
@@ -3846,6 +3835,7 @@ namespace Chatterer
                 if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key))
                 {
                     if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
+
                     begin_exchange(0);
                 }
 
