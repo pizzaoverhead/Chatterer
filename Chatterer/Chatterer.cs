@@ -279,11 +279,6 @@ namespace Chatterer
         private float secs_since_last_exchange = 0;
         private float secs_between_exchanges = 0;
         
-        //these are updated and trigger chatter when changed
-        private Vessel.Situations vessel_prev_sit;
-        private int vessel_prev_stage;
-        private int vessel_part_count;
-
         //RemoteTech & CommNet
         bool
             //whether the vessel has a RemoteTech SPU
@@ -575,19 +570,11 @@ namespace Chatterer
                         search_vessel_settings_node();  //search for current vessel
                     }
 
-
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    //don't update vessel_part_count here!
-
                     prev_vessel = vessel;
                 }
                 else //Sets these values on first flight load
                 {
                     prev_vessel = vessel;
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    vessel_part_count = vessel.parts.Count;
 
                     if (use_vessel_settings)
                     {
@@ -3881,12 +3868,6 @@ namespace Chatterer
                 //                    }
                 //                }
                
-
-
-                vessel_prev_sit = vessel.situation;
-                vessel_prev_stage = vessel.currentStage;
-                vessel_part_count = vessel.parts.Count;
-
             }
             else
             {
