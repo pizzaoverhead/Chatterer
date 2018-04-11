@@ -634,14 +634,17 @@ namespace Chatterer
 
         void OnCommHomeStatusChange(Vessel data0, bool data1)
         {
-            if (HighLogic.CurrentGame.Parameters.Difficulty.EnableCommNet == true) // Check if player chose to use CommNet
+            if (data0.isActiveVessel)
             {
-                if (data1 == true) inRadioContact = true;
-                else inRadioContact = false;
-            }
-            else inRadioContact = true; // If player doesn't use CommNet assume radio contact is always true
+                if (HighLogic.CurrentGame.Parameters.Difficulty.EnableCommNet == true) // Check if player chose to use CommNet
+                {
+                    if (data1 == true) inRadioContact = true;
+                    else inRadioContact = false;
+                }
+                else inRadioContact = true; // If player doesn't use CommNet assume radio contact is always true
 
-            if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
+                if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
+            }
         }
 
         void OnGamePause()
