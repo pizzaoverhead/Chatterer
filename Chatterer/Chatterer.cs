@@ -3862,6 +3862,7 @@ namespace Chatterer
                     }
                 }
 
+                //// To put in a "onVesselSituationChange()" thingy
                 ////
                 //                if (vessel.vesselType != VesselType.EVA && vessel.situation != vessel_prev_sit && sstv.isPlaying == false)
                 //                {
