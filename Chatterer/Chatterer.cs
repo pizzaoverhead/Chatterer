@@ -599,10 +599,10 @@ namespace Chatterer
         //{
         //    if (FlightGlobals.ActiveVessel != null)
         //    {
-        //        if ((vessel.situation != Vessel.Situations.DOCKED || vessel.situation != Vessel.Situations.PRELAUNCH || vessel.situation != Vessel.Situations.FLYING || vessel.situation != Vessel.Situations.LANDED) && sstv.isPlaying == false)
+        //        if ((data.host.SituationString == "DOCKED" || data.host.SituationString == "SPLASHED" || data.host.SituationString != "SUB_ORBITAL" || data.host.SituationString != "ORBITING" || data.host.SituationString != "ESCAPING") && sstv.isPlaying == false)
         //        {
         //            //situation (lander, orbiting, etc) has changed
-        //            if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSituationChange : " + vessel.situation.ToString());
+        //            if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSituationChange : " + data.host.SituationString);
 
         //            if (secs_since_last_exchange > secs_between_exchanges / 2)
         //            {
