@@ -27,8 +27,8 @@ namespace Chatterer
                 {
                     if (initial_chatter.isPlaying == false)
                     {
-                        initial_chatter.PlayDelayed(delay);
-
+                        initial_chatter.Play();
+                        if (debugging) Debug.Log("[CHATR] playing initial chatter");
                         yield return new WaitForSeconds(initial_chatter.clip.length);
                         //initial chatter has finished playing
                     }
@@ -52,19 +52,23 @@ namespace Chatterer
 
                     if (initial_chatter_set.Count > 0)
                     {
-                        //if (quindar_toggle)   // play with quindar [BROKEN : hangs exchange since KSP v1.4.0 for some weird reasons]
-                        //{
-                        //    //quindar1.PlayDelayed(delay);
-                        //    //yield return new WaitForSeconds(quindar1.clip.length);
-                            
-                        //    initial_chatter.PlayDelayed(delay);
-                        //    yield return new WaitForSeconds(initial_chatter.clip.length);
-                        //    //initial chatter has finished playing
-                        //}
-                        //else                  // play without quindar
+                        if (quindar_toggle)
                         {
-                            initial_chatter.PlayDelayed(delay);
+                            initial_chatter.Play();
+                            if (debugging) Debug.Log("[CHATR] playing initial chatter");
+                            yield return new WaitForSeconds(initial_chatter.clip.length);
 
+                            initial_chatter.PlayOneShot(quindar1.clip); // Workaround [playing quindar with quindar.audiosource is BROKEN : hangs exchange since KSP v1.4.0 for some weird reasons]
+                            if (debugging) Debug.Log("[CHATR] playingOneShot initial quindar");
+                            yield return new WaitForSeconds(quindar1.clip.length);
+
+                            //initial chatter has finished playing
+
+                        }
+                        else                  // play without quindar
+                        {
+                            initial_chatter.Play();
+                            if (debugging) Debug.Log("[CHATR] playing initial chatter");
                             yield return new WaitForSeconds(initial_chatter.clip.length);
                             //initial chatter has finished playing
                         }
@@ -96,21 +100,26 @@ namespace Chatterer
                 {
                     if (debugging) Debug.Log("[CHATR] Capcom responding");
 
-                    //if (quindar_toggle) [BROKEN : hangs exchange since KSP v1.4.0 for some weird reasons]
-                    //{
-                    //    quindar1.PlayDelayed(delay);
-                    //    //print("playing response first quindar");
-                    //    response_chatter.PlayDelayed(delay + quindar1.clip.length);
-                    //    //print("playing response chatter");
-                    //    quindar2.PlayDelayed(delay + quindar1.clip.length + response_chatter.clip.length);
-                    //    //print("playing response second quindar");
-                    //}
-                    //else response_chatter.PlayDelayed(delay);
+                    if (quindar_toggle)
+                    {
+                        response_chatter.Play();
+                        if (debugging) Debug.Log("[CHATR] playing response chatter");
+                        yield return new WaitForSeconds(response_chatter.clip.length);
 
-                    response_chatter.PlayDelayed(delay);
+                        response_chatter.PlayOneShot(quindar2.clip); // Workaround [playing quindar with quindar.audiosource is BROKEN : hangs exchange since KSP v1.4.0 for some weird reasons]
+                        if (debugging) Debug.Log("[CHATR] playingOneShot response quindar");
+                        yield return new WaitForSeconds(quindar2.clip.length);
 
-                    yield return new WaitForSeconds(response_chatter.clip.length);
-                    //response chatter has finished playing
+                        //response chatter has finished playing
+
+                    }
+                    else                  // play without quindar
+                    {
+                        response_chatter.Play();
+                        if (debugging) Debug.Log("[CHATR] playing response chatter");
+                        yield return new WaitForSeconds(response_chatter.clip.length);
+                        //response chatter has finished playing
+                    }
                 }
                 else if (initial_chatter_source == 0)
                 {

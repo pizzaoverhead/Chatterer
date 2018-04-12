@@ -192,7 +192,8 @@ namespace Chatterer
         private int current_capsule_clip;
         private int current_capsuleF_clip;
 
-        private AudioClip quindar_clip;
+        private AudioClip quindar_01_clip;
+        private AudioClip quindar_02_clip;
 
         //Chatter variables
         private bool exchange_playing = false;
@@ -2382,15 +2383,25 @@ namespace Chatterer
         private void load_quindar_audio()
         {
             //Create two AudioSources for quindar so PlayDelayed() can delay both beeps
-            if (debugging) Debug.Log("[CHATR] loading Quindar clip");
-            string path = "Chatterer/Sounds/chatter/quindar_01";
+            if (debugging) Debug.Log("[CHATR] loading quindar_01 clip");
+            string path1 = "Chatterer/Sounds/chatter/quindar_01";
 
-            if (GameDatabase.Instance.ExistsAudioClip(path))
+            if (GameDatabase.Instance.ExistsAudioClip(path1))
             {
-                quindar_clip = GameDatabase.Instance.GetAudioClip(path);
-                if (debugging) Debug.Log("CHATR] Quindar clip loaded");
+                quindar_01_clip = GameDatabase.Instance.GetAudioClip(path1);
+                if (debugging) Debug.Log("[CHATR] quindar_01 clip loaded");
             }
-            else Debug.LogWarning("[CHATR] Quindar audio file missing!");
+            else Debug.LogWarning("[CHATR] quindar_01 audio file missing!");
+
+            if (debugging) Debug.Log("[CHATR] loading quindar_02 clip");
+            string path2 = "Chatterer/Sounds/chatter/quindar_02";
+
+            if (GameDatabase.Instance.ExistsAudioClip(path2))
+            {
+                quindar_02_clip = GameDatabase.Instance.GetAudioClip(path2);
+                if (debugging) Debug.Log("[CHATR] quindar_02 clip loaded");
+            }
+            else Debug.LogWarning("[CHATR] quindar_02 audio file missing!");
         }
 
         private void load_beep_audio()
@@ -3425,8 +3436,8 @@ namespace Chatterer
 
 
             load_quindar_audio();
-            quindar1.clip = quindar_clip;
-            quindar2.clip = quindar_clip;
+            quindar1.clip = quindar_01_clip;
+            quindar2.clip = quindar_02_clip;
 
             initialize_new_exchange();
 
