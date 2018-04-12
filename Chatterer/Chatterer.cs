@@ -705,6 +705,10 @@ namespace Chatterer
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
 
+            // Stop coroutine n' Exchange
+            StopAllCoroutines();
+            exchange_playing = false;
+
             if (debugging) Debug.Log("[CHATR] OnDestroy() END");
         }
 
@@ -3488,6 +3492,9 @@ namespace Chatterer
             {
                 OnGUIApplicationLauncherReady();
             }
+
+            if (debugging) Debug.Log("[CHATR] Starting an exchange : Hello !");
+            begin_exchange(0); // Trigger an exchange on Start to say hello
         }
 
         public void Update()
@@ -3883,6 +3890,7 @@ namespace Chatterer
                     else begin_exchange(0);
                 }
 
+                // Run timer to allow auto exchange to trigger if needed
                 if (chatter_exists && vessel.GetCrewCount() > 0 && exchange_playing == false)
                 {
                     //No exchange currently playing
