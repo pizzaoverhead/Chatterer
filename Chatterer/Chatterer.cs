@@ -192,13 +192,15 @@ namespace Chatterer
         private int current_capsule_clip;
         private int current_capsuleF_clip;
 
-        private AudioClip quindar_clip;
+        private AudioClip quindar_01_clip;
+        private AudioClip quindar_02_clip;
+        private AudioClip voidnoise_clip;
 
         //Chatter variables
         private bool exchange_playing = false;
-        private bool response_chatter_started = false;
         private bool pod_begins_exchange = false;
         private bool chatter_is_female = false;
+        private bool was_on_EVA = false;
         private int initial_chatter_source; //whether capsule or capcom begins exchange
         private List<AudioClip> initial_chatter_set = new List<AudioClip>();    //random clip pulled from here
         private int initial_chatter_index;  //index of random clip
@@ -278,14 +280,8 @@ namespace Chatterer
         private float sstv_timer = 0;
         private float sstv_timer_limit = 0;
         private float secs_since_last_exchange = 0;
-        private float secs_since_initial_chatter = 0;
         private float secs_between_exchanges = 0;
         
-        //these are updated and trigger chatter when changed
-        private Vessel.Situations vessel_prev_sit;
-        private int vessel_prev_stage;
-        private int vessel_part_count;
-
         //RemoteTech & CommNet
         bool
             //whether the vessel has a RemoteTech SPU
@@ -506,12 +502,16 @@ namespace Chatterer
         {
             if (aae_airlock_exist)
                 aae_airlock.Play();
+
+            was_on_EVA = false;
         }
 
         void OnCrewBoard(GameEvents.FromToAction<Part, Part> data)
         {
             if (aae_airlock_exist)
                 aae_airlock.Play();
+
+            was_on_EVA = true;
         }
 
         void OnVesselChange(Vessel data)
@@ -577,19 +577,11 @@ namespace Chatterer
                         search_vessel_settings_node();  //search for current vessel
                     }
 
-
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    //don't update vessel_part_count here!
-
                     prev_vessel = vessel;
                 }
                 else //Sets these values on first flight load
                 {
                     prev_vessel = vessel;
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    vessel_part_count = vessel.parts.Count;
 
                     if (use_vessel_settings)
                     {
@@ -599,6 +591,39 @@ namespace Chatterer
                         search_vessel_settings_node();
                     }
                 }
+            }
+        }
+
+        void OnStageSeparation(EventReport data)
+        {
+            if (debugging) Debug.Log("[CHATR] beginning exchange, OnStageSeparation");
+            begin_exchange(0);
+        }
+
+        void OnVesselSituationChange(GameEvents.HostedFromToAction<Vessel, Vessel.Situations> data)
+        {
+            if (FlightGlobals.ActiveVessel != null && data.host.isActiveVessel)
+            {
+                if ((data.host.SituationString == "DOCKED" || data.host.SituationString == "SPLASHED" || data.host.SituationString == "SUB_ORBITAL" || data.host.SituationString == "ORBITING" || data.host.SituationString == "ESCAPING") && sstv.isPlaying == false)
+                {
+                    if (secs_since_last_exchange > 30.0f)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSituationChange : " + data.host.SituationString);
+                        
+                        pod_begins_exchange = true;
+                        begin_exchange(0);  //for delay try (rand.Next(0, 3)) for 0-2 seconds for randomness
+                    }
+                    else if (debugging) Debug.Log("[CHATR] prevent spam from situation change, time remaining : " + (30.0f - secs_since_last_exchange).ToString("F0") + "s.");
+                }
+            }
+        }
+
+        void OnVesselSOIChanged(GameEvents.HostedFromToAction<Vessel, CelestialBody> data)
+        {
+            if (data.host.isActiveVessel)
+            {
+                if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSOIChanged : " + data.to.bodyName);
+                begin_exchange(0);
             }
         }
 
@@ -616,10 +641,33 @@ namespace Chatterer
 
         void OnCommHomeStatusChange(Vessel data0, bool data1)
         {
+            if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange : Triggered ");
+
             if (HighLogic.CurrentGame.Parameters.Difficulty.EnableCommNet == true) // Check if player chose to use CommNet
             {
-                if (data1 == true) inRadioContact = true;
-                else inRadioContact = false;
+                if (data1 == true)
+                {
+                    inRadioContact = true;
+
+                    if (!exchange_playing && !was_on_EVA && data0.isActiveVessel)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange, OnCommHomeStatusChange : We are online ! ");
+
+                        pod_begins_exchange = false;
+                        begin_exchange(0);
+                    }
+                }
+                else
+                {
+                    inRadioContact = false;
+
+                    if (data0.isActiveVessel)
+                    {
+                        if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange : We are offline zzzzzzz... ");
+
+                        initial_chatter.PlayOneShot(voidnoise_clip);
+                    }
+                }
             }
             else inRadioContact = true; // If player doesn't use CommNet assume radio contact is always true
 
@@ -671,6 +719,10 @@ namespace Chatterer
             GameEvents.onCrewOnEva.Remove(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
             GameEvents.onVesselChange.Remove(OnVesselChange);
+            GameEvents.onStageSeparation.Remove(OnStageSeparation);
+            GameEvents.onVesselSituationChange.Remove(OnVesselSituationChange);
+            GameEvents.onVesselSOIChanged.Remove(OnVesselSOIChanged);
+
             GameEvents.OnScienceChanged.Remove(OnScienceChanged);
             GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
             GameEvents.onGamePause.Remove(OnGamePause);
@@ -678,6 +730,10 @@ namespace Chatterer
 
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
+
+            // Stop coroutine n' Exchange
+            StopAllCoroutines();
+            exchange_playing = false;
 
             if (debugging) Debug.Log("[CHATR] OnDestroy() END");
         }
@@ -954,7 +1010,6 @@ namespace Chatterer
                 if (chatter_freq == 0)
                 {
                     exchange_playing = false;
-                    secs_since_initial_chatter = 0;
                 }
                 secs_since_last_exchange = 0;
                 set_new_delay_between_exchanges();
@@ -2358,15 +2413,35 @@ namespace Chatterer
         private void load_quindar_audio()
         {
             //Create two AudioSources for quindar so PlayDelayed() can delay both beeps
-            if (debugging) Debug.Log("[CHATR] loading Quindar clip");
-            string path = "Chatterer/Sounds/chatter/quindar_01";
+            if (debugging) Debug.Log("[CHATR] loading quindar_01 clip");
+            string path1 = "Chatterer/Sounds/chatter/quindar_01";
 
-            if (GameDatabase.Instance.ExistsAudioClip(path))
+            if (GameDatabase.Instance.ExistsAudioClip(path1))
             {
-                quindar_clip = GameDatabase.Instance.GetAudioClip(path);
-                if (debugging) Debug.Log("CHATR] Quindar clip loaded");
+                quindar_01_clip = GameDatabase.Instance.GetAudioClip(path1);
+                if (debugging) Debug.Log("[CHATR] quindar_01 clip loaded");
             }
-            else Debug.LogWarning("[CHATR] Quindar audio file missing!");
+            else Debug.LogWarning("[CHATR] quindar_01 audio file missing!");
+
+            if (debugging) Debug.Log("[CHATR] loading quindar_02 clip");
+            string path2 = "Chatterer/Sounds/chatter/quindar_02";
+
+            if (GameDatabase.Instance.ExistsAudioClip(path2))
+            {
+                quindar_02_clip = GameDatabase.Instance.GetAudioClip(path2);
+                if (debugging) Debug.Log("[CHATR] quindar_02 clip loaded");
+            }
+            else Debug.LogWarning("[CHATR] quindar_02 audio file missing!");
+
+            if (debugging) Debug.Log("[CHATR] loading voidnoise clip");
+            string path3 = "Chatterer/Sounds/chatter/voidnoise";
+
+            if (GameDatabase.Instance.ExistsAudioClip(path3))
+            {
+                voidnoise_clip = GameDatabase.Instance.GetAudioClip(path3);
+                if (debugging) Debug.Log("[CHATR] voidnoise clip loaded");
+            }
+            else Debug.LogWarning("[CHATR] quindar_02 audio file missing!");
         }
 
         private void load_beep_audio()
@@ -2792,8 +2867,7 @@ namespace Chatterer
             //print("initialize_new_exchange()...");
             set_new_delay_between_exchanges();
             secs_since_last_exchange = 0;
-            secs_since_initial_chatter = 0;
-
+            
             if (FlightGlobals.ActiveVessel != null) //Avoid EXP on first load where vessel isn't loaded yet
             {
                 checkChatterGender(); //Check chatter gender to play female/male voice accordingly
@@ -2835,19 +2909,6 @@ namespace Chatterer
             else Debug.LogWarning("[CHATR] Response chatter set is empty");
         }
 
-        private void play_quindar(float delay)
-        {
-            //play quindar after initial delay
-            //print("playing initial first quindar :: delay length = " + delay.ToString());
-            quindar1.PlayDelayed(delay);
-            // then play the initial chatter after a delay for quindar + initial delay
-            //print("playing initial chatter :: delay length = " + (delay + quindar.clip.length).ToString());
-            initial_chatter.PlayDelayed(delay + quindar1.clip.length);
-            //replay quindar once more with initial delay, quindar delay, and initial chatter delay
-            //print("playing initial second quindar :: delay length = " + (delay + quindar.clip.length + initial_chatter_set[initial_chatter_index].clip.length).ToString());
-            quindar2.PlayDelayed(delay + quindar1.clip.length + initial_chatter.clip.length);
-        }
-
         private void load_radio()
         {
             //try to load from disk first
@@ -2884,66 +2945,9 @@ namespace Chatterer
 
         private void begin_exchange(float delay)
         {
-            exchange_playing = true;
-            initialize_new_exchange();
-
-            if (initial_chatter_source == 1)
+            if (chatter_exists && (vessel.GetCrewCount() > 0) && exchange_playing == false)
             {
-                //capsule starts the exchange
-                //always play regardless of radio contact state
-                Debug.Log("[CHATR] Capsule starts the exchange...");
-
-                //play initial capsule chatter
-                //initial_chatter_set[initial_chatter_index].PlayDelayed(delay);
-                if (initial_chatter_set.Count > 0)
-                {
-                    initial_chatter.PlayDelayed(delay);
-                }
-                else
-                {
-                    exchange_playing = false;
-                    Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
-                }
-
-                ////add RT delay to response delay if enabled and in contact
-                //if (remotetech_toggle && inRadioContact) response_delay_secs += Convert.ToInt32(controlDelay);
-
-                ////if RT is enabled but not in radio contact, play no response
-                //if (remotetech_toggle && inRadioContact == false) exchange_playing = false;
-
-                //if there is no radio contact with KSC, play no response
-                if (!inRadioContact) exchange_playing = false;
-                
-            }
-
-            if (initial_chatter_source == 0)
-            {
-                //capcom starts the exchange
-                Debug.Log("[CHATR] Capcom starts the exchange...");
-                
-                if (inRadioContact)
-                {
-                    //in radio contact,
-                    //play initial capcom
-                    
-                    if (initial_chatter_set.Count > 0)
-                    {
-                        //initial_chatter.PlayDelayed(delay);
-                        if (quindar_toggle) play_quindar(delay);    // play with quindar
-                        else initial_chatter.PlayDelayed(delay); // play without quindar
-                    }
-                    else
-                    {
-                        exchange_playing = false;
-                        Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
-                    }
-                }
-                else
-                {
-                    //not in radio contact,
-                    //play no initial chatter or response
-                    exchange_playing = false;
-                }
+                StartCoroutine(Exchange(delay));
             }
         }
 
@@ -2971,6 +2975,12 @@ namespace Chatterer
                     bm.audiosource.Stop();
                     bm.timer = 0;
                 }
+            }
+            else if (audio_type == "chatter")
+            {
+                initial_chatter.Stop();
+                response_chatter.Stop();
+                exchange_playing = false;
             }
         }
 
@@ -3466,8 +3476,8 @@ namespace Chatterer
 
 
             load_quindar_audio();
-            quindar1.clip = quindar_clip;
-            quindar2.clip = quindar_clip;
+            quindar1.clip = quindar_01_clip;
+            quindar2.clip = quindar_02_clip;
 
             initialize_new_exchange();
 
@@ -3494,6 +3504,9 @@ namespace Chatterer
             GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
             GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
             GameEvents.onVesselChange.Add(OnVesselChange);
+            GameEvents.onStageSeparation.Add(OnStageSeparation);
+            GameEvents.onVesselSituationChange.Add(OnVesselSituationChange);
+            GameEvents.onVesselSOIChanged.Add(OnVesselSOIChanged);
 
             //to trigger SSTV on science tx
             GameEvents.OnScienceChanged.Add(OnScienceChanged);
@@ -3515,6 +3528,9 @@ namespace Chatterer
             {
                 OnGUIApplicationLauncherReady();
             }
+
+            if (debugging) Debug.Log("[CHATR] Starting an exchange : Hello !");
+            begin_exchange(0); // Trigger an exchange on Start to say hello
         }
 
         public void Update()
@@ -3897,129 +3913,31 @@ namespace Chatterer
                 /////////////////////////////////////////////
                 //START CHATTER
 
-                //do chatter
-                if (chatter_exists)
+                //do insta-chatter if insta-chatter chatter key is pressed
+                if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key))
                 {
-                    if (vessel.GetCrewCount() > 0)
+                    if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
+
+                    if (exchange_playing == true)
                     {
-                        //Has crew onboard
-                        //do insta-chatter if chatter is off
-                        if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key) && exchange_playing == false && sstv.isPlaying == false)
-                        {
-                            //no chatter or sstv playing, play insta-chatter
-                            if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
-                            begin_exchange(0);
-                        }
-
-                        //exchange_playing check added because insta-chatter response was blocked when chatter is turned off
-                        if (chatter_freq > 0 || exchange_playing)
-                        {
-                            //Chatter is on
-                            //consume_resources();
-                            if (exchange_playing)
-                            {
-                                //Exchange in progress
-                                if (initial_chatter.isPlaying == false)
-                                {
-                                    //initial chatter has finished playing
-                                    //wait some seconds and respond
-                                    secs_since_initial_chatter += Time.deltaTime;
-                                    if (secs_since_initial_chatter > response_delay_secs)
-                                    {
-                                        //if (debugging) Debug.Log("[CHATR] response delay has elapsed...");
-                                        if (response_chatter.isPlaying == false)
-                                        {
-                                            //play response clip if not already playing
-                                            //print("response not currently playing...");
-
-                                            if (response_chatter_started)
-                                            {
-                                                //has started flag is tripped but no chatter playing
-                                                //response has ended
-                                                if (debugging) Debug.Log("[CHATR] response has finished");
-                                                exchange_playing = false;
-                                                response_chatter_started = false;
-                                                return;
-                                            }
-
-                                            if (response_chatter_set.Count > 0 && (inRadioContact))
-                                            {
-                                                if (debugging) Debug.Log("[CHATR] playing response");
-                                                response_chatter_started = true;
-                                                if (initial_chatter_source == 1 && quindar_toggle)
-                                                {
-                                                    quindar1.Play();
-                                                    //print("playing response first quindar");
-                                                    response_chatter.PlayDelayed(quindar1.clip.length);
-                                                    //print("playing response chatter");
-                                                    quindar2.PlayDelayed(quindar1.clip.length + response_chatter.clip.length);
-                                                    //print("playing response second quindar");
-                                                }
-                                                else response_chatter.Play();
-                                            }
-                                            else if (response_chatter_set.Count > 0 && !inRadioContact)
-                                            {
-                                                if (exchange_playing == true)
-                                                {
-                                                    if (debugging) Debug.Log("[CHATR] No connection, no response ... you are alone !");
-                                                    exchange_playing = false;
-                                                }
-                                            }
-                                            else
-                                            {
-                                                if (debugging) Debug.LogWarning("[CHATR] response_chatter_set has no audioclips, abandoning exchange");
-                                                exchange_playing = false;   //exchange is over
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                //No exchange currently playing
-                                secs_since_last_exchange += Time.deltaTime;
-
-                                if (secs_since_last_exchange > secs_between_exchanges && sstv.isPlaying == false)
-                                {
-                                    if (debugging) Debug.Log("[CHATR] beginning exchange,auto");
-                                    begin_exchange(0);
-                                }
-
-                                if (vessel.parts.Count != vessel_part_count || vessel_prev_stage != vessel.currentStage && sstv.isPlaying == false)
-                                {
-                                    //IMPROVE this so it doesn't chatter every vessel switch
-                                    //part count or stage has changed
-                                    if (debugging) Debug.Log("[CHATR] beginning exchange,parts/staging");
-                                    pod_begins_exchange = true;
-                                    begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
-                                }
-
-                                if (vessel.vesselType != VesselType.EVA && vessel.situation != vessel_prev_sit && sstv.isPlaying == false)
-                                {
-                                    //situation (lander, orbiting, etc) has changed
-                                    if (debugging) Debug.Log("[CHATR] beginning exchange,event::prev = " + vessel_prev_sit + " ::new = " + vessel.situation.ToString());
-                                    
-                                    if (secs_since_last_exchange > secs_between_exchanges / 2)
-                                    {
-                                        pod_begins_exchange = true;
-                                        begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
-                                    }
-                                    
-                                    else
-                                    {
-                                        if (debugging) Debug.Log("[CHATR] prevent exchange on situation change, minimum time interval : " + (secs_between_exchanges / 2).ToString("F0") + "s / time remaining : " + ((secs_between_exchanges / 2) - (secs_since_last_exchange)).ToString("F0") + "s.");
-                                    }
-                                }
-                            }
-                        }
+                        if (debugging) Debug.Log("[CHATR] insta-chatter : exchange already playing, be patient ...");
+                        
                     }
+                    else begin_exchange(0);
                 }
 
+                // Run timer to allow auto exchange to trigger if needed
+                if (chatter_exists && vessel.GetCrewCount() > 0 && exchange_playing == false)
+                {
+                    //No exchange currently playing
+                    secs_since_last_exchange += Time.deltaTime;
 
-                vessel_prev_sit = vessel.situation;
-                vessel_prev_stage = vessel.currentStage;
-                vessel_part_count = vessel.parts.Count;
-
+                    if (secs_since_last_exchange > secs_between_exchanges && chatter_freq > 0 && sstv.isPlaying == false)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange,auto");
+                        begin_exchange(0);
+                    }
+                }
             }
             else
             {
