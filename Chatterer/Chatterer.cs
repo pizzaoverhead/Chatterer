@@ -194,11 +194,13 @@ namespace Chatterer
 
         private AudioClip quindar_01_clip;
         private AudioClip quindar_02_clip;
+        private AudioClip voidnoise_clip;
 
         //Chatter variables
         private bool exchange_playing = false;
         private bool pod_begins_exchange = false;
         private bool chatter_is_female = false;
+        private bool was_on_EVA = false;
         private int initial_chatter_source; //whether capsule or capcom begins exchange
         private List<AudioClip> initial_chatter_set = new List<AudioClip>();    //random clip pulled from here
         private int initial_chatter_index;  //index of random clip
@@ -500,12 +502,16 @@ namespace Chatterer
         {
             if (aae_airlock_exist)
                 aae_airlock.Play();
+
+            was_on_EVA = false;
         }
 
         void OnCrewBoard(GameEvents.FromToAction<Part, Part> data)
         {
             if (aae_airlock_exist)
                 aae_airlock.Play();
+
+            was_on_EVA = true;
         }
 
         void OnVesselChange(Vessel data)
@@ -635,28 +641,37 @@ namespace Chatterer
 
         void OnCommHomeStatusChange(Vessel data0, bool data1)
         {
-            if (data0.isActiveVessel)
+            if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange : Triggered ");
+
+            if (HighLogic.CurrentGame.Parameters.Difficulty.EnableCommNet == true) // Check if player chose to use CommNet
             {
-                if (HighLogic.CurrentGame.Parameters.Difficulty.EnableCommNet == true) // Check if player chose to use CommNet
+                if (data1 == true)
                 {
-                    if (data1 == true)
+                    inRadioContact = true;
+
+                    if (!exchange_playing && !was_on_EVA && data0.isActiveVessel)
                     {
-                        inRadioContact = true;
+                        if (debugging) Debug.Log("[CHATR] beginning exchange, OnCommHomeStatusChange : We are online ! ");
 
-                        if (!exchange_playing)
-                        {
-                            if (debugging) Debug.Log("[CHATR] beginning exchange, OnCommHomeStatusChange : We are online !");
-
-                            pod_begins_exchange = false;
-                            begin_exchange(0);
-                        }
+                        pod_begins_exchange = false;
+                        begin_exchange(0);
                     }
-                    else inRadioContact = false;
                 }
-                else inRadioContact = true; // If player doesn't use CommNet assume radio contact is always true
+                else
+                {
+                    inRadioContact = false;
 
-                if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
+                    if (data0.isActiveVessel)
+                    {
+                        if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange : We are offline zzzzzzz... ");
+
+                        initial_chatter.PlayOneShot(voidnoise_clip);
+                    }
+                }
             }
+            else inRadioContact = true; // If player doesn't use CommNet assume radio contact is always true
+
+            if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
         }
 
         void OnGamePause()
@@ -2415,6 +2430,16 @@ namespace Chatterer
             {
                 quindar_02_clip = GameDatabase.Instance.GetAudioClip(path2);
                 if (debugging) Debug.Log("[CHATR] quindar_02 clip loaded");
+            }
+            else Debug.LogWarning("[CHATR] quindar_02 audio file missing!");
+
+            if (debugging) Debug.Log("[CHATR] loading voidnoise clip");
+            string path3 = "Chatterer/Sounds/chatter/voidnoise";
+
+            if (GameDatabase.Instance.ExistsAudioClip(path3))
+            {
+                voidnoise_clip = GameDatabase.Instance.GetAudioClip(path3);
+                if (debugging) Debug.Log("[CHATR] voidnoise clip loaded");
             }
             else Debug.LogWarning("[CHATR] quindar_02 audio file missing!");
         }
