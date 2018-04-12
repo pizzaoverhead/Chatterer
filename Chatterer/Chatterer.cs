@@ -639,7 +639,18 @@ namespace Chatterer
             {
                 if (HighLogic.CurrentGame.Parameters.Difficulty.EnableCommNet == true) // Check if player chose to use CommNet
                 {
-                    if (data1 == true) inRadioContact = true;
+                    if (data1 == true)
+                    {
+                        inRadioContact = true;
+
+                        if (!exchange_playing)
+                        {
+                            if (debugging) Debug.Log("[CHATR] beginning exchange, OnCommHomeStatusChange : We are online !");
+
+                            pod_begins_exchange = false;
+                            begin_exchange(0);
+                        }
+                    }
                     else inRadioContact = false;
                 }
                 else inRadioContact = true; // If player doesn't use CommNet assume radio contact is always true
