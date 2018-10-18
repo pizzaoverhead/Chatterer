@@ -1,4 +1,6 @@
 Changelog:
+v0.9.96 [18 Oct 2018]
+- Recompiled for KSP v1.5.0.2332
 
 v0.9.95 [12 Apr 2018]
 - Recompiled for KSP v1.4.2.2110
