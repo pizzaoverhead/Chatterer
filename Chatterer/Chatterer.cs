@@ -1993,7 +1993,7 @@ namespace Chatterer
             //list each sample from Dict
             foreach (string key in dict_probe_samples.Keys)
             {
-                AudioClip _clip = new AudioClip();
+                AudioClip _clip = AudioClip.Create("noClip", 1, 1, 1000, true);
                 GUIStyle sample_gs = label_txt_left;
 
                 if (dict_probe_samples.TryGetValue(key, out _clip))
@@ -2080,7 +2080,7 @@ namespace Chatterer
             //list each sample from Dict
             foreach (string key in dict_background_samples.Keys)
             {
-                AudioClip _clip = new AudioClip();
+                AudioClip _clip = AudioClip.Create("noClip", 1, 1, 1000, true);
                 GUIStyle sample_gs = label_txt_left;
 
                 if (dict_background_samples.TryGetValue(key, out _clip))
@@ -2106,7 +2106,7 @@ namespace Chatterer
                     src.current_clip = key;  //set current_clip
                     //set_beep_clip(source);  //then assign AudioClip
 
-                    AudioClip temp_clip = new AudioClip();
+                    AudioClip temp_clip = AudioClip.Create("noClip", 1, 1, 1000, true);
 
                     if (dict_background_samples.TryGetValue(src.current_clip, out temp_clip))
                     {
@@ -2191,7 +2191,7 @@ namespace Chatterer
             }
             else
             {
-                AudioClip temp_clip = new AudioClip();
+                AudioClip temp_clip = AudioClip.Create("noClip", 1, 1, 1000, true);
 
                 //broken here current_clip == null
 
