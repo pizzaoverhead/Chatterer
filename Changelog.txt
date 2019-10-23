@@ -1,4 +1,10 @@
 Changelog:
+
+v0.9.98 [23 Oct 2019]
+- Fixed some 1600+ error (due to .dll split & Net 4.x target)
+- Fix for : new AudioClip(); not accepting 0 argument / compile error
+- Recompiled for KSP 1.8.2686
+
 v0.9.97 [15 Sep 2019]
 - Recompiled for KSP v1.7.3
 - fixes a possible crash when using Scatterer and Chatterer together

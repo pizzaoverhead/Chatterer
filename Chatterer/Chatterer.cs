@@ -1993,7 +1993,7 @@ namespace Chatterer
             //list each sample from Dict
             foreach (string key in dict_probe_samples.Keys)
             {
-                AudioClip _clip = new AudioClip();
+                AudioClip _clip = AudioClip.Create("noClip", 1, 1, 1000, true);
                 GUIStyle sample_gs = label_txt_left;
 
                 if (dict_probe_samples.TryGetValue(key, out _clip))
@@ -2080,7 +2080,7 @@ namespace Chatterer
             //list each sample from Dict
             foreach (string key in dict_background_samples.Keys)
             {
-                AudioClip _clip = new AudioClip();
+                AudioClip _clip = AudioClip.Create("noClip", 1, 1, 1000, true);
                 GUIStyle sample_gs = label_txt_left;
 
                 if (dict_background_samples.TryGetValue(key, out _clip))
@@ -2106,7 +2106,7 @@ namespace Chatterer
                     src.current_clip = key;  //set current_clip
                     //set_beep_clip(source);  //then assign AudioClip
 
-                    AudioClip temp_clip = new AudioClip();
+                    AudioClip temp_clip = AudioClip.Create("noClip", 1, 1, 1000, true);
 
                     if (dict_background_samples.TryGetValue(src.current_clip, out temp_clip))
                     {
@@ -2191,7 +2191,7 @@ namespace Chatterer
             }
             else
             {
-                AudioClip temp_clip = new AudioClip();
+                AudioClip temp_clip = AudioClip.Create("noClip", 1, 1, 1000, true);
 
                 //broken here current_clip == null
 
@@ -2481,14 +2481,14 @@ namespace Chatterer
                             //GameDatabase won't load MP3
                             //try old method
                             string mp3_path = "file://" + AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/../../../Sounds/beeps/" + short_file_name + ".mp3";
-                            WWW www_chatter = new WWW(mp3_path);
-                            if (www_chatter != null)
-                            {
-                                dict_probe_samples.Add(short_file_name, www_chatter.GetAudioClip(false));
-                                dict_probe_samples2.Add(www_chatter.GetAudioClip(false), short_file_name);
-                                if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                            }
-                            else
+                            //WWW www_chatter = new WWW(mp3_path);
+                            //if (www_chatter != null)
+                            //{
+                            //    dict_probe_samples.Add(short_file_name, www_chatter.GetAudioClip(false));
+                            //    dict_probe_samples2.Add(www_chatter.GetAudioClip(false), short_file_name);
+                            //    if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                            //}
+                            //else
                             {
                                 Debug.LogWarning("[CHATR] " + mp3_path + " load FAIL");
                             }
@@ -2549,13 +2549,13 @@ namespace Chatterer
                             //GameDatabase won't load MP3
                             //try old method
                             string mp3_path = "file://" + AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/../../../Sounds/sstv/" + short_file_name + ".mp3";
-                            WWW www_chatter = new WWW(mp3_path);
-                            if (www_chatter != null)
-                            {
-                                all_sstv_clips.Add(www_chatter.GetAudioClip(false));
-                                if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                            }
-                            else
+                            //WWW www_chatter = new WWW(mp3_path);
+                            //if (www_chatter != null)
+                            //{
+                            //    all_sstv_clips.Add(www_chatter.GetAudioClip(false));
+                            //    if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                            //}
+                            //else
                             {
                                 Debug.LogWarning("[CHATR] " + mp3_path + " load FAIL");
                             }
@@ -2645,25 +2645,25 @@ namespace Chatterer
                                         {
                                             //try old method
                                             string mp3_path = "file://" + AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/../../../Sounds/chatter/" + chatter_array[k].directory + "/" + st + "/" + file_name + ".mp3";
-                                            WWW www_chatter = new WWW(mp3_path);
-                                            if (www_chatter != null)
-                                            {
-                                                if (st == "capcom")
-                                                {
-                                                    chatter_array[k].capcom.Add(www_chatter.GetAudioClip(false));
-                                                    //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                                                }
-                                                else if (st == "capsule")
-                                                {
-                                                    chatter_array[k].capsule.Add(www_chatter.GetAudioClip(false));
-                                                    //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                                                }
-                                                else if (st == "capsuleF")
-                                                {
-                                                    chatter_array[k].capsuleF.Add(www_chatter.GetAudioClip(false));
-                                                    //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                                                }
-                                            }
+                                            //WWW www_chatter = new WWW(mp3_path);
+                                            //if (www_chatter != null)
+                                            //{
+                                            //    if (st == "capcom")
+                                            //    {
+                                            //        chatter_array[k].capcom.Add(www_chatter.GetAudioClip(false));
+                                            //        //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                            //    }
+                                            //    else if (st == "capsule")
+                                            //    {
+                                            //        chatter_array[k].capsule.Add(www_chatter.GetAudioClip(false));
+                                            //        //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                            //    }
+                                            //    else if (st == "capsuleF")
+                                            //    {
+                                            //        chatter_array[k].capsuleF.Add(www_chatter.GetAudioClip(false));
+                                            //        //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                            //    }
+                                            //}
                                         }
                                         else
                                         {
@@ -2923,24 +2923,24 @@ namespace Chatterer
                 yep_yepsource.clip = GameDatabase.Instance.GetAudioClip(path);
                 yep_yep_loaded = true;
             }
-            else
-            {
-                //try www download
-                bool radio_loaded = false;
-                WWW www_yepyep = new WWW("http://rbri.co.nf/ksp/chatterer/radio2.ogg");
+            //else
+            //{
+            //    //try www download
+            //    bool radio_loaded = false;
+            //    WWW www_yepyep = new WWW("http://rbri.co.nf/ksp/chatterer/radio2.ogg");
 
-                while (radio_loaded == false)
-                {
-                    if (www_yepyep.isDone)
-                    {
-                        yep_yepsource.clip = www_yepyep.GetAudioClip(false);
-                        //SavWav.Save("radio2", yep_yepsource.clip);
-                        if (debugging) Debug.Log("[CHATR] radio_yep_yep loaded OK");
-                        radio_loaded = true;
-                        yep_yep_loaded = true;
-                    }
-                }
-            }
+            //    while (radio_loaded == false)
+            //    {
+            //        if (www_yepyep.isDone)
+            //        {
+            //            yep_yepsource.clip = www_yepyep.GetAudioClip(false);
+            //            //SavWav.Save("radio2", yep_yepsource.clip);
+            //            if (debugging) Debug.Log("[CHATR] radio_yep_yep loaded OK");
+            //            radio_loaded = true;
+            //            yep_yep_loaded = true;
+            //        }
+            //    }
+            //}
         }
 
         private void begin_exchange(float delay)
