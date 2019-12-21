@@ -157,8 +157,8 @@ namespace Chatterer
 
         //GameObjects to hold AudioSources and AudioFilters
         //private GameObject musik_player = new GameObject();
-        private GameObject chatter_player = new GameObject();
-        private GameObject sstv_player = new GameObject();
+        private GameObject chatter_player; // = new GameObject();
+        private GameObject sstv_player; // = new GameObject();
 
         //Chatter AudioSources
         private AudioSource initial_chatter = new AudioSource();
@@ -227,16 +227,16 @@ namespace Chatterer
         //KSP Stock application launcherButton
         private ApplicationLauncherButton launcherButton = null;
         private Texture2D chatterer_button_Texture = null;
-        private Texture2D chatterer_button_TX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_TX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_RX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_RX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_SSTV = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_SSTV_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_idle_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false);
-        private Texture2D chatterer_button_disabled_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_TX; // = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_TX_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
@@ -259,7 +259,7 @@ namespace Chatterer
         private int lab_window_id;
 
         //Textures
-        private Texture2D line_512x4 = new Texture2D(512, 8, TextureFormat.ARGB32, false);
+        private Texture2D line_512x4; // = new Texture2D(512, 8, TextureFormat.ARGB32, false);
 
         //GUIStyles
         private GUIStyle label_txt_left;
@@ -327,10 +327,10 @@ namespace Chatterer
         private bool aae_wind_exist = false;
 
 
-        private GameObject aae_soundscape_player = new GameObject();
+        private GameObject aae_soundscape_player; // = new GameObject();
         private AudioSource aae_soundscape = new AudioSource();
 
-        private GameObject aae_ambient_player = new GameObject();
+        private GameObject aae_ambient_player; // = new GameObject();
         private AudioSource aae_breathing = new AudioSource();
         private AudioSource aae_airlock = new AudioSource();
         private AudioSource aae_wind = new AudioSource();
@@ -354,7 +354,6 @@ namespace Chatterer
 
         //////////////////////////////////////////////////
         //////////////////////////////////////////////////
-
 
         //GUI
 
@@ -3269,10 +3268,16 @@ namespace Chatterer
 
         private void radio_check()
         {
+            if (yep_yep == null)
+            {
+                Debug.Log("radio_check, yep_yep is null");
+                yep_yep = "";
+            }
             foreach (char c in Input.inputString)
             {
                 //backspace char
-                if (c == "\b"[0])
+                //if (c == "\b"[0])
+                if (c == '\b')
                 {
                     if (yep_yep.Length != 0)
                     {
@@ -3328,6 +3333,22 @@ namespace Chatterer
         public void Awake()
         {
             if (debugging) Debug.Log("[CHATR] Awake() starting...");
+
+            chatter_player = new GameObject();
+            sstv_player = new GameObject();
+            aae_soundscape_player = new GameObject();
+            aae_ambient_player = new GameObject();
+
+            chatterer_button_TX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_TX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_RX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_RX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_SSTV = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_SSTV_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_idle_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            line_512x4 = new Texture2D(512, 8, TextureFormat.ARGB32, false);
 
             //set a path to save/load settings
             settings_path = AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/"; //returns "X:/full/path/to/GameData/Chatterer/Plugins/PluginData/chatterer"
