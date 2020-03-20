@@ -1,5 +1,11 @@
 Changelog:
 
+v0.9.99 [20 Mar 2020]
+- Recompiled for KSP 1.9.1.2788
+- Targeting Net 4.8
+- Moved initialization of GameObject variables into Awake() function (Thanks to our linuxgurugamer <3 )
+- Removed MiniAVC.dll (waiting for MiniAVC-2 update)
+
 v0.9.98 [23 Oct 2019]
 - Fixed some 1600+ error (due to .dll split & Net 4.x target)
 - Fix for : new AudioClip(); not accepting 0 argument / compile error
