@@ -24,13 +24,13 @@
 
 /* DO ME
  * 
- * FIX EVA detection (avoid switching vessel to trigger Airlock sound)
- * FIX the mute all function
+ * 1 - Continue to separate the code in different .cs files accordingly to their function
  * 
- * ADD Applauncher/BlizzyTB button behaviour/animations (Idle, disabled, muted, onChat, ...)
- * ADD plugin version checker 
- * 
- * Separate the code in different .cs files accordingly to their function
+ * 2 - RemoteTech support :
+ *   - try to add ping<>pong (accordingly with delay) Beeps beeween vessel & KSC
+ *   - add a parazited noise as chatter response if offline
+ *   
+ * 3 - Create an API for external access (Chatter/beeps/SSTV trigger, mute, ...)
  * 
  * //
  * 
@@ -50,10 +50,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.IO;
 using UnityEngine;
+using KSP.UI.Screens;
 
 namespace Chatterer
 {
@@ -62,6 +61,7 @@ namespace Chatterer
         //class to manage chatter clips
         public List<AudioClip> capcom;
         public List<AudioClip> capsule;
+        public List<AudioClip> capsuleF;
         public string directory;
         public bool is_active;
 
@@ -69,6 +69,7 @@ namespace Chatterer
         {
             capcom = new List<AudioClip>();
             capsule = new List<AudioClip>();
+            capsuleF = new List<AudioClip>();
             directory = "dir";
             is_active = true;
         }
@@ -93,6 +94,7 @@ namespace Chatterer
         public int loose_timer_limit;
         public float timer;
         public string current_clip;
+        public bool randomizeBeep;
         public int sel_filter;
         public AudioChorusFilter chorus_filter;
         public AudioDistortionFilter distortion_filter;
@@ -116,6 +118,7 @@ namespace Chatterer
             prev_loose_freq = 0;
             loose_timer_limit = 0;
             timer = 0;
+            randomizeBeep = false;
             sel_filter = 0;
             reverb_preset_index = 0;
         }
@@ -139,21 +142,23 @@ namespace Chatterer
     //}
 
     [KSPAddon(KSPAddon.Startup.Flight, false)]
-    public class chatterer : MonoBehaviour
+    public partial class chatterer : MonoBehaviour
     {
+        //Version
+        private string this_version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
+        private string main_window_title = "Chatterer ";
+        
         private static System.Random rand = new System.Random();
 
         private int window_base_id = -12381578;
-
-        private bool debugging = false;      //lots of extra log info if true
-
+        
         private Vessel vessel;          //is set to FlightGlobals.ActiveVessel
         private Vessel prev_vessel;     //to detect change in active vessel
 
         //GameObjects to hold AudioSources and AudioFilters
         //private GameObject musik_player = new GameObject();
-        private GameObject chatter_player = new GameObject();
-        private GameObject sstv_player = new GameObject();
+        private GameObject chatter_player; // = new GameObject();
+        private GameObject sstv_player; // = new GameObject();
 
         //Chatter AudioSources
         private AudioSource initial_chatter = new AudioSource();
@@ -168,9 +173,7 @@ namespace Chatterer
         //All beep objects, audiosources, and filters are managed by BeepSource class
         private List<BeepSource> beepsource_list = new List<BeepSource>();     //List to hold the BeepSources
         private List<BackgroundSource> backgroundsource_list = new List<BackgroundSource>();    //list to hold the BackgroundSources
-
-
-
+        
         //Chatter, SSTV, and beep audio sample Lists and Dictionaries
         private List<ChatterAudioList> chatter_array = new List<ChatterAudioList>();        //array of all chatter clips and some settings
         private Dictionary<string, AudioClip> dict_probe_samples = new Dictionary<string, AudioClip>();
@@ -184,15 +187,20 @@ namespace Chatterer
         //Chatter audio lists
         private List<AudioClip> current_capcom_chatter = new List<AudioClip>();     //holds chatter of toggled sets
         private List<AudioClip> current_capsule_chatter = new List<AudioClip>();    //one of these becomes initial, the other response
+        private List<AudioClip> current_capsuleF_chatter = new List<AudioClip>(); //Female set
         private int current_capcom_clip;
         private int current_capsule_clip;
+        private int current_capsuleF_clip;
 
-        private AudioClip quindar_clip;
+        private AudioClip quindar_01_clip;
+        private AudioClip quindar_02_clip;
+        private AudioClip voidnoise_clip;
 
         //Chatter variables
         private bool exchange_playing = false;
-        private bool response_chatter_started = false;
         private bool pod_begins_exchange = false;
+        private bool chatter_is_female = false;
+        private bool was_on_EVA = false;
         private int initial_chatter_source; //whether capsule or capcom begins exchange
         private List<AudioClip> initial_chatter_set = new List<AudioClip>();    //random clip pulled from here
         private int initial_chatter_index;  //index of random clip
@@ -202,35 +210,37 @@ namespace Chatterer
 
         //GUI
         private bool gui_running = false;
-        private int skin_index = 1;     //selected skin
+        private int skin_index = 0;     //selected skin
         private bool gui_styles_set = false;
         private bool hide_all_windows = true;
         private string custom_dir_name = "directory name";  //default text for audioset input box
         private int active_menu = 0;    //selected main window section (sliders, sets, etc)
-        private int chatter_sel_filter;     //currently selected filter in filters window
         private int sel_beep_src = 0;   //currently selected beep source
         private int sel_beep_page = 1;
         private int num_beep_pages;
         private int prev_num_pages;
 
         //integration with blizzy78's Toolbar plugin
-        private ToolbarButtonWrapper chatterer_toolbar_button;
+        private IButton chatterer_toolbar_button;
         private bool useBlizzy78Toolbar = false;
 
-        //KSP Stock application launcher button
+        //KSP Stock application launcherButton
         private ApplicationLauncherButton launcherButton = null;
-        private Texture2D launcherButtonTexture;
-        private Texture2D chatterer_icon_on = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_on", false);
-        private Texture2D chatterer_icon_off = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_off", false);
+        private Texture2D chatterer_button_Texture = null;
+        private Texture2D chatterer_button_TX; // = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_TX_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_RX_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_SSTV_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_idle_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+        private Texture2D chatterer_button_disabled_muted; //  = new Texture2D(38, 38, TextureFormat.ARGB32, false);
 
         //Main window
         protected Rect main_window_pos = new Rect(Screen.width / 2f, Screen.height / 2f, 10f, 10f);
-
-        //Chatter filters window
-        private bool show_chatter_filter_settings = false;
-        protected Rect chatter_filter_settings_window_pos = new Rect(Screen.width / 2, Screen.height / 2, 10f, 10f);
-        private int chatter_filter_settings_window_id;
-
+        
         //Probe Sample Selector window
         private Vector2 probe_sample_selector_scroll_pos = new Vector2();
         private bool show_probe_sample_selector = false;
@@ -249,10 +259,7 @@ namespace Chatterer
         private int lab_window_id;
 
         //Textures
-        private Texture2D ui_icon_off = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        private Texture2D ui_icon_on = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        private Texture2D ui_icon = new Texture2D(30, 30, TextureFormat.ARGB32, false);
-        private Texture2D line_512x4 = new Texture2D(512, 8, TextureFormat.ARGB32, false);
+        private Texture2D line_512x4; // = new Texture2D(512, 8, TextureFormat.ARGB32, false);
 
         //GUIStyles
         private GUIStyle label_txt_left;
@@ -267,137 +274,52 @@ namespace Chatterer
         //private GUIStyle xkcd_label;
         private GUIStyle label_txt_bold;
         private GUIStyle button_txt_left_bold;
-
-        //Plugin settings
-        private bool run_once = true;   //used to run some things just once in Update() that don't get done in Awake()
-        //private bool power_available = true;
-        private bool quindar_toggle = true;
-        private bool disable_beeps_during_chatter = true;
-        private bool remotetech_toggle = false;
-        //private bool disable_power_usage = false;
-        private bool show_tooltips = true;
-        private bool http_update_check = false;
-        private bool use_vessel_settings = false;
-        private bool prev_use_vessel_settings = false;
-
-        //Chatter filters
-        private AudioChorusFilter chatter_chorus_filter;
-        private AudioDistortionFilter chatter_distortion_filter;
-        private AudioEchoFilter chatter_echo_filter;
-        private AudioHighPassFilter chatter_highpass_filter;
-        private AudioLowPassFilter chatter_lowpass_filter;
-        private AudioReverbFilter chatter_reverb_filter;
-        private int chatter_reverb_preset_index = 0;
-
+                        
         //Counters
-        private float cfg_update_timer = 0;
-        private float rt_update_timer = 0;
+        //private float rt_update_timer = 0;
         private float sstv_timer = 0;
         private float sstv_timer_limit = 0;
         private float secs_since_last_exchange = 0;
-        private float secs_since_initial_chatter = 0;
         private float secs_between_exchanges = 0;
-
-        //Sliders
-        private float chatter_freq_slider = 3f;
-        private int chatter_freq = 3;
-        private int prev_chatter_freq = 3;
-        private float chatter_vol_slider = 0.5f;
-        private float prev_chatter_vol_slider = 0.5f;
-
-        private float quindar_vol_slider = 0.5f;
-        private float prev_quindar_vol_slider = 0.5f;
-
-        private float sstv_freq_slider = 0;
-        private int sstv_freq = 0;
-        private int prev_sstv_freq = 0;
-        private float sstv_vol_slider = 0.25f;
-        private float prev_sstv_vol_slider = 0.25f;
-
-        //Insta-chatter key
-        private KeyCode insta_chatter_key = KeyCode.Slash;
-        private bool set_insta_chatter_key = false;
-        private bool insta_chatter_key_just_changed = false;
-
-        //Insta-SSTV key
-        private KeyCode insta_sstv_key = KeyCode.Quote;
-        private bool set_insta_sstv_key = false;
-        private bool insta_sstv_key_just_changed = false;
-
-        //these are updated and trigger chatter when changed
-        private Vessel.Situations vessel_prev_sit;
-        private int vessel_prev_stage;
-        private int vessel_part_count;
-
-        //RemoteTech
+        
+        //RemoteTech & CommNet
         bool
             //whether the vessel has a RemoteTech SPU
-            hasRemoteTech = false,
+            //hasRemoteTech = false,
 
             //whether the RemoteTech flight computer is controlling attitude
-            attitudeActive = false,
+            //attitudeActive = false,
 
             //whether local control is active, meaning no control delays
             //localControl = false,
 
-            //whether the vessel is in radio contact
-            inRadioContact = false;
+            //whether the vessel is in radio contact with KSC
+            inRadioContact = true;
 
-        double
-            //the current signal delay (is returned as 0 if the vessel is not in contact)
-            controlDelay = 0;
+            //whether the vessel is in radio contact with a sattelite
+            //inSatteliteRadioContact = false;
 
-        //Version
-        private string this_version = "0.6.0.86";
-        private string main_window_title = "Chatterer ";
-        private string latest_version = "";
-        private bool recvd_latest_version = false;
-
-        //Clipboards
-        private ConfigNode filters_clipboard;
-        private ConfigNode chorus_clipboard;
-        private ConfigNode dist_clipboard;
-        private ConfigNode echo_clipboard;
-        private ConfigNode hipass_clipboard;
-        private ConfigNode lopass_clipboard;
-        private ConfigNode reverb_clipboard;
-        private ConfigNode beepsource_clipboard;
-
-        //Settings nodes
-        private string settings_path;
-        private ConfigNode plugin_settings_node;
-        private ConfigNode vessel_settings_node;
+        //double
+            ////the current signal delay (is returned as 0 if the vessel is not in contact)
+            //controlDelay = 0; //delay from KSC
+            ////shortestcontrolDelay = 0; // delay from nearest sattelite
 
         //Unsorted
         private BeepSource OTP_source = new BeepSource();
         private AudioClip OTP_stored_clip;    //holds the set probe sample while another sample plays once
         private bool OTP_playing = false;
-
-        private ConfigNode filter_defaults;
-
-        private bool mute_all = false;
-        private bool all_muted = false;
-
-        private bool show_advanced_options = false;
-        private bool show_chatter_sets = false;
-
-
+        
         private bool chatter_exists = false;
         private bool sstv_exists = false;
+        private bool science_transmitted = false;  //for SSTV on science
         private bool beeps_exists = false;
-
-
-        private string menu = "chatter";    //default to chatter menu because it has to have something
-
+        
         private List<GUISkin> g_skin_list;
 
         private string yep_yep = "";
         private bool yep_yep_loaded = false;
 
-
         //AAE
-        //private bool AAE_exists = false;
-
         private bool aae_backgrounds_exist = false;
         private bool aae_soundscapes_exist = false;
         private bool aae_breathing_exist = false;
@@ -405,10 +327,10 @@ namespace Chatterer
         private bool aae_wind_exist = false;
 
 
-        private GameObject aae_soundscape_player = new GameObject();
+        private GameObject aae_soundscape_player; // = new GameObject();
         private AudioSource aae_soundscape = new AudioSource();
 
-        private GameObject aae_ambient_player = new GameObject();
+        private GameObject aae_ambient_player; // = new GameObject();
         private AudioSource aae_breathing = new AudioSource();
         private AudioSource aae_airlock = new AudioSource();
         private AudioSource aae_wind = new AudioSource();
@@ -417,8 +339,8 @@ namespace Chatterer
         private BackgroundSource sel_background_src;    //so sample selector window knows which backgroundsource we are working with
 
 
-        private int aae_soundscape_freq = 2;
-        private int aae_prev_soundscape_freq = 2;
+        private int aae_soundscape_freq = 0;
+        private int aae_prev_soundscape_freq = 0;
         private float aae_soundscape_freq_slider = 2;
         private float aae_soundscape_timer = 0;
         private float aae_soundscape_timer_limit = 0;
@@ -433,39 +355,39 @@ namespace Chatterer
         //////////////////////////////////////////////////
         //////////////////////////////////////////////////
 
-
         //GUI
 
-        internal chatterer() 
+        //integration with blizzy78's Toolbar plugin
+        
+        internal chatterer()
         {
-            //integration with blizzy78's Toolbar plugin
-            if (ToolbarButtonWrapper.ToolbarManagerPresent) //&& useBlizzy78Toolbar)
+            if (ToolbarManager.ToolbarAvailable)
             {
                 if (debugging) Debug.Log("[CHATR] blizzy78's Toolbar plugin found ! Set toolbar button.");
 
-                chatterer_toolbar_button = ToolbarButtonWrapper.TryWrapToolbarButton("Chatterer", "UI");
+                chatterer_toolbar_button = ToolbarManager.Instance.add("Chatterer", "UI");
                 chatterer_toolbar_button.TexturePath = "Chatterer/Textures/chatterer_icon_toolbar";
                 chatterer_toolbar_button.ToolTip = "Open/Close Chatterer UI";
-                chatterer_toolbar_button.SetButtonVisibility(GameScenes.FLIGHT);
-                chatterer_toolbar_button.AddButtonClickHandler((e) =>
+                chatterer_toolbar_button.Visibility = new GameScenesVisibility(GameScenes.FLIGHT);
+                chatterer_toolbar_button.OnClick += ((e) =>
                 {
-                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, hide_all_windows = " + hide_all_windows);
+                    if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, when hide_all_windows = " + hide_all_windows);
 
-                    if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
+                    if (launcherButton == null && ToolbarManager.ToolbarAvailable)
                     {
-                        hide_all_windows = !hide_all_windows;
+                        UIToggle();
                     }
                     else if (launcherButton != null)
                     {
                         if (hide_all_windows)
                         {
                             launcherButton.SetTrue();
-                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, launcherButton.State = " + launcherButton.toggleButton.CurrentState);
                         }
                         else if (!hide_all_windows)
                         {
                             launcherButton.SetFalse();
-                            if (debugging) Debug.Log("[CHATR] Toolbar UI button clicked, launcherButton.State = " + launcherButton.State);
+                            if (debugging) Debug.Log("[CHATR] Blizzy78's Toolbar UI button clicked, saving settings... & launcherButton.State = " + launcherButton.toggleButton.CurrentState);
                         }
                     }
                 });
@@ -477,19 +399,85 @@ namespace Chatterer
             // Create the button in the KSP AppLauncher
             if (launcherButton == null && !useBlizzy78Toolbar)
             {
-                launcherButtonTexture = chatterer_icon_on;
-                
-                launcherButton = ApplicationLauncher.Instance.AddModApplication(launcherButtonToggle, launcherButtonToggle,
+                if (debugging) Debug.Log("[CHATR] Building ApplicationLauncherButton");
+                                
+                launcherButton = ApplicationLauncher.Instance.AddModApplication(UIToggle, UIToggle,
                                                                             null, null,
                                                                             null, null,
                                                                             ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.MAPVIEW,
-                                                                            launcherButtonTexture);
+                                                                            chatterer_button_idle);
             }
         }
 
-        public void launcherButtonToggle()
+        private void launcherButtonTexture_check()
         {
-            hide_all_windows = !hide_all_windows;
+        // launcherButton texture change check
+             
+            if (all_muted)
+            {
+                if (initial_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 0) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                }
+                else if (response_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 1) SetAppLauncherButtonTexture(chatterer_button_RX_muted);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX_muted);
+                }
+                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV_muted);
+                else if (!inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled_muted);
+                else SetAppLauncherButtonTexture(chatterer_button_idle_muted);
+             
+            }
+            else
+            {
+                if (initial_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 0) SetAppLauncherButtonTexture(chatterer_button_RX);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX);
+                }
+                else if (response_chatter.isPlaying)
+                {
+                    if (initial_chatter_source == 1) SetAppLauncherButtonTexture(chatterer_button_RX);
+                    else SetAppLauncherButtonTexture(chatterer_button_TX);
+                }
+                else if (sstv.isPlaying) SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                else if (!inRadioContact) SetAppLauncherButtonTexture(chatterer_button_disabled);
+                else SetAppLauncherButtonTexture(chatterer_button_idle);
+            }
+        }
+
+        private void SetAppLauncherButtonTexture(Texture2D tex2d)
+        {
+            // Set new launcherButton texture
+            if (launcherButton != null)
+            {
+                if (tex2d != chatterer_button_Texture)
+                {
+                    chatterer_button_Texture = tex2d;
+                    launcherButton.SetTexture(tex2d);
+
+                    //if (debugging) Debug.Log("[CHATR] SetAppLauncherButtonTexture(" + tex2d + ");");
+                }
+            }
+        }
+
+        public void UIToggle()
+        {
+            if (!hide_all_windows)
+            {
+                hide_all_windows = true;
+                save_plugin_settings();
+
+                if (debugging) Debug.Log("[CHATR] UIToggle(OFF)");
+            }
+            else
+            {
+                hide_all_windows = !hide_all_windows;
+
+                if (debugging) Debug.Log("[CHATR] UIToggle(ON)");
+            }
         }
 
         public void launcherButtonRemove()
@@ -497,38 +485,271 @@ namespace Chatterer
             if (launcherButton != null)
             {
                 ApplicationLauncher.Instance.RemoveModApplication(launcherButton);
+
+                if (debugging) Debug.Log("[CHATR] launcherButtonRemove");
             }
+
+            else if (debugging) Debug.Log("[CHATR] launcherButtonRemove (useless attempt)");
         }
 
         public void OnSceneChangeRequest(GameScenes _scene)
         {
             launcherButtonRemove();
         }
+        
+        void OnCrewOnEVA(GameEvents.FromToAction<Part, Part> data)
+        {
+            if (aae_airlock_exist)
+                aae_airlock.Play();
+
+            was_on_EVA = false;
+        }
+
+        void OnCrewBoard(GameEvents.FromToAction<Part, Part> data)
+        {
+            if (aae_airlock_exist)
+                aae_airlock.Play();
+
+            was_on_EVA = true;
+        }
+
+        void OnVesselChange(Vessel data)
+        {
+            if (FlightGlobals.ActiveVessel != null)
+            {
+                vessel = FlightGlobals.ActiveVessel;
+                
+                if (prev_vessel != null) //prev_vessel = null on first flight load, so check this to avoid EXP throw
+                {
+                    //active vessel has changed
+                    if (debugging) Debug.Log("[CHATR] OnVesselChange() :: prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
+
+                    stop_audio("all");
+
+                    if (use_vessel_settings)
+                    {
+                        ConfigNode all_but_prev_vessel = new ConfigNode();
+
+                        if (debugging) Debug.Log("[CHATR] checking each vessel_id in vessel_settings_node");
+                        if (debugging) Debug.Log("[CHATR] prev_vessel.id = " + prev_vessel.id.ToString());
+                        foreach (ConfigNode _vessel in vessel_settings_node.nodes)
+                        {
+                            //search for previous vessel id
+                            if (_vessel.HasValue("vessel_id"))
+                            {
+                                string val = _vessel.GetValue("vessel_id");
+
+                                //if (debugging) Debug.Log("[CHATR] node vessel_id = " + val);
+
+                                if (val != prev_vessel.id.ToString())
+                                {
+                                    //vessel_settings_node.RemoveNode(prev_vessel.id.ToString());
+                                    //if (debugging) Debug.Log("[CHATR] prev_vessel old node removed");
+                                    //temp_vessels_string = prev_vessel.id.ToString();
+                                    all_but_prev_vessel.AddNode(_vessel);
+                                    if (debugging) Debug.Log("[CHATR] OnVesselChange() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
+                                }
+                                //else
+                                //{
+                                //    all_but_prev_vessel.AddNode(cn);
+                                //}
+                            }
+                        }
+                        //foreach (ConfigNode cn in vessel_settings_node.nodes)
+                        //{
+                        //vessel_settings_node.RemoveNodes("");
+                        //    if (debugging) Debug.Log("[CHATR] old nodes removed");
+                        //}
+
+                        vessel_settings_node = all_but_prev_vessel;
+                        //if (debugging) Debug.Log("[CHATR] OnVesselChange() :: vessel_settings node = all_but_prev_vessel");
+
+                        new_vessel_node(prev_vessel);
+                        //if (debugging) Debug.Log("[CHATR] OnVesselChange() :: new node created using prev_vessel and added to vessel_settings node");
+
+                        //save_vessel_settings_node();
+                        vessel_settings_node.Save(settings_path + "vessels.cfg");
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() :: vessel_settings node saved to vessel_settings.cfg");
+
+
+                        load_vessel_settings_node();    //reload with current vessel settings
+                        search_vessel_settings_node();  //search for current vessel
+                    }
+
+                    prev_vessel = vessel;
+                }
+                else //Sets these values on first flight load
+                {
+                    prev_vessel = vessel;
+
+                    if (use_vessel_settings)
+                    {
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() FirstLoad :: calling load_vessel_settings_node()");
+                        load_vessel_settings_node(); //load and search for settings for this vessel
+                        if (debugging) Debug.Log("[CHATR] OnVesselChange() FirstLoad :: calling search_vessel_settings_node()");
+                        search_vessel_settings_node();
+                    }
+                }
+            }
+        }
+
+        void OnStageSeparation(EventReport data)
+        {
+            if (debugging) Debug.Log("[CHATR] beginning exchange, OnStageSeparation");
+            begin_exchange(0);
+        }
+
+        void OnVesselSituationChange(GameEvents.HostedFromToAction<Vessel, Vessel.Situations> data)
+        {
+            if (FlightGlobals.ActiveVessel != null && data.host.isActiveVessel)
+            {
+                if ((data.host.SituationString == "DOCKED" || data.host.SituationString == "SPLASHED" || data.host.SituationString == "SUB_ORBITAL" || data.host.SituationString == "ORBITING" || data.host.SituationString == "ESCAPING") && sstv.isPlaying == false)
+                {
+                    if (secs_since_last_exchange > 30.0f)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSituationChange : " + data.host.SituationString);
+                        
+                        pod_begins_exchange = true;
+                        begin_exchange(0);  //for delay try (rand.Next(0, 3)) for 0-2 seconds for randomness
+                    }
+                    else if (debugging) Debug.Log("[CHATR] prevent spam from situation change, time remaining : " + (30.0f - secs_since_last_exchange).ToString("F0") + "s.");
+                }
+            }
+        }
+
+        void OnVesselSOIChanged(GameEvents.HostedFromToAction<Vessel, CelestialBody> data)
+        {
+            if (data.host.isActiveVessel)
+            {
+                if (debugging) Debug.Log("[CHATR] beginning exchange, OnVesselSOIChanged : " + data.to.bodyName);
+                begin_exchange(0);
+            }
+        }
+
+        void OnScienceChanged(float sci, TransactionReasons scitxreason)
+        {
+            if (sstv_on_science_toggle && scitxreason == TransactionReasons.VesselRecovery || scitxreason == TransactionReasons.ScienceTransmission)
+            {
+                science_transmitted = true;
+
+                if (debugging) Debug.Log("[CHATR] Event scienceTX PASS");
+            }
+
+            if (debugging) Debug.Log("[CHATR] Event scienceTX triggered, reason : " + scitxreason.ToString());
+        }
+
+        void OnCommHomeStatusChange(Vessel data0, bool data1)
+        {
+            if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange : Triggered ");
+
+            if (HighLogic.CurrentGame.Parameters.Difficulty.EnableCommNet == true) // Check if player chose to use CommNet
+            {
+                if (data1 == true)
+                {
+                    inRadioContact = true;
+
+                    if (!exchange_playing && !was_on_EVA && data0.isActiveVessel)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange, OnCommHomeStatusChange : We are online ! ");
+
+                        pod_begins_exchange = false;
+                        begin_exchange(0);
+                    }
+                }
+                else
+                {
+                    inRadioContact = false;
+
+                    if (data0.isActiveVessel)
+                    {
+                        if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange : We are offline zzzzzzz... ");
+
+                        initial_chatter.PlayOneShot(voidnoise_clip);
+                    }
+                }
+            }
+            else inRadioContact = true; // If player doesn't use CommNet assume radio contact is always true
+
+            if (debugging) Debug.Log("[CHATR] OnCommHomeStatusChange() : " + "Vessel : " + data0 + ", inRadioContact = " + inRadioContact);
+        }
+
+        void OnGamePause()
+        {
+            if (!all_muted) mute_all = true;
+
+            if (debugging) Debug.Log("[CHATR] OnGamePause() : Mute = " + mute_all);
+        }
+
+        void OnGameUnpause()
+        {
+            if (all_muted) mute_all = false;
+
+            if (debugging) Debug.Log("[CHATR] OnGameUnpause() : Mute = " + mute_all);
+        }
+
+        private void checkChatterGender()
+        {
+            chatter_is_female = false;
+            var crew = vessel.GetVesselCrew();
+            if (crew.Count > 0) chatter_is_female = ProtoCrewMember.Gender.Female == crew[0].gender ? true : false;
+
+            if (debugging)
+            {
+                if (crew.Count == 0) Debug.Log("[CHATR] No Chatter gender check (no crew in the vicinity)");
+                else Debug.Log("[CHATR] Chatter is female :" + chatter_is_female.ToString());
+            }
+        }
 
         internal void OnDestroy() 
         {
+            if (debugging) Debug.Log("[CHATR] OnDestroy() START");
+
             // Remove the button from the Blizzy's toolbar
             if (chatterer_toolbar_button != null)
             {
                 chatterer_toolbar_button.Destroy();
+
+                if (debugging) Debug.Log("[CHATR] OnDestroy() Blizzy78's toolbar button removed");
             }
+
             // Un-register the callbacks
             GameEvents.onGUIApplicationLauncherReady.Remove(OnGUIApplicationLauncherReady);
             GameEvents.onGameSceneLoadRequested.Remove(OnSceneChangeRequest);
-            
+            GameEvents.onCrewOnEva.Remove(OnCrewOnEVA);
+            GameEvents.onCrewBoardVessel.Remove(OnCrewBoard);
+            GameEvents.onVesselChange.Remove(OnVesselChange);
+            GameEvents.onStageSeparation.Remove(OnStageSeparation);
+            GameEvents.onVesselSituationChange.Remove(OnVesselSituationChange);
+            GameEvents.onVesselSOIChanged.Remove(OnVesselSOIChanged);
+
+            GameEvents.OnScienceChanged.Remove(OnScienceChanged);
+            GameEvents.CommNet.OnCommHomeStatusChange.Remove(OnCommHomeStatusChange);
+            GameEvents.onGamePause.Remove(OnGamePause);
+            GameEvents.onGameUnpause.Remove(OnGameUnpause);
+
             // Remove the button from the KSP AppLauncher
             launcherButtonRemove();
+
+            // Stop coroutine n' Exchange
+            StopAllCoroutines();
+            exchange_playing = false;
+
+            if (debugging) Debug.Log("[CHATR] OnDestroy() END");
         }
 
-        private void start_GUI()
+        private void OnGUI() //start the GUI
         {
-            RenderingManager.AddToPostDrawQueue(3, new Callback(draw_GUI));	//start the GUI
+            if (debugging & !gui_running) Debug.Log("[CHATR] start_GUI()");
+            
+            draw_GUI(); 
+
             gui_running = true;
         }
 
-        private void stop_GUI()
+        private void stop_GUI() //stop the GUI (virtualy, is this actually still needed ?)
         {
-            RenderingManager.RemoveFromPostDrawQueue(3, new Callback(draw_GUI)); //stop the GUI
+            if (debugging) Debug.Log("[CHATR] stop_GUI()");
+            
             gui_running = false;
         }
 
@@ -576,7 +797,7 @@ namespace Chatterer
             gs_tooltip = new GUIStyle(GUI.skin.box);
             gs_tooltip.normal.background = GUI.skin.window.normal.background;
             gs_tooltip.normal.textColor = XKCDColors.LightGrey;
-            gs_tooltip.fontSize = 9;
+            gs_tooltip.fontSize = 11;
 
             button_txt_left_bold = new GUIStyle(GUI.skin.button);
             button_txt_left_bold.normal.textColor = Color.white;
@@ -598,27 +819,49 @@ namespace Chatterer
             //gs_beep1 = button_txt_center_green;
 
             gui_styles_set = true;
+
             if (debugging) Debug.Log("[CHATR] GUI styles set");
         }
 
         private void build_skin_list()
         {
-            // GUISkin[] skin_array = AssetBase.FindObjectsOfTypeIncludingAssets(typeof(GUISkin)) as GUISkin[]; [Obsolete("use Resources.FindObjectsOfTypeAll instead.")]
             GUISkin[] skin_array = Resources.FindObjectsOfTypeAll(typeof(GUISkin)) as GUISkin[];
             g_skin_list = new List<GUISkin>();
 
             foreach (GUISkin _skin in skin_array)
             {
-                //Some skins just don't look good here so skip them
-                if (_skin.name != "PlaqueDialogSkin" && _skin.name != "FlagBrowserSkin" && _skin.name != "SSUITextAreaDefault" && _skin.name != "ExperimentsDialogSkin" && _skin.name != "ExpRecoveryDialogSkin") g_skin_list.Add(_skin);
+                // Some skins just don't look good here so skip them
+                if (_skin.name != "PlaqueDialogSkin"
+                    && _skin.name != "FlagBrowserSkin"
+                    && _skin.name != "SSUITextAreaDefault"
+                    && _skin.name != "ExperimentsDialogSkin"
+                    && _skin.name != "ExpRecoveryDialogSkin"
+                    && _skin.name != "PartTooltipSkin"
+                    // Third party known skin mess up
+                    && _skin.name != "UnityWKSPButtons"
+                    && _skin.name != "Unity"
+                    && _skin.name != "Default"
+                    // Dupes
+                    && _skin.name != "GameSkin"
+                    && _skin.name != "GameSkin(Clone)"
+                    && _skin.name != "KSP window 4"
+                    && _skin.name != "KSP window 6"
+                    && _skin.name != "KSP window 7"
+                   )
+                {
+                    // Build wanted skin only list
+                    g_skin_list.Add(_skin);
+                }
             }
+
             if (debugging) Debug.Log("[CHATR] skin list built, count = " + g_skin_list.Count);
         }
 
         protected void draw_GUI()
         {
             //Apply a skin
-            if (skin_index == 0) GUI.skin = null;
+            if (skin_index > g_skin_list.Count) skin_index = 0;
+            else if (skin_index == 0) GUI.skin = null;
             else GUI.skin = g_skin_list[skin_index - 1];
 
             if (gui_styles_set == false) set_gui_styles();  //run this once to set a few GUIStyles
@@ -691,19 +934,23 @@ namespace Chatterer
             //Show "Settings"
             if (GUILayout.Button("Settings")) menu = "settings";
 
-            ////Mute button // Disabled, Mute cause NULL REFERENCE EXCEPTION replacing with "Close UI" for now
+            //Mute button
+            string muted = "Mute";
+            if (mute_all) muted = "Muted";
 
-            //string muted = "Mute";
-            //if (mute_all) muted = "Muted";
-
-            //if (GUILayout.Button(muted, GUILayout.ExpandWidth(false))) mute_all = !mute_all;
+            if (GUILayout.Button(muted, GUILayout.ExpandWidth(false)))
+            {
+                mute_all = !mute_all;
+                
+                if (debugging) Debug.Log("[CHATR] Mute = " + mute_all);
+            }
 
             string closeUI = "Close";
             if (GUILayout.Button(closeUI, GUILayout.ExpandWidth(false)))
             {
-                if (launcherButton == null && ToolbarButtonWrapper.ToolbarManagerPresent)
+                if (launcherButton == null && ToolbarManager.ToolbarAvailable)
                 {
-                    hide_all_windows = !hide_all_windows;
+                    UIToggle();
                 }
                 else if (launcherButton != null)
                 {
@@ -719,18 +966,11 @@ namespace Chatterer
             GUILayout.EndHorizontal();
 
             //Display GUI accordingly
-            if (menu == "chatter") chatter_gui();
+            if (menu == "chatter" && vessel.GetCrewCount() > 0) chatter_gui();
             else if (menu == "beeps") beeps_gui();
             else if (menu == "AAE") AAE_gui();
             else if (menu == "settings") settings_gui();
-
-            //new version info (if any)
-            if (recvd_latest_version && latest_version != "")
-            {
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(latest_version, label_txt_left);
-                GUILayout.EndHorizontal();
-            }
+            else beeps_gui();
 
             //Tooltips
             if (show_tooltips && GUI.tooltip != "") tooltips(main_window_pos);
@@ -769,7 +1009,6 @@ namespace Chatterer
                 if (chatter_freq == 0)
                 {
                     exchange_playing = false;
-                    secs_since_initial_chatter = 0;
                 }
                 secs_since_last_exchange = 0;
                 set_new_delay_between_exchanges();
@@ -832,7 +1071,8 @@ namespace Chatterer
                         GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
 
                         bool temp = chatter_array[i].is_active;
-                        _content.text = chatter_array[i].directory + " (" + (chatter_array[i].capcom.Count + chatter_array[i].capsule.Count).ToString() + " clips)";
+                        _content.text = chatter_array[i].directory + " (" + (chatter_array[i].capcom.Count + chatter_array[i].capsule.Count + chatter_array[i].capsuleF.Count).ToString() + " clips)";
+                        if (chatter_array[i].capsuleF.Count > 0) _content.text = _content.text + " (Female set in)";
                         _content.tooltip = "Toggle this chatter set on/off";
                         chatter_array[i].is_active = GUILayout.Toggle(chatter_array[i].is_active, _content, GUILayout.ExpandWidth(true));
                         _content.text = "Remove";
@@ -940,8 +1180,7 @@ namespace Chatterer
                             }
                         }
                     }
-                    //if (debugging) Debug.Log("[CHATR] - button OK");
-
+                    
                     if (num_beep_pages > 1)
                     {
                         _content.text = "◄";
@@ -962,8 +1201,6 @@ namespace Chatterer
                             }
                         }
                     }
-
-                    //if (debugging) Debug.Log("[CHATR] ◄ button OK");
                 }
 
                 //Beep selection grid
@@ -1020,7 +1257,6 @@ namespace Chatterer
                             }
                         }
                     }
-                    //if (debugging) Debug.Log("[CHATR] ► button OK");
 
                     //Increase beepsources
                     _content.text = "Add";
@@ -1051,7 +1287,6 @@ namespace Chatterer
                             prev_num_pages = num_beep_pages;
                         }
                     }
-                    //if (debugging) Debug.Log("[CHATR] + button OK");
                 }
                 GUILayout.EndHorizontal();
 
@@ -1153,7 +1388,7 @@ namespace Chatterer
                 _content.text = beep_timing_str;
                 _content.tooltip = "Switch between timing modes";
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("Timing:");
+                GUILayout.Label("Beep timing:");
                 if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
                 {
                     //timing mode is being switched
@@ -1170,25 +1405,37 @@ namespace Chatterer
                             //disallow random looped clips
                             bm.current_clip = "Default";
                         }
-                        //else
-                        //{
-                        //bm.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                        //}
                         set_beep_clip(bm);
                     }
                     else new_beep_loose_timer_limit(bm);   //set new loose time limit
                 }
-
-                //Sample selector
-                _content.text = bm.current_clip;
-                _content.tooltip = "Click to change the current beep sample";
-                GUILayout.Label("", GUILayout.ExpandWidth(true));    //spacer to align "Filters" to the right
-                GUILayout.Label("Sample:", GUILayout.ExpandWidth(false));
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) show_probe_sample_selector = !show_probe_sample_selector;
-
+                GUILayout.Label("", GUILayout.ExpandWidth(true));
+                GUILayout.Label("", GUILayout.ExpandWidth(true));
                 GUILayout.EndHorizontal();
 
+                // Separator
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(false));
+                GUILayout.Label(line_512x4, GUILayout.ExpandWidth(false), GUILayout.Width(275f), GUILayout.Height(10f));
+                GUILayout.EndHorizontal();
 
+                //Sample selector
+                GUILayout.BeginHorizontal();
+                _content.text = bm.current_clip;
+                _content.tooltip = "Click to change the current beep sample";
+                GUILayout.Label("Beep sample:", GUILayout.ExpandWidth(false));
+                if (!bm.randomizeBeep)
+                {
+                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) show_probe_sample_selector = !show_probe_sample_selector;
+                }
+                else GUILayout.Label(_content, GUILayout.ExpandWidth(false));
+
+                //Toggle for Random beep setting
+                _content.text = "Random";
+                _content.tooltip = "Play Probe sample files randomly";
+                GUILayout.Label("", GUILayout.ExpandWidth(true));
+                bm.randomizeBeep = GUILayout.Toggle(bm.randomizeBeep, _content, GUILayout.ExpandWidth(false));
+
+                GUILayout.EndHorizontal();
 
                 if (show_advanced_options)
                 {
@@ -1266,6 +1513,12 @@ namespace Chatterer
                     prev_sstv_freq = sstv_freq;
                 }
 
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "SSTV on science transmitted";
+                _content.tooltip = "Makes science yielling noises";
+                sstv_on_science_toggle = GUILayout.Toggle(sstv_on_science_toggle, _content);
+                GUILayout.EndHorizontal();
+
                 _content.text = "SSTV volume: " + (sstv_vol_slider * 100).ToString("F0") + "%";
                 _content.tooltip = "Volume of SSTV source";
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
@@ -1314,7 +1567,18 @@ namespace Chatterer
                     GUILayout.EndHorizontal();
                     i++;
                 }
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+                _content.text = "Background sounds only in IVA";
+                _content.tooltip = "Play only when in internal view";
+                aae_backgrounds_onlyinIVA = GUILayout.Toggle(aae_backgrounds_onlyinIVA, _content);
+                GUILayout.EndHorizontal();
             }
+
+            //line to separate
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(false));
+            GUILayout.Label(line_512x4, GUILayout.ExpandWidth(false), GUILayout.Width(275f), GUILayout.Height(10f));
+            GUILayout.EndHorizontal();
 
             //EVA breathing
             if (aae_breathing_exist)
@@ -1429,16 +1693,10 @@ namespace Chatterer
             _content.tooltip = "Spam the log with more or less usefull reports";
             debugging = GUILayout.Toggle(debugging, _content);
             GUILayout.EndHorizontal();
-
-            //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //_content.text = "Allow update check";
-            //_content.tooltip = "Allow plugin to check for a newer version via http";
-            //http_update_check = GUILayout.Toggle(http_update_check, _content);
-            //GUILayout.EndHorizontal();
-
+            
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Use per-vessel settings";
-            _content.tooltip = "Every vessel will save/load its own individual settings";
+            _content.tooltip = "Every vessel will keep its own individual settings";
             use_vessel_settings = GUILayout.Toggle(use_vessel_settings, _content);
             GUILayout.EndHorizontal();
 
@@ -1448,15 +1706,15 @@ namespace Chatterer
                 if (use_vessel_settings)
                 {
                     //just toggled on, load stuff
-                    if (debugging) Debug.Log("[CHATR] Update() :: calling load_vessel_settings_node()");
+                    if (debugging) Debug.Log("[CHATR] settings_gui() :: calling load_vessel_settings_node()");
                     load_vessel_settings_node(); //load and search for settings for this vessel
-                    if (debugging) Debug.Log("[CHATR] Update() :: calling search_vessel_settings_node()");
+                    if (debugging) Debug.Log("[CHATR] settings_gui() :: calling search_vessel_settings_node()");
                     search_vessel_settings_node();
                 }
                 prev_use_vessel_settings = use_vessel_settings;
             }
 
-            if (ToolbarButtonWrapper.ToolbarManagerPresent)
+            if (ToolbarManager.ToolbarAvailable)
             {
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 _content.text = "Use Blizzy78's toolbar only";
@@ -1466,7 +1724,59 @@ namespace Chatterer
                 if (!useBlizzy78Toolbar && launcherButton == null) OnGUIApplicationLauncherReady();
                 GUILayout.EndHorizontal();
             }
-            
+
+            //_content.text = "Enable RemoteTech integration";
+            //_content.tooltip = "Disable/Delay comms with KSC accordingly";
+            //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
+            //GUILayout.EndHorizontal();
+
+            //if (remotetech_toggle)
+            //{
+            //    GUIStyle txt_green = new GUIStyle(GUI.skin.label);
+            //    txt_green.normal.textColor = txt_green.focused.textColor = Color.green;
+            //    txt_green.alignment = TextAnchor.UpperLeft;
+            //    GUIStyle txt_red = new GUIStyle(GUI.skin.label);
+            //    txt_red.normal.textColor = txt_red.focused.textColor = Color.red;
+            //    txt_red.alignment = TextAnchor.UpperLeft;
+
+            //    string has_RT_SPU = "not found";
+            //    GUIStyle has_RT_text = txt_red;
+            //    if (hasRemoteTech)
+            //    {
+            //        has_RT_SPU = "found";
+            //        has_RT_text = txt_green;
+            //    }
+
+            //    //string rt_Satteliteconnected = "Not connected to Sattelite network";
+            //    //GUIStyle RT_Satteliteradio_contact_text = txt_red;
+            //    //if (inSatteliteRadioContact)
+            //    //{
+            //    //    rt_Satteliteconnected = "Connected to Sattelite network";
+            //    //    RT_Satteliteradio_contact_text = txt_green;
+            //    //}
+
+            //    string rt_connected = "Not connected to KSC";
+            //    GUIStyle RT_radio_contact_text = txt_red;
+            //    if (inRadioContact)
+            //    {
+            //        rt_connected = "Connected to KSC, delay : " + Convert.ToSingle(controlDelay) +" secs.";
+            //        RT_radio_contact_text = txt_green;
+            //    }
+
+            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //    GUILayout.Label("RemoteTech SPU " + has_RT_SPU, has_RT_text);
+            //    GUILayout.EndHorizontal();
+
+            //    //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //    //GUILayout.Label(rt_Satteliteconnected, RT_Satteliteradio_contact_text);
+            //    //GUILayout.EndHorizontal();
+
+            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            //    GUILayout.Label(rt_connected, RT_radio_contact_text);
+            //    GUILayout.EndHorizontal();
+            //}
+
             GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
             _content.text = "Show tooltips";
             _content.tooltip = "It does something";
@@ -1486,58 +1796,22 @@ namespace Chatterer
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 disable_beeps_during_chatter = GUILayout.Toggle(disable_beeps_during_chatter, _content);
                 GUILayout.EndHorizontal();
-
-                //_content.text = "Enable RemoteTech integration";
-                //_content.tooltip = "Capcom chatter is delayed/missed if not connected to a network";
-                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                //remotetech_toggle = GUILayout.Toggle(remotetech_toggle, _content);
-                //GUILayout.EndHorizontal();
-
-                if (remotetech_toggle)
-                {
-                    GUIStyle txt_green = new GUIStyle(GUI.skin.label);
-                    txt_green.normal.textColor = txt_green.focused.textColor = Color.green;
-                    txt_green.alignment = TextAnchor.UpperLeft;
-                    GUIStyle txt_red = new GUIStyle(GUI.skin.label);
-                    txt_red.normal.textColor = txt_red.focused.textColor = Color.red;
-                    txt_red.alignment = TextAnchor.UpperLeft;
-
-                    string has_RT_SPU = "not found";
-                    GUIStyle has_RT_text = txt_red;
-                    if (hasRemoteTech)
-                    {
-                        has_RT_SPU = "found";
-                        has_RT_text = txt_green;
-                    }
-
-                    string rt_connected = "Not connected to network";
-                    GUIStyle RT_radio_contact_text = txt_red;
-                    if (inRadioContact)
-                    {
-                        rt_connected = "Connected to network";
-                        RT_radio_contact_text = txt_green;
-                    }
-
-                    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                    GUILayout.Label("RemoteTech SPU " + has_RT_SPU, has_RT_text);
-                    GUILayout.EndHorizontal();
-
-                    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                    GUILayout.Label(rt_connected, RT_radio_contact_text);
-                    GUILayout.EndHorizontal();
-                }
-
+                
                 //The Lab
                 //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 //show_lab_gui = GUILayout.Toggle(show_lab_gui, "The Lab");
                 //GUILayout.EndHorizontal();
+            }
 
-                _content.text = "Show advanced options";
-                _content.tooltip = "More chatter and beep options are displayed";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                show_advanced_options = GUILayout.Toggle(show_advanced_options, _content);
-                GUILayout.EndHorizontal();
+            // Allowing "advanced options" even if crew < 0
+            _content.text = "Show advanced options";
+            _content.tooltip = "More chatter and beep options are displayed";
+            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            show_advanced_options = GUILayout.Toggle(show_advanced_options, _content);
+            GUILayout.EndHorizontal();
 
+            if (vessel.GetCrewCount() > 0)
+            {
                 //Insta-chatter key
                 GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
                 if (set_insta_chatter_key == false)
@@ -1548,6 +1822,10 @@ namespace Chatterer
                     _content.text = "Change";
                     _content.tooltip = "Select a new insta-chatter key";
                     if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) set_insta_chatter_key = true;
+
+                    _content.text = "Clear";
+                    _content.tooltip = "Clear insta-chatter key";
+                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) insta_chatter_key = KeyCode.None;
                 }
                 GUILayout.EndHorizontal();
 
@@ -1576,6 +1854,10 @@ namespace Chatterer
                 _content.text = "Change";
                 _content.tooltip = "Select a new insta-SSTV key";
                 if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) set_insta_sstv_key = true;
+
+                _content.text = "Clear";
+                _content.tooltip = "Clear insta-SSTV key";
+                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) insta_sstv_key = KeyCode.None;
             }
             GUILayout.EndHorizontal();
 
@@ -1604,7 +1886,6 @@ namespace Chatterer
                 if (skin_index < 0) skin_index = g_skin_list.Count;
                 if (debugging) Debug.Log("[CHATR] new skin_index = " + skin_index + " :: g_skin_list.Count = " + g_skin_list.Count);
             }
-            //if (debugging) Debug.Log("[CHATR] ◄ OK");
 
             string skin_name = "";
             if (skin_index == 0) skin_name = "None";
@@ -1621,23 +1902,8 @@ namespace Chatterer
                 if (skin_index > g_skin_list.Count) skin_index = 0;
                 if (debugging) Debug.Log("[CHATR] new skin_index = " + skin_index + " :: g_skin_list.Count = " + g_skin_list.Count);
             }
-            //if (debugging) Debug.Log("[CHATR] ► OK");
-
+            
             GUILayout.EndHorizontal();
-
-            ////Change icon position
-            //if (ToolbarButtonWrapper.ToolbarManagerPresent == false)
-            //{
-            //    GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-            //    if (changing_icon_pos == false)
-            //    {
-            //        _content.text = "Change icon position";
-            //        _content.tooltip = "Move icon anywhere on the screen";
-            //        if (GUILayout.Button(_content)) changing_icon_pos = true;
-            //    }
-            //    else GUILayout.Label("Click anywhere to set new icon position");
-            //    GUILayout.EndHorizontal();
-            //}            
         }
 
         private void testing_gui(int window_id)
@@ -1712,657 +1978,7 @@ namespace Chatterer
             GUILayout.EndVertical();
             GUI.DragWindow();
         }
-
-        private void chatter_filter_settings_gui(int window_id)
-        {
-            GUILayout.BeginVertical();
-
-            string[] filters = { "Chorus", "Dist", "Echo", "HiPass", "LoPass", "Reverb" };
-
-            chatter_sel_filter = GUILayout.SelectionGrid(chatter_sel_filter, filters, 3, GUILayout.ExpandWidth(true));
-
-            chatter_reverb_preset_index = combined_filter_settings_gui(chatter_sel_filter, chatter_chorus_filter, chatter_distortion_filter, chatter_echo_filter, chatter_highpass_filter, chatter_lowpass_filter, chatter_reverb_filter, chatter_reverb_preset_index);
-
-            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-
-            GUIContent _content = new GUIContent();
-            _content.text = "Copy all";
-            _content.tooltip = "Copy all filter values to clipboard";
-            if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-            {
-                copy_all_chatter_filters();
-            }
-            if (filters_clipboard != null)
-            {
-                _content.text = "Paste all";
-                _content.tooltip = "Paste all filter values from clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    paste_all_chatter_filters();
-                }
-            }
-            GUILayout.Label(" ", GUILayout.ExpandWidth(true));  //spacer
-
-            if (GUILayout.Button("Close", GUILayout.ExpandWidth(false))) show_chatter_filter_settings = false;
-            GUILayout.EndHorizontal();
-
-            if (show_tooltips && GUI.tooltip != "") tooltips(chatter_filter_settings_window_pos);
-            //{
-            //    float w = 5.5f * GUI.tooltip.Length;
-            //    float x = (Event.current.mousePosition.x < chatter_filter_settings_window_pos.width / 2) ? Event.current.mousePosition.x + 10 : Event.current.mousePosition.x - 10 - w;
-            //    GUI.Box(new Rect(x, Event.current.mousePosition.y, w, 25f), GUI.tooltip, gs_tooltip);
-            //}
-
-            GUILayout.EndVertical();
-            GUI.DragWindow();
-        }
-
-        private void beep_filter_settings_gui(int window_id)
-        {
-            GUILayout.BeginVertical();
-
-            BeepSource source = null;
-
-            foreach (BeepSource bm in beepsource_list)
-            {
-                if (bm.settings_window_id == window_id)
-                {
-                    source = bm;
-                    break;
-                }
-            }
-
-            if (source != null)
-            {
-
-                string[] filters = { "Chorus", "Dist", "Echo", "HiPass", "LoPass", "Reverb" };
-
-                source.sel_filter = GUILayout.SelectionGrid(source.sel_filter, filters, 3, GUILayout.ExpandWidth(true));
-
-                source.reverb_preset_index = combined_filter_settings_gui(source.sel_filter, source.chorus_filter, source.distortion_filter, source.echo_filter, source.highpass_filter, source.lowpass_filter, source.reverb_filter, source.reverb_preset_index);
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-
-                GUIContent _content = new GUIContent();
-                _content.text = "Copy all";
-                _content.tooltip = "Copy all filter values to clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    copy_all_beep_filters(source);
-                }
-                if (filters_clipboard != null)
-                {
-                    _content.text = "Paste all";
-                    _content.tooltip = "Paste all filter values from clipboard";
-                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                    {
-                        paste_all_beep_filters(source);
-                    }
-                }
-                GUILayout.Label(" ", GUILayout.ExpandWidth(true));  //spacer
-
-                if (GUILayout.Button("Close", GUILayout.ExpandWidth(false))) source.show_settings_window = false;
-                GUILayout.EndHorizontal();
-
-                if (show_tooltips && GUI.tooltip != "") tooltips(source.settings_window_pos);
-                //{
-                //    float w = 5.5f * GUI.tooltip.Length;
-                //    float x = (Event.current.mousePosition.x < source.settings_window_pos.width / 2) ? Event.current.mousePosition.x + 10 : Event.current.mousePosition.x - 10 - w;
-                //    GUI.Box(new Rect(x, Event.current.mousePosition.y, w, 25f), GUI.tooltip, gs_tooltip);
-                //}
-
-
-                GUILayout.EndVertical();
-                GUI.DragWindow();
-            }
-        }
-
-        private int combined_filter_settings_gui(int sel_filter, AudioChorusFilter acf, AudioDistortionFilter adf, AudioEchoFilter aef, AudioHighPassFilter ahpf, AudioLowPassFilter alpf, AudioReverbFilter arf, int reverb_preset_index)
-        {
-            //chatter and beep settings window guis both call this function
-
-            GUIContent _content = new GUIContent();
-
-            if (sel_filter == 0)
-            {
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                _content.text = "Enable";
-                _content.tooltip = "Turn chorus filter on/off";
-                acf.enabled = GUILayout.Toggle(acf.enabled, _content, GUILayout.ExpandWidth(true));
-                _content.text = "Default";
-                _content.tooltip = "Reset chorus filter to default";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) reset_chorus_filter(acf);
-                GUILayout.EndHorizontal();
-
-                _content.text = "Dry mix: " + (acf.dryMix * 100).ToString("F0") + "%";
-                _content.tooltip = "Volume of original signal to pass to output";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.dryMix = GUILayout.HorizontalSlider(acf.dryMix, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Wet mix 1: " + (acf.wetMix1 * 100).ToString("F0") + "%";
-                _content.tooltip = "Volume of 1st chorus tap";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.wetMix1 = GUILayout.HorizontalSlider(acf.wetMix1, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Wet mix 2: " + (acf.wetMix2 * 100).ToString("F0") + "%";
-                _content.tooltip = "Volume of 2nd chorus tap";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.wetMix2 = GUILayout.HorizontalSlider(acf.wetMix2, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Wet mix 3: " + (acf.wetMix3 * 100).ToString("F0") + "%";
-                _content.tooltip = "Volume of 3rd chorus tap";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.wetMix3 = GUILayout.HorizontalSlider(acf.wetMix3, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Delay: " + acf.delay.ToString("F2") + " ms";
-                _content.tooltip = "Chorus delay in ms";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.delay = GUILayout.HorizontalSlider(acf.delay, 0.1f, 100f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Rate: " + acf.rate.ToString("F2") + " Hz";
-                _content.tooltip = "Chorus modulation rate in Hz";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.rate = GUILayout.HorizontalSlider(acf.rate, 0, 20f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Depth: " + (acf.depth * 100).ToString("F0") + "%";
-                _content.tooltip = "Chorus modulation depth";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                acf.depth = GUILayout.HorizontalSlider(acf.depth, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                //_content.text = "Feedback: " + (acf.feedback * 100).ToString("F0") + "%"; // [Obsolete("feedback is deprecated, this property does nothing.")]
-                //_content.tooltip = "Wet signal to feed back into the chorus buffer";
-                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                //GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                //acf.feedback = GUILayout.HorizontalSlider(acf.feedback, 0, 1f, GUILayout.Width(90f));
-                //GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                _content.text = "Copy Chorus";
-                _content.tooltip = "Copy chorus values to clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    chorus_clipboard = new ConfigNode();
-                    chorus_clipboard.AddValue("dry_mix", acf.dryMix);
-                    chorus_clipboard.AddValue("wet_mix_1", acf.wetMix1);
-                    chorus_clipboard.AddValue("wet_mix_2", acf.wetMix2);
-                    chorus_clipboard.AddValue("wet_mix_3", acf.wetMix3);
-                    chorus_clipboard.AddValue("delay", acf.delay);
-                    chorus_clipboard.AddValue("rate", acf.rate);
-                    chorus_clipboard.AddValue("depth", acf.depth);
-                    //chorus_clipboard.AddValue("feedback", acf.feedback);
-                    if (debugging) Debug.Log("[CHATR] chorus filter values copied to chorus clipboard");
-                }
-                if (chorus_clipboard != null)
-                {
-                    _content.text = "Load Chorus";
-                    _content.tooltip = "Load chorus values from clipboard";
-                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                    {
-                        acf.dryMix = Single.Parse(chorus_clipboard.GetValue("dry_mix"));
-                        acf.wetMix1 = Single.Parse(chorus_clipboard.GetValue("wet_mix_1"));
-                        acf.wetMix2 = Single.Parse(chorus_clipboard.GetValue("wet_mix_2"));
-                        acf.wetMix3 = Single.Parse(chorus_clipboard.GetValue("wet_mix_3"));
-                        acf.delay = Single.Parse(chorus_clipboard.GetValue("delay"));
-                        acf.rate = Single.Parse(chorus_clipboard.GetValue("rate"));
-                        acf.depth = Single.Parse(chorus_clipboard.GetValue("depth"));
-                        //acf.feedback = Single.Parse(chorus_clipboard.GetValue("feedback"));
-                        if (debugging) Debug.Log("[CHATR] chorus filter values loaded from chorus clipboard");
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-            else if (sel_filter == 1)
-            {
-                //Distortion
-                _content.text = "Enable";
-                _content.tooltip = "Turn distortion filter on/off";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                adf.enabled = GUILayout.Toggle(adf.enabled, _content, GUILayout.ExpandWidth(true));
-                _content.text = "Default";
-                _content.tooltip = "Reset distortion filter to default";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) reset_distortion_filter(adf);
-                GUILayout.EndHorizontal();
-
-                _content.text = "Distortion level: " + (adf.distortionLevel * 100).ToString("F0") + "%";
-                _content.tooltip = "Distortion value";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                adf.distortionLevel = GUILayout.HorizontalSlider(adf.distortionLevel, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                _content.text = "Copy Dist";
-                _content.tooltip = "Copy distortion values to clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    dist_clipboard = new ConfigNode();
-                    dist_clipboard.AddValue("distortion_level", adf.distortionLevel);
-                    if (debugging) Debug.Log("[CHATR] distortion filter values copied to distortion clipboard");
-                }
-                if (dist_clipboard != null)
-                {
-                    _content.text = "Load Dist";
-                    _content.tooltip = "Load distortion values from clipboard";
-                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                    {
-                        adf.distortionLevel = Single.Parse(dist_clipboard.GetValue("distortion_level"));
-                        if (debugging) Debug.Log("[CHATR] distortion filter values loaded from distortion clipboard");
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-            else if (sel_filter == 2)
-            {
-                //Echo
-                _content.text = "Enable";
-                _content.tooltip = "Turn echo filter on/off";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                aef.enabled = GUILayout.Toggle(aef.enabled, _content, GUILayout.ExpandWidth(true));
-                _content.text = "Default";
-                _content.tooltip = "Reset echo filter to default";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) reset_echo_filter(aef);
-                GUILayout.EndHorizontal();
-
-                _content.text = "Delay: " + aef.delay.ToString("F0") + " ms";
-                _content.tooltip = "Echo delay in ms";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                aef.delay = GUILayout.HorizontalSlider(aef.delay, 10f, 5000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Decay ratio: " + aef.decayRatio.ToString("F2");
-                _content.tooltip = "Echo decay per delay";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                aef.decayRatio = GUILayout.HorizontalSlider(aef.decayRatio, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Dry mix: " + (aef.dryMix * 100).ToString("F0") + "%";
-                _content.tooltip = "Volume of original signal to pass to output";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                aef.dryMix = GUILayout.HorizontalSlider(aef.dryMix, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Wet mix: " + (aef.wetMix * 100).ToString("F0") + "%";
-                _content.tooltip = "Volume of echo signal to pass to output";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                aef.wetMix = GUILayout.HorizontalSlider(aef.wetMix, 0, 1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                _content.text = "Copy Echo";
-                _content.tooltip = "Copy echo values to clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    echo_clipboard = new ConfigNode();
-                    echo_clipboard.AddValue("delay", aef.delay);
-                    echo_clipboard.AddValue("decay_ratio", aef.decayRatio);
-                    echo_clipboard.AddValue("dry_mix", aef.dryMix);
-                    echo_clipboard.AddValue("wet_mix", aef.wetMix);
-                    if (debugging) Debug.Log("[CHATR] echo filter values copied to echo clipboard");
-                }
-                if (echo_clipboard != null)
-                {
-                    _content.text = "Load Echo";
-                    _content.tooltip = "Load echo values from clipboard";
-                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                    {
-                        aef.delay = Single.Parse(echo_clipboard.GetValue("delay"));
-                        aef.decayRatio = Single.Parse(echo_clipboard.GetValue("decay_ratio"));
-                        aef.dryMix = Single.Parse(echo_clipboard.GetValue("dry_mix"));
-                        aef.wetMix = Single.Parse(echo_clipboard.GetValue("wet_mix"));
-                        if (debugging) Debug.Log("[CHATR] echo filter values loaded from echo clipboard");
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-            else if (sel_filter == 3)
-            {
-                //Highpass
-                _content.text = "Enable";
-                _content.tooltip = "Turn highpass filter on/off";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                ahpf.enabled = GUILayout.Toggle(ahpf.enabled, _content, GUILayout.ExpandWidth(true));
-                _content.text = "Default";
-                _content.tooltip = "Reset highpass filter to default";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) reset_highpass_filter(ahpf);
-                GUILayout.EndHorizontal();
-
-                _content.text = "Cutoff freq: " + ahpf.cutoffFrequency.ToString("F2") + " Hz";
-                _content.tooltip = "Highpass cutoff frequency in Hz";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                ahpf.cutoffFrequency = GUILayout.HorizontalSlider(ahpf.cutoffFrequency, 10f, 22000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Resonance Q: " + ahpf.highpassResonaceQ.ToString("F2");
-                _content.tooltip = "Highpass self-resonance dampening";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                ahpf.highpassResonaceQ = GUILayout.HorizontalSlider(ahpf.highpassResonaceQ, 1f, 10f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                _content.text = "Copy HiPass";
-                _content.tooltip = "Copy highpass values to clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    hipass_clipboard = new ConfigNode();
-                    hipass_clipboard.AddValue("cutoff_freq", ahpf.cutoffFrequency);
-                    hipass_clipboard.AddValue("resonance_q", ahpf.highpassResonaceQ);
-                    if (debugging) Debug.Log("[CHATR] highpass filter values copied to highpass clipboard");
-                }
-                if (hipass_clipboard != null)
-                {
-                    _content.text = "Load HiPass";
-                    _content.tooltip = "Load highpass values from clipboard";
-                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                    {
-                        ahpf.cutoffFrequency = Single.Parse(hipass_clipboard.GetValue("cutoff_freq"));
-                        ahpf.highpassResonaceQ = Single.Parse(hipass_clipboard.GetValue("resonance_q"));
-                        if (debugging) Debug.Log("[CHATR] highpass filter values loaded from highpass clipboard");
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-            else if (sel_filter == 4)
-            {
-                //Lowpass
-                _content.text = "Enable";
-                _content.tooltip = "Turn lowpass filter on/off";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                alpf.enabled = GUILayout.Toggle(alpf.enabled, _content, GUILayout.ExpandWidth(true));
-                _content.text = "Default";
-                _content.tooltip = "Reset lowpass filter to default";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) reset_lowpass_filter(alpf);
-                GUILayout.EndHorizontal();
-
-                _content.text = "Cutoff freq: " + alpf.cutoffFrequency.ToString("F2") + " Hz";
-                _content.tooltip = "Lowpass cutoff frequency in Hz";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                alpf.cutoffFrequency = GUILayout.HorizontalSlider(alpf.cutoffFrequency, 10f, 22000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Resonance Q: " + alpf.lowpassResonaceQ.ToString("F2");
-                _content.tooltip = "Lowpass self-resonance dampening";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                alpf.lowpassResonaceQ = GUILayout.HorizontalSlider(alpf.lowpassResonaceQ, 1f, 10f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                _content.text = "Copy LoPass";
-                _content.tooltip = "Copy lowpass values to clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    lopass_clipboard = new ConfigNode();
-                    lopass_clipboard.AddValue("cutoff_freq", alpf.cutoffFrequency);
-                    lopass_clipboard.AddValue("resonance_q", alpf.lowpassResonaceQ);
-                    if (debugging) Debug.Log("[CHATR] lowpass filter values copied to lowpass clipboard");
-                }
-                if (lopass_clipboard != null)
-                {
-                    _content.text = "Load LoPass";
-                    _content.tooltip = "Load lowpass values from clipboard";
-                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                    {
-                        alpf.cutoffFrequency = Single.Parse(lopass_clipboard.GetValue("cutoff_freq"));
-                        alpf.lowpassResonaceQ = Single.Parse(lopass_clipboard.GetValue("resonance_q"));
-                        if (debugging) Debug.Log("[CHATR] lowpass filter values loaded from lowpass clipboard");
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-            else if (sel_filter == 5)
-            {
-                //Reverb
-                _content.text = "Enable";
-                _content.tooltip = "Turn reverb filter on/off";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                arf.enabled = GUILayout.Toggle(arf.enabled, _content, GUILayout.ExpandWidth(true));
-                _content.text = "Default";
-                _content.tooltip = "Reset reverb filter to default";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false))) reset_reverb_filter(arf);
-                GUILayout.EndHorizontal();
-
-                //Presets
-                AudioReverbPreset[] preset_array = Enum.GetValues(typeof(AudioReverbPreset)) as AudioReverbPreset[];
-                List<AudioReverbPreset> preset_list = new List<AudioReverbPreset>();
-
-                foreach (var val in preset_array)
-                {
-                    if (val.ToString() != "Off" && val.ToString() != "User") preset_list.Add(val);  //Off and User have separate buttons
-                }
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label("Current preset: " + arf.reverbPreset.ToString(), GUILayout.ExpandWidth(true));
-
-                //off button
-                //_content.text = "Off";
-                //_content.tooltip = "Turn reverb off";
-                //if (GUILayout.Button(_content, GUILayout.ExpandWidth(true)))
-                //{
-                //    arf.reverbPreset = AudioReverbPreset.Off;
-                //    if (debugging) Debug.Log("[CHATR] reverb turned off");
-                //}
-
-                //user button
-                _content.text = "User";
-                _content.tooltip = "User reverb settings";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    arf.reverbPreset = AudioReverbPreset.User;
-                    if (debugging) Debug.Log("[CHATR] reverb set to User");
-                }
-
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-
-                if (GUILayout.Button("◄", GUILayout.ExpandWidth(true)))
-                {
-                    //need separate preset indices for chatter and each beep
-                    reverb_preset_index--;
-                    if (reverb_preset_index < 0) reverb_preset_index = preset_list.Count - 1;
-                    if (debugging) Debug.Log("[CHATR] reverb_preset_index = " + reverb_preset_index);
-                }
-                _content.text = preset_list[reverb_preset_index].ToString();
-                _content.tooltip = "Click to apply";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(true)))
-                {
-                    arf.reverbPreset = preset_list[reverb_preset_index];
-                    if (debugging) Debug.Log("[CHATR] reverb preset set to " + arf.reverbPreset.ToString());
-                }
-
-                if (GUILayout.Button("►", GUILayout.ExpandWidth(true)))
-                {
-                    reverb_preset_index++;
-                    if (reverb_preset_index >= preset_list.Count) reverb_preset_index = 0;
-                    if (debugging) Debug.Log("[CHATR] reverb_preset_index = " + reverb_preset_index);
-                }
-
-                GUILayout.EndHorizontal();
-
-                //GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                //GUILayout.Label("source.reverbPreset = " + arf.reverbPreset.ToString());
-                //GUILayout.EndHorizontal();
-
-                _content.text = "Dry level: " + arf.dryLevel.ToString("F0") + " mB";
-                _content.tooltip = "Mix level of dry signal in output in mB";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.dryLevel = GUILayout.HorizontalSlider(arf.dryLevel, -10000f, 0, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Room: " + arf.room.ToString("F0") + " mB";
-                _content.tooltip = "Room effect level at low frequencies in mB";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.room = GUILayout.HorizontalSlider(arf.room, -10000f, 0, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Room HF: " + arf.roomHF.ToString("F0") + " mB";
-                _content.tooltip = "Room effect high-frequency level in mB";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.roomHF = GUILayout.HorizontalSlider(arf.roomHF, -10000f, 0, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Room LF: " + arf.roomLF.ToString("F0") + " mB";
-                _content.tooltip = "Room effect low-frequency level in mB";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.roomLF = GUILayout.HorizontalSlider(arf.roomLF, -10000f, 0, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Room roll-off: " + arf.roomRolloff.ToString("F2");
-                _content.tooltip = "Rolloff factor for room effect";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.roomRolloff = GUILayout.HorizontalSlider(arf.roomRolloff, 0, 10f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Decay time: " + (arf.decayTime * 100).ToString("F0") + " s";
-                _content.tooltip = "Reverb decay time at low-frequencies";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.decayTime = GUILayout.HorizontalSlider(arf.decayTime, 0.1f, 20f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Decay HF ratio: " + arf.decayHFRatio.ToString("F0");
-                _content.tooltip = "HF to LF decay time ratio";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.decayHFRatio = GUILayout.HorizontalSlider(arf.decayHFRatio, 0.1f, 2f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Reflections level: " + arf.reflectionsLevel.ToString("F0") + " mB";
-                _content.tooltip = "Early reflections level relative to room effect";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.reflectionsLevel = GUILayout.HorizontalSlider(arf.reflectionsLevel, -10000f, 1000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Reflections delay: " + arf.reflectionsDelay.ToString("F0") + " mB";
-                _content.tooltip = "Late reverberation level relative to room effect";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.reflectionsDelay = GUILayout.HorizontalSlider(arf.reflectionsDelay, -10000f, 2000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Reverb level: " + arf.reverbLevel.ToString("F0") + " mB";
-                _content.tooltip = "Late reverberation level relative to room effect";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.reverbLevel = GUILayout.HorizontalSlider(arf.reverbLevel, -10000f, 2000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Reverb delay: " + (arf.reverbDelay * 100).ToString("F0") + " s";
-                _content.tooltip = "Late reverb delay time rel. to first reflection";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.reverbDelay = GUILayout.HorizontalSlider(arf.reverbDelay, 0, 0.1f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Diffusion: " + arf.diffusion.ToString("F0") + "%";
-                _content.tooltip = "Reverb diffusion (echo density)";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.diffusion = GUILayout.HorizontalSlider(arf.diffusion, 0, 100f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "Density: " + arf.density.ToString("F0") + "%";
-                _content.tooltip = "Reverb density (modal density)";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.density = GUILayout.HorizontalSlider(arf.density, 0, 100f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "HF reference: " + arf.hfReference.ToString("F0") + " Hz";
-                _content.tooltip = "Reference high frequency in Hz";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.hfReference = GUILayout.HorizontalSlider(arf.hfReference, 20f, 20000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                _content.text = "LF reference: " + arf.lFReference.ToString("F0") + " Hz";
-                _content.tooltip = "Reference low-frequency in Hz";
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                GUILayout.Label(_content, GUILayout.ExpandWidth(true));
-                arf.lFReference = GUILayout.HorizontalSlider(arf.lFReference, 20f, 1000f, GUILayout.Width(90f));
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
-                _content.text = "Copy Reverb";
-                _content.tooltip = "Copy reverb values to clipboard";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    reverb_clipboard = new ConfigNode();
-                    reverb_clipboard.AddValue("reverb_preset", arf.reverbPreset);
-                    reverb_clipboard.AddValue("dry_level", arf.dryLevel);
-                    reverb_clipboard.AddValue("room", arf.room);
-                    reverb_clipboard.AddValue("room_hf", arf.roomHF);
-                    reverb_clipboard.AddValue("room_lf", arf.roomLF);
-                    reverb_clipboard.AddValue("room_rolloff", arf.roomRolloff);
-                    reverb_clipboard.AddValue("decay_time", arf.decayTime);
-                    reverb_clipboard.AddValue("decay_hf_ratio", arf.decayHFRatio);
-                    reverb_clipboard.AddValue("reflections_level", arf.reflectionsLevel);
-                    reverb_clipboard.AddValue("reflections_delay", arf.reflectionsDelay);
-                    reverb_clipboard.AddValue("reverb_level", arf.reverbLevel);
-                    reverb_clipboard.AddValue("reverb_delay", arf.reverbDelay);
-                    reverb_clipboard.AddValue("diffusion", arf.diffusion);
-                    reverb_clipboard.AddValue("density", arf.density);
-                    reverb_clipboard.AddValue("hf_reference", arf.hfReference);
-                    reverb_clipboard.AddValue("lf_reference", arf.lFReference);
-                    if (debugging) Debug.Log("[CHATR] reverb filter values copied to reverb clipboard");
-                }
-                if (reverb_clipboard != null)
-                {
-                    _content.text = "Load Reverb";
-                    _content.tooltip = "Load reverb values from clipboard";
-                    if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                    {
-                        arf.reverbPreset = (AudioReverbPreset)Enum.Parse(typeof(AudioReverbPreset), reverb_clipboard.GetValue("reverb_preset"));
-                        arf.dryLevel = Single.Parse(reverb_clipboard.GetValue("dry_level"));
-                        arf.room = Single.Parse(reverb_clipboard.GetValue("room"));
-                        arf.roomHF = Single.Parse(reverb_clipboard.GetValue("room_hf"));
-                        arf.roomLF = Single.Parse(reverb_clipboard.GetValue("room_lf"));
-                        arf.roomRolloff = Single.Parse(reverb_clipboard.GetValue("room_rolloff"));
-                        arf.decayTime = Single.Parse(reverb_clipboard.GetValue("decay_time"));
-                        arf.decayHFRatio = Single.Parse(reverb_clipboard.GetValue("decay_hf_ratio"));
-                        arf.reflectionsLevel = Single.Parse(reverb_clipboard.GetValue("reflections_level"));
-                        arf.reflectionsDelay = Single.Parse(reverb_clipboard.GetValue("reflections_delay"));
-                        arf.reverbLevel = Single.Parse(reverb_clipboard.GetValue("reverb_level"));
-                        arf.reverbDelay = Single.Parse(reverb_clipboard.GetValue("reverb_delay"));
-                        arf.diffusion = Single.Parse(reverb_clipboard.GetValue("diffusion"));
-                        arf.density = Single.Parse(reverb_clipboard.GetValue("density"));
-                        arf.hfReference = Single.Parse(reverb_clipboard.GetValue("hf_reference"));
-                        arf.lFReference = Single.Parse(reverb_clipboard.GetValue("lf_reference"));
-                        if (debugging) Debug.Log("[CHATR] reverb filter values loaded from reverb clipboard");
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-            return reverb_preset_index;
-        }
-
+        
         private void probe_sample_selector_gui(int window_id)
         {
             GUIContent _content = new GUIContent();
@@ -2376,7 +1992,7 @@ namespace Chatterer
             //list each sample from Dict
             foreach (string key in dict_probe_samples.Keys)
             {
-                AudioClip _clip = new AudioClip();
+                AudioClip _clip = AudioClip.Create("noClip", 1, 1, 1000, true);
                 GUIStyle sample_gs = label_txt_left;
 
                 if (dict_probe_samples.TryGetValue(key, out _clip))
@@ -2401,13 +2017,8 @@ namespace Chatterer
                     if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
                     //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
 
-
-
-
                     OTP_source = source;
                     OTP_stored_clip = source.audiosource.clip;
-
-
 
                     //if (debugging) Debug.Log("[CHATR] OTP_stored_clip = " + OTP_stored_clip);
                     //source.current_clip = key;
@@ -2424,27 +2035,6 @@ namespace Chatterer
                     OTP_playing = true;
                     source.audiosource.Play();
 
-                    //problem may be right here when setting clip back right after playing
-                    //reset clip in Update() after playing has finished
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] AudioSource has played");
-                    //source.current_clip = stored_clip;
-                    //if (debugging) Debug.Log("[CHATR] source.current_clip = " +  source.current_clip);
-                    //set_beep_clip(source);
-
-                    //AudioClip temp_clip;
-                    //if (dict_probe_samples.TryGetValue(key, out temp_clip))
-                    //{
-                    //    if (debugging) Debug.Log("[CHATR] got temp_clip, key = " + key);
-                    //    source.audiosource.clip = temp_clip;
-                    //    if (debugging) Debug.Log("[CHATR] playing one time");
-                    //    source.audiosource.Play();
-                    //    source.current_clip = stored_clip;
-                    //    set_beep_clip(source);
-                    //    if (debugging) Debug.Log("[CHATR] stored clip replaced");
-                    //}
                 }
 
                 _content.text = "Set";
@@ -2455,15 +2045,6 @@ namespace Chatterer
                     source.current_clip = key;  //set current_clip
                     set_beep_clip(source);  //then assign AudioClip
                     if (debugging) Debug.Log("[CHATR] sample selector clip set :: clip = " + key);
-
-                    //set and play once when clicked
-                    //if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //else
-                    //{
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-                    //source.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                    //source.audiosource.Play();
-                    //}
 
                 }
 
@@ -2498,7 +2079,7 @@ namespace Chatterer
             //list each sample from Dict
             foreach (string key in dict_background_samples.Keys)
             {
-                AudioClip _clip = new AudioClip();
+                AudioClip _clip = AudioClip.Create("noClip", 1, 1, 1000, true);
                 GUIStyle sample_gs = label_txt_left;
 
                 if (dict_background_samples.TryGetValue(key, out _clip))
@@ -2516,61 +2097,6 @@ namespace Chatterer
                 _content.tooltip = "Background sample file name";
                 GUILayout.Label(_content, sample_gs, GUILayout.ExpandWidth(true));
 
-                /*
-                _content.text = "►";
-                _content.tooltip = "Play this sample once";
-                if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
-                {
-                    if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-
-
-
-
-                    OTP_source = source;
-                    OTP_stored_clip = source.audiosource.clip;
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] OTP_stored_clip = " + OTP_stored_clip);
-                    //source.current_clip = key;
-                    //if (debugging) Debug.Log("[CHATR] set clip " + source.current_clip + " to play once");
-                    //set_beep_clip(source);
-                    //if (debugging) Debug.Log("[CHATR] source.audiosource.clip set");
-
-                    //AudioClip _clip;
-                    if (dict_probe_samples.TryGetValue(key, out _clip))
-                    {
-                        source.audiosource.clip = _clip;
-                    }
-
-                    OTP_playing = true;
-                    source.audiosource.Play();
-
-                    //problem may be right here when setting clip back right after playing
-                    //reset clip in Update() after playing has finished
-
-
-
-                    //if (debugging) Debug.Log("[CHATR] AudioSource has played");
-                    //source.current_clip = stored_clip;
-                    //if (debugging) Debug.Log("[CHATR] source.current_clip = " +  source.current_clip);
-                    //set_beep_clip(source);
-
-                    //AudioClip temp_clip;
-                    //if (dict_probe_samples.TryGetValue(key, out temp_clip))
-                    //{
-                    //    if (debugging) Debug.Log("[CHATR] got temp_clip, key = " + key);
-                    //    source.audiosource.clip = temp_clip;
-                    //    if (debugging) Debug.Log("[CHATR] playing one time");
-                    //    source.audiosource.Play();
-                    //    source.current_clip = stored_clip;
-                    //    set_beep_clip(source);
-                    //    if (debugging) Debug.Log("[CHATR] stored clip replaced");
-                    //}
-                }
-                */
-
                 _content.text = "Set";
                 _content.tooltip = "Set this sample to play from this backgroundsource";
                 if (GUILayout.Button(_content, GUILayout.ExpandWidth(false)))
@@ -2579,7 +2105,7 @@ namespace Chatterer
                     src.current_clip = key;  //set current_clip
                     //set_beep_clip(source);  //then assign AudioClip
 
-                    AudioClip temp_clip = new AudioClip();
+                    AudioClip temp_clip = AudioClip.Create("noClip", 1, 1, 1000, true);
 
                     if (dict_background_samples.TryGetValue(src.current_clip, out temp_clip))
                     {
@@ -2599,19 +2125,7 @@ namespace Chatterer
                         //set_beep_clip(beepsource);
                     }
 
-
-
-
                     if (debugging) Debug.Log("[CHATR] sample selector clip set :: clip = " + key);
-
-                    //set and play once when clicked
-                    //if ((exchange_playing && disable_beeps_during_chatter) || sstv.isPlaying) return;   //don't play during chatter or sstv
-                    //else
-                    //{
-                    //if (debugging) Debug.Log("[CHATR] playing sample " + source.current_clip + " one time...");
-                    //source.audiosource.clip = all_beep_clips[bm.current_clip - 1];
-                    //source.audiosource.Play();
-                    //}
 
                 }
 
@@ -2676,7 +2190,7 @@ namespace Chatterer
             }
             else
             {
-                AudioClip temp_clip = new AudioClip();
+                AudioClip temp_clip = AudioClip.Create("noClip", 1, 1, 1000, true);
 
                 //broken here current_clip == null
 
@@ -2754,7 +2268,7 @@ namespace Chatterer
             beepsource_list[x].beep_name = beepsource_list.Count.ToString();
             beepsource_list[x].audiosource = beepsource_list[x].beep_player.AddComponent<AudioSource>();
             beepsource_list[x].audiosource.volume = 0.3f;   //default 30%
-            beepsource_list[x].audiosource.panLevel = 0;
+            beepsource_list[x].audiosource.spatialBlend = 0.0f;
             //beepsource_list[x].audiosource.clip = all_beep_clips[0];
             beepsource_list[x].current_clip = "First";
             beepsource_list[x].chorus_filter = beepsource_list[x].beep_player.AddComponent<AudioChorusFilter>();
@@ -2788,7 +2302,7 @@ namespace Chatterer
             backgroundsource_list[x].background_player.name = "rbr_background_player_" + backgroundsource_list.Count;
             backgroundsource_list[x].audiosource = backgroundsource_list[x].background_player.AddComponent<AudioSource>();
             backgroundsource_list[x].audiosource.volume = 0.3f;
-            backgroundsource_list[x].audiosource.panLevel = 0;
+            backgroundsource_list[x].audiosource.spatialBlend = 0.0f;
             backgroundsource_list[x].current_clip = "Default";
 
             if (dict_background_samples.Count > 0)
@@ -2836,728 +2350,97 @@ namespace Chatterer
                 }
             }
         }
-
-        //Save/Load settings
-        private void save_plugin_settings()
-        {
-            //these values are not saved to vessel.cfg ever and are considered global
-            //if (debugging) Debug.Log("[CHATR] adding plugin settings to ConfigNode for write");
-            plugin_settings_node = new ConfigNode();
-            plugin_settings_node.name = "SETTINGS";
-            plugin_settings_node.AddValue("debugging", debugging);
-            plugin_settings_node.AddValue("use_vessel_settings", use_vessel_settings);
-            plugin_settings_node.AddValue("useBlizzy78Toolbar", useBlizzy78Toolbar);
-            plugin_settings_node.AddValue("http_update_check", http_update_check);
-            plugin_settings_node.AddValue("disable_beeps_during_chatter", disable_beeps_during_chatter);
-            plugin_settings_node.AddValue("insta_chatter_key", insta_chatter_key);
-            plugin_settings_node.AddValue("insta_sstv_key", insta_sstv_key);
-            plugin_settings_node.AddValue("show_advanced_options", show_advanced_options);
-
-            //also save values that are shared between the two configs
-            save_shared_settings(plugin_settings_node);
-
-            //save plugin.cfg
-            plugin_settings_node.Save(settings_path + "plugin.cfg");
-            //if (debugging) Debug.Log("[CHATR] plugin settings saved to disk");
-        }
-
-        private void load_plugin_settings()
-        {
-            if (debugging) Debug.Log("[CHATR] load_plugin_settings() START");
-
-            destroy_all_beep_players();
-            chatter_array.Clear();
-            beepsource_list.Clear();
-
-            plugin_settings_node = new ConfigNode();
-            plugin_settings_node = ConfigNode.Load(settings_path + "plugin.cfg");
-
-            if (plugin_settings_node != null)
-            {
-                //if (debugging) Debug.Log("[CHATR] plugin_settings != null");
-                //Load settings specific to plugin.cfg
-                if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
-                if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
-                if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
-                if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
-                if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
-                if (plugin_settings_node.HasValue("insta_sstv_key")) insta_sstv_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_sstv_key"));
-                if (plugin_settings_node.HasValue("show_advanced_options")) show_advanced_options = Boolean.Parse(plugin_settings_node.GetValue("show_advanced_options"));
-
-                load_shared_settings(plugin_settings_node); //load settings shared between both configs
-
-            }
-            else
-            {
-                if (debugging) Debug.LogWarning("[CHATR] plugin.cfg missing or unreadable");
-            }
-
-            //if (chatter_exists && chatter_array.Count == 0)
-            if (chatter_array.Count == 0)
-            {
-                if (debugging) Debug.Log("[CHATR] No audiosets found in config, adding defaults");
-                add_default_audiosets();
-                load_chatter_audio();   //load audio in case there is none
-            }
-
-            if (beeps_exists && beepsource_list.Count == 0)
-            {
-                if (debugging) Debug.LogWarning("[CHATR] beepsource_list.Count == 0, adding default 3");
-                add_default_beepsources();
-            }
-
-            if (aae_backgrounds_exist && backgroundsource_list.Count == 0)
-            {
-                if (debugging) Debug.LogWarning("[CHATR] backgroundsource_list.Count == 0, adding default 2");
-                add_default_backgroundsources();
-            }
-
-            if (debugging) Debug.Log("[CHATR] load_plugin_settings() END");
-        }
-
-        private void load_plugin_defaults()
-        {
-            if (debugging) Debug.Log("[CHATR] load_plugin_defaults()");
-
-            destroy_all_beep_players();
-            chatter_array.Clear();
-            beepsource_list.Clear();
-
-            plugin_settings_node = new ConfigNode();
-            plugin_settings_node = ConfigNode.Load(settings_path + "plugin_defaults.cfg");
-
-            if (plugin_settings_node != null)
-            {
-                if (debugging) Debug.Log("[CHATR] plugin_defaults != null");
-                //Load settings specific to plugin.cfg
-                if (plugin_settings_node.HasValue("debugging")) debugging = Boolean.Parse(plugin_settings_node.GetValue("debugging"));
-                if (plugin_settings_node.HasValue("use_vessel_settings")) use_vessel_settings = Boolean.Parse(plugin_settings_node.GetValue("use_vessel_settings"));
-                if (plugin_settings_node.HasValue("useBlizzy78Toolbar")) useBlizzy78Toolbar = Boolean.Parse(plugin_settings_node.GetValue("useBlizzy78Toolbar"));
-                if (plugin_settings_node.HasValue("http_update_check")) http_update_check = Boolean.Parse(plugin_settings_node.GetValue("http_update_check"));
-                if (plugin_settings_node.HasValue("disable_beeps_during_chatter")) disable_beeps_during_chatter = Boolean.Parse(plugin_settings_node.GetValue("disable_beeps_during_chatter"));
-                if (plugin_settings_node.HasValue("insta_chatter_key")) insta_chatter_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_chatter_key"));
-                if (plugin_settings_node.HasValue("insta_sstv_key")) insta_sstv_key = (KeyCode)Enum.Parse(typeof(KeyCode), plugin_settings_node.GetValue("insta_sstv_key"));
-                if (plugin_settings_node.HasValue("show_advanced_options")) show_advanced_options = Boolean.Parse(plugin_settings_node.GetValue("show_advanced_options"));
-
-                load_shared_settings(plugin_settings_node); //load settings shared between both configs
-
-            }
-            else
-            {
-                if (debugging) Debug.LogWarning("[CHATR] plugin_defautls.cfg missing or unreadable");
-            }
-
-            //if (chatter_exists && chatter_array.Count == 0)
-            if (chatter_array.Count == 0)
-            {
-                if (debugging) Debug.Log("[CHATR] No audiosets found in config, adding defaults");
-                add_default_audiosets();
-                load_chatter_audio();   //load audio in case there is none
-            }
-
-            if (beeps_exists && beepsource_list.Count == 0)
-            {
-                if (debugging) Debug.LogWarning("[CHATR] beepsource_list.Count == 0, adding default 3");
-                add_default_beepsources();
-            }
-
-            if (aae_backgrounds_exist && backgroundsource_list.Count == 0)
-            {
-                if (debugging) Debug.LogWarning("[CHATR] backgroundsource_list.Count == 0, adding default 2");
-                add_default_backgroundsources();
-            }
-
-            if (debugging) Debug.Log("[CHATR] load_plugin_defaults() END");
-        }
-
-        //Functions to handle settings shared by plugin.cfg and vessel.cfg
-        private void save_shared_settings(ConfigNode node)
-        {
-            node.AddValue("show_tooltips", show_tooltips);
-            node.AddValue("main_window_pos", main_window_pos.x + "," + main_window_pos.y);
-            node.AddValue("hide_all_windows", hide_all_windows);
-            node.AddValue("skin_index", skin_index);
-            node.AddValue("active_menu", active_menu);
-            node.AddValue("remotetech_toggle", remotetech_toggle);
-
-            node.AddValue("chatter_freq", chatter_freq);
-            node.AddValue("chatter_vol_slider", chatter_vol_slider);
-            node.AddValue("chatter_sel_filter", chatter_sel_filter);
-            node.AddValue("show_chatter_filter_settings", show_chatter_filter_settings);
-            node.AddValue("show_sample_selector", show_probe_sample_selector);
-            node.AddValue("chatter_reverb_preset_index", chatter_reverb_preset_index);
-            node.AddValue("chatter_filter_settings_window_pos", chatter_filter_settings_window_pos.x + "," + chatter_filter_settings_window_pos.y);
-            node.AddValue("probe_sample_selector_window_pos", probe_sample_selector_window_pos.x + "," + probe_sample_selector_window_pos.y);
-
-            node.AddValue("quindar_toggle", quindar_toggle);
-            node.AddValue("quindar_vol_slider", quindar_vol_slider);
-            node.AddValue("sstv_freq", sstv_freq);
-            node.AddValue("sstv_vol_slider", sstv_vol_slider);
-
-            node.AddValue("sel_beep_src", sel_beep_src);
-            node.AddValue("sel_beep_page", sel_beep_page);
-
-            //AAE
-            if (aae_backgrounds_exist)
-            {
-                foreach (BackgroundSource src in backgroundsource_list)
-                {
-                    ConfigNode _background = new ConfigNode();
-                    _background.name = "AAE_BACKGROUND";
-                    _background.AddValue("volume", src.audiosource.volume);
-                    _background.AddValue("current_clip", src.current_clip);
-                    node.AddNode(_background);
-                }
-            }
-
-            if (aae_soundscapes_exist)
-            {
-                node.AddValue("aae_soundscape_vol", aae_soundscape.volume);
-                node.AddValue("aae_soundscape_freq", aae_soundscape_freq);
-            }
-
-            if (aae_breathing_exist) node.AddValue("aae_breathing_vol", aae_breathing.volume);
-            if (aae_wind_exist) node.AddValue("aae_wind_vol", aae_wind_vol_slider);
-            if (aae_airlock_exist) node.AddValue("aae_airlock_vol", aae_airlock.volume);
-
-            //Chatter sets
-            foreach (ChatterAudioList chatter_set in chatter_array)
-            {
-                ConfigNode _set = new ConfigNode();
-                _set.name = "AUDIOSET";
-                _set.AddValue("directory", chatter_set.directory);
-                _set.AddValue("is_active", chatter_set.is_active);
-                node.AddNode(_set);
-            }
-
-            //filters
-            ConfigNode _filter;
-            _filter = new ConfigNode();
-            _filter.name = "CHORUS";
-            _filter.AddValue("enabled", chatter_chorus_filter.enabled);
-            _filter.AddValue("dry_mix", chatter_chorus_filter.dryMix);
-            _filter.AddValue("wet_mix_1", chatter_chorus_filter.wetMix1);
-            _filter.AddValue("wet_mix_2", chatter_chorus_filter.wetMix2);
-            _filter.AddValue("wet_mix_3", chatter_chorus_filter.wetMix3);
-            _filter.AddValue("delay", chatter_chorus_filter.delay);
-            _filter.AddValue("rate", chatter_chorus_filter.rate);
-            _filter.AddValue("depth", chatter_chorus_filter.depth);
-            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
-            node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "DISTORTION";
-            _filter.AddValue("enabled", chatter_distortion_filter.enabled);
-            _filter.AddValue("distortion_level", chatter_distortion_filter.distortionLevel);
-            node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "ECHO";
-            _filter.AddValue("enabled", chatter_echo_filter.enabled);
-            _filter.AddValue("delay", chatter_echo_filter.delay);
-            _filter.AddValue("decay_ratio", chatter_echo_filter.decayRatio);
-            _filter.AddValue("dry_mix", chatter_echo_filter.dryMix);
-            _filter.AddValue("wet_mix", chatter_echo_filter.wetMix);
-            node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "HIGHPASS";
-            _filter.AddValue("enabled", chatter_highpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", chatter_highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_highpass_filter.highpassResonaceQ);
-            node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "LOWPASS";
-            _filter.AddValue("enabled", chatter_lowpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", chatter_lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_lowpass_filter.lowpassResonaceQ);
-            node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "REVERB";
-            _filter.AddValue("enabled", chatter_reverb_filter.enabled);
-            _filter.AddValue("reverb_preset", chatter_reverb_filter.reverbPreset);
-            _filter.AddValue("dry_level", chatter_reverb_filter.dryLevel);
-            _filter.AddValue("room", chatter_reverb_filter.room);
-            _filter.AddValue("room_hf", chatter_reverb_filter.roomHF);
-            _filter.AddValue("room_lf", chatter_reverb_filter.roomLF);
-            _filter.AddValue("room_rolloff", chatter_reverb_filter.roomRolloff);
-            _filter.AddValue("decay_time", chatter_reverb_filter.decayTime);
-            _filter.AddValue("decay_hf_ratio", chatter_reverb_filter.decayHFRatio);
-            _filter.AddValue("reflections_level", chatter_reverb_filter.reflectionsLevel);
-            _filter.AddValue("reflections_delay", chatter_reverb_filter.reflectionsDelay);
-            _filter.AddValue("reverb_level", chatter_reverb_filter.reverbLevel);
-            _filter.AddValue("reverb_delay", chatter_reverb_filter.reverbDelay);
-            _filter.AddValue("diffusion", chatter_reverb_filter.diffusion);
-            _filter.AddValue("density", chatter_reverb_filter.density);
-            _filter.AddValue("hf_reference", chatter_reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", chatter_reverb_filter.lFReference);
-            node.AddNode(_filter);
-
-
-            foreach (BeepSource source in beepsource_list)
-            {
-                ConfigNode beep_settings = new ConfigNode();
-                beep_settings.name = "BEEPSOURCE";
-
-                beep_settings.AddValue("precise", source.precise);
-                beep_settings.AddValue("precise_freq", source.precise_freq);
-                beep_settings.AddValue("loose_freq", source.loose_freq);
-                beep_settings.AddValue("volume", source.audiosource.volume);
-                beep_settings.AddValue("pitch", source.audiosource.pitch);
-                beep_settings.AddValue("current_clip", source.current_clip);
-                beep_settings.AddValue("sel_filter", source.sel_filter);
-                beep_settings.AddValue("show_settings_window", source.show_settings_window);
-                beep_settings.AddValue("reverb_preset_index", source.reverb_preset_index);
-                beep_settings.AddValue("settings_window_pos_x", source.settings_window_pos.x);
-                beep_settings.AddValue("settings_window_pos_y", source.settings_window_pos.y);
-
-                //filters
-                //ConfigNode _filter;
-
-                _filter = new ConfigNode();
-                _filter.name = "CHORUS";
-                _filter.AddValue("enabled", source.chorus_filter.enabled);
-                _filter.AddValue("dry_mix", source.chorus_filter.dryMix);
-                _filter.AddValue("wet_mix_1", source.chorus_filter.wetMix1);
-                _filter.AddValue("wet_mix_2", source.chorus_filter.wetMix2);
-                _filter.AddValue("wet_mix_3", source.chorus_filter.wetMix3);
-                _filter.AddValue("delay", source.chorus_filter.delay);
-                _filter.AddValue("rate", source.chorus_filter.rate);
-                _filter.AddValue("depth", source.chorus_filter.depth);
-                //_filter.AddValue("feedback", source.chorus_filter.feedback);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "DISTORTION";
-                _filter.AddValue("enabled", source.distortion_filter.enabled);
-                _filter.AddValue("distortion_level", source.distortion_filter.distortionLevel);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "ECHO";
-                _filter.AddValue("enabled", source.echo_filter.enabled);
-                _filter.AddValue("delay", source.echo_filter.delay);
-                _filter.AddValue("decay_ratio", source.echo_filter.decayRatio);
-                _filter.AddValue("dry_mix", source.echo_filter.dryMix);
-                _filter.AddValue("wet_mix", source.echo_filter.wetMix);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "HIGHPASS";
-                _filter.AddValue("enabled", source.highpass_filter.enabled);
-                _filter.AddValue("cutoff_freq", source.highpass_filter.cutoffFrequency);
-                _filter.AddValue("resonance_q", source.highpass_filter.highpassResonaceQ);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "LOWPASS";
-                _filter.AddValue("enabled", source.lowpass_filter.enabled);
-                _filter.AddValue("cutoff_freq", source.lowpass_filter.cutoffFrequency);
-                _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonaceQ);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "REVERB";
-                _filter.AddValue("enabled", source.reverb_filter.enabled);
-                _filter.AddValue("reverb_preset", source.reverb_filter.reverbPreset);
-                _filter.AddValue("dry_level", source.reverb_filter.dryLevel);
-                _filter.AddValue("room", source.reverb_filter.room);
-                _filter.AddValue("room_hf", source.reverb_filter.roomHF);
-                _filter.AddValue("room_lf", source.reverb_filter.roomLF);
-                _filter.AddValue("room_rolloff", source.reverb_filter.roomRolloff);
-                _filter.AddValue("decay_time", source.reverb_filter.decayTime);
-                _filter.AddValue("decay_hf_ratio", source.reverb_filter.decayHFRatio);
-                _filter.AddValue("reflections_level", source.reverb_filter.reflectionsLevel);
-                _filter.AddValue("reflections_delay", source.reverb_filter.reflectionsDelay);
-                _filter.AddValue("reverb_level", source.reverb_filter.reverbLevel);
-                _filter.AddValue("reverb_delay", source.reverb_filter.reverbDelay);
-                _filter.AddValue("diffusion", source.reverb_filter.diffusion);
-                _filter.AddValue("density", source.reverb_filter.density);
-                _filter.AddValue("hf_reference", source.reverb_filter.hfReference);
-                _filter.AddValue("lf_reference", source.reverb_filter.lFReference);
-                beep_settings.AddNode(_filter);
-
-                node.AddNode(beep_settings);
-            }
-        }
-
-        private void load_shared_settings(ConfigNode node)
-        {
-            if (debugging) Debug.Log("[CHATR] load_shared_settings() START");
-
-            destroy_all_beep_players();
-            beepsource_list.Clear();
-            destroy_all_background_players();
-            backgroundsource_list.Clear();
-            chatter_array.Clear();
-
-            if (node.HasValue("main_window_pos"))
-            {
-                string[] split = node.GetValue("main_window_pos").Split(Convert.ToChar(","));
-                main_window_pos.x = Single.Parse(split[0]);
-                main_window_pos.y = Single.Parse(split[1]);
-            }
-            
-            if (node.HasValue("show_tooltips")) show_tooltips = Boolean.Parse(node.GetValue("show_tooltips"));
-            if (node.HasValue("hide_all_windows")) hide_all_windows = Boolean.Parse(node.GetValue("hide_all_windows"));
-            if (node.HasValue("skin_index")) skin_index = Int32.Parse(node.GetValue("skin_index"));
-            if (node.HasValue("active_menu")) active_menu = Int32.Parse(node.GetValue("active_menu"));
-            if (node.HasValue("remotetech_toggle")) remotetech_toggle = Boolean.Parse(node.GetValue("remotetech_toggle"));
-
-            if (node.HasValue("chatter_freq"))
-            {
-                chatter_freq = Int32.Parse(node.GetValue("chatter_freq"));
-                chatter_freq_slider = chatter_freq;
-                prev_chatter_freq = chatter_freq;
-            }
-            if (node.HasValue("chatter_vol_slider"))
-            {
-                chatter_vol_slider = Single.Parse(node.GetValue("chatter_vol_slider"));
-                initial_chatter.volume = chatter_vol_slider;
-                response_chatter.volume = chatter_vol_slider;
-                prev_chatter_vol_slider = chatter_vol_slider;
-            }
-            if (node.HasValue("chatter_sel_filter")) chatter_sel_filter = Int32.Parse(node.GetValue("chatter_sel_filter"));
-            if (node.HasValue("show_chatter_filter_settings")) show_chatter_filter_settings = Boolean.Parse(node.GetValue("show_chatter_filter_settings"));
-            if (node.HasValue("chatter_reverb_preset_index")) chatter_reverb_preset_index = Int32.Parse(node.GetValue("chatter_reverb_preset_index"));
-            if (node.HasValue("chatter_filter_settings_window_pos"))
-            {
-                string[] split = node.GetValue("chatter_filter_settings_window_pos").Split(Convert.ToChar(","));
-                chatter_filter_settings_window_pos.x = Single.Parse(split[0]);
-                chatter_filter_settings_window_pos.y = Single.Parse(split[1]);
-            }
-            if (node.HasValue("show_sample_selector")) show_probe_sample_selector = Boolean.Parse(node.GetValue("show_sample_selector"));
-            if (node.HasValue("probe_sample_selector_window_pos"))
-            {
-                string[] split = node.GetValue("probe_sample_selector_window_pos").Split(Convert.ToChar(","));
-                probe_sample_selector_window_pos.x = Single.Parse(split[0]);
-                probe_sample_selector_window_pos.y = Single.Parse(split[1]);
-            }
-            if (node.HasValue("quindar_toggle")) quindar_toggle = Boolean.Parse(node.GetValue("quindar_toggle"));
-            if (node.HasValue("quindar_vol_slider"))
-            {
-                quindar_vol_slider = Single.Parse(node.GetValue("quindar_vol_slider"));
-                prev_quindar_vol_slider = quindar_vol_slider;
-            }
-            if (node.HasValue("sstv_freq"))
-            {
-                sstv_freq = Int32.Parse(node.GetValue("sstv_freq"));
-                sstv_freq_slider = sstv_freq;
-                prev_sstv_freq = sstv_freq;
-            }
-            if (node.HasValue("sstv_vol_slider"))
-            {
-                sstv_vol_slider = Single.Parse(node.GetValue("sstv_vol_slider"));
-                prev_sstv_vol_slider = sstv_vol_slider;
-            }
-            if (node.HasValue("sel_beep_src")) sel_beep_src = Int32.Parse(node.GetValue("sel_beep_src"));
-            if (sel_beep_src < 0 || sel_beep_src > 9) sel_beep_src = 0;
-            if (node.HasValue("sel_beep_page")) sel_beep_page = Int32.Parse(node.GetValue("sel_beep_page"));
-
-            //AAE
-            int i;
-
-            if (aae_backgrounds_exist)
-            {
-                i = 0;
-
-                foreach (ConfigNode _background in node.nodes)
-                {
-                    if (_background.name == "AAE_BACKGROUND")
-                    {
-                        add_new_backgroundsource();
-                        if (_background.HasValue("volume")) backgroundsource_list[i].audiosource.volume = Single.Parse(_background.GetValue("volume"));
-                        if (_background.HasValue("current_clip")) backgroundsource_list[i].current_clip = _background.GetValue("current_clip");
-
-                        if (dict_background_samples.Count > 0)
-                        {
-                            set_background_clip(backgroundsource_list[i]);
-                        }
-                        i++;
-                    }
-                }
-            }
-
-            if (aae_soundscapes_exist)
-            {
-                if (node.HasValue("aae_soundscape_vol")) aae_soundscape.volume = Single.Parse(node.GetValue("aae_soundscape_vol"));
-                if (node.HasValue("aae_soundscape_freq"))
-                {
-                    aae_soundscape_freq = Int32.Parse(node.GetValue("aae_soundscape_freq"));
-                    aae_prev_soundscape_freq = aae_soundscape_freq;
-                }
-            }
-
-            if (aae_breathing_exist)
-            {
-                if (node.HasValue("aae_breathing_vol")) aae_breathing.volume = Single.Parse(node.GetValue("aae_breathing_vol"));
-            }
-
-            if (aae_airlock_exist)
-            {
-                if (node.HasValue("aae_airlock_vol")) aae_airlock.volume = Single.Parse(node.GetValue("aae_airlock_vol"));
-            }
-
-            if (aae_wind_exist)
-            {
-                if (node.HasValue("aae_wind_vol"))
-                {
-                    aae_wind_vol_slider = Single.Parse(node.GetValue("aae_wind_vol"));
-                    aae_wind.volume = aae_wind_vol_slider;
-                }
-            }
-
-            //
-            //Load audioset info
-            i = 0;
-            foreach (ConfigNode _set in node.nodes)
-            {
-                if (_set.name == "AUDIOSET")
-                {
-                    chatter_array.Add(new ChatterAudioList());  //create a new entry in the list for each audioset
-                    if (_set.HasValue("directory")) chatter_array[i].directory = _set.GetValue("directory");
-                    if (_set.HasValue("is_active")) chatter_array[i].is_active = Boolean.Parse(_set.GetValue("is_active"));
-                    i++;
-                }
-            }
-            if (debugging) Debug.Log("[CHATR] audiosets found: " + chatter_array.Count + " :: reloading chatter audio");
-            load_chatter_audio();   //reload audio
-
-            //Chatter filters
-            foreach (ConfigNode _filter in node.nodes)
-            {
-                if (_filter.name == "CHORUS")
-                {
-                    if (_filter.HasValue("enabled"))
-                    {
-                        chatter_chorus_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                        //if (debugging) Debug.Log("[CHATR] beepsource index: " + x.ToString() + " :: chorus_enabled = " + beepsource_list[x].chorus_filter.enabled);
-                    }
-                    if (_filter.HasValue("dry_mix")) chatter_chorus_filter.dryMix = Single.Parse(_filter.GetValue("dry_mix"));
-                    if (_filter.HasValue("wet_mix_1")) chatter_chorus_filter.wetMix1 = Single.Parse(_filter.GetValue("wet_mix_1"));
-                    if (_filter.HasValue("wet_mix_2")) chatter_chorus_filter.wetMix2 = Single.Parse(_filter.GetValue("wet_mix_2"));
-                    if (_filter.HasValue("wet_mix_3")) chatter_chorus_filter.wetMix3 = Single.Parse(_filter.GetValue("wet_mix_3"));
-                }
-                else if (_filter.name == "DISTORTION")
-                {
-                    if (_filter.HasValue("enabled")) chatter_distortion_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                    if (_filter.HasValue("distortion_level")) chatter_distortion_filter.distortionLevel = Single.Parse(_filter.GetValue("distortion_level"));
-                }
-                else if (_filter.name == "ECHO")
-                {
-                    if (_filter.HasValue("enabled")) chatter_echo_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                    if (_filter.HasValue("delay")) chatter_echo_filter.delay = Single.Parse(_filter.GetValue("delay"));
-                    if (_filter.HasValue("decay_ratio")) chatter_echo_filter.decayRatio = Single.Parse(_filter.GetValue("decay_ratio"));
-                    if (_filter.HasValue("dry_mix")) chatter_echo_filter.dryMix = Single.Parse(_filter.GetValue("dry_mix"));
-                    if (_filter.HasValue("wet_mix")) chatter_echo_filter.wetMix = Single.Parse(_filter.GetValue("wet_mix"));
-                }
-                else if (_filter.name == "HIGHPASS")
-                {
-                    if (_filter.HasValue("enabled")) chatter_highpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                    if (_filter.HasValue("cutoff_freq")) chatter_highpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                    if (_filter.HasValue("resonance_q")) chatter_highpass_filter.highpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
-                }
-                else if (_filter.name == "LOWPASS")
-                {
-                    if (_filter.HasValue("enabled")) chatter_lowpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                    if (_filter.HasValue("cutoff_freq")) chatter_lowpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                    if (_filter.HasValue("resonance_q")) chatter_lowpass_filter.lowpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
-                }
-                else if (_filter.name == "REVERB")
-                {
-                    if (_filter.HasValue("enabled")) chatter_reverb_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                    if (_filter.HasValue("reverb_preset")) chatter_reverb_filter.reverbPreset = (AudioReverbPreset)Enum.Parse(typeof(AudioReverbPreset), _filter.GetValue("reverb_preset"));
-                    if (_filter.HasValue("dry_level")) chatter_reverb_filter.dryLevel = Single.Parse(_filter.GetValue("dry_level"));
-                    if (_filter.HasValue("room")) chatter_reverb_filter.room = Single.Parse(_filter.GetValue("room"));
-                    if (_filter.HasValue("room_hf")) chatter_reverb_filter.roomHF = Single.Parse(_filter.GetValue("room_hf"));
-                    if (_filter.HasValue("room_lf")) chatter_reverb_filter.roomLF = Single.Parse(_filter.GetValue("room_lf"));
-                    if (_filter.HasValue("room_rolloff")) chatter_reverb_filter.roomRolloff = Single.Parse(_filter.GetValue("room_rolloff"));
-                    if (_filter.HasValue("decay_time")) chatter_reverb_filter.decayTime = Single.Parse(_filter.GetValue("decay_time"));
-                    if (_filter.HasValue("decay_hf_ratio")) chatter_reverb_filter.decayHFRatio = Single.Parse(_filter.GetValue("decay_hf_ratio"));
-                    if (_filter.HasValue("reflections_level")) chatter_reverb_filter.reflectionsLevel = Single.Parse(_filter.GetValue("reflections_level"));
-                    if (_filter.HasValue("reflections_delay")) chatter_reverb_filter.reflectionsDelay = Single.Parse(_filter.GetValue("reflections_delay"));
-                    if (_filter.HasValue("reverb_level")) chatter_reverb_filter.reverbLevel = Single.Parse(_filter.GetValue("reverb_level"));
-                    if (_filter.HasValue("reverb_delay")) chatter_reverb_filter.reverbDelay = Single.Parse(_filter.GetValue("reverb_delay"));
-                    if (_filter.HasValue("diffusion")) chatter_reverb_filter.diffusion = Single.Parse(_filter.GetValue("diffusion"));
-                    if (_filter.HasValue("density")) chatter_reverb_filter.density = Single.Parse(_filter.GetValue("density"));
-                    if (_filter.HasValue("hf_reference")) chatter_reverb_filter.hfReference = Single.Parse(_filter.GetValue("hf_reference"));
-                    if (_filter.HasValue("lf_reference")) chatter_reverb_filter.lFReference = Single.Parse(_filter.GetValue("lf_reference"));
-                }
-            }
-
-            //Beepsources
-            foreach (ConfigNode _source in node.nodes)
-            {
-                if (_source.name == "BEEPSOURCE")
-                {
-                    if (debugging) Debug.Log("[CHATR] loading beepsource");
-                    add_new_beepsource();
-
-                    int x = beepsource_list.Count - 1;
-
-                    if (_source.HasValue("precise")) beepsource_list[x].precise = Boolean.Parse(_source.GetValue("precise"));
-                    if (_source.HasValue("precise_freq"))
-                    {
-                        beepsource_list[x].precise_freq = Int32.Parse(_source.GetValue("precise_freq"));
-                        beepsource_list[x].precise_freq_slider = beepsource_list[x].precise_freq;
-                    }
-                    if (_source.HasValue("loose_freq"))
-                    {
-                        beepsource_list[x].loose_freq = Int32.Parse(_source.GetValue("loose_freq"));
-                        beepsource_list[x].loose_freq_slider = beepsource_list[x].loose_freq;
-                    }
-                    if (_source.HasValue("volume")) beepsource_list[x].audiosource.volume = Single.Parse(_source.GetValue("volume"));
-                    if (_source.HasValue("pitch")) beepsource_list[x].audiosource.pitch = Single.Parse(_source.GetValue("pitch"));
-                    if (_source.HasValue("current_clip")) beepsource_list[x].current_clip = _source.GetValue("current_clip");
-                    if (_source.HasValue("sel_filter")) beepsource_list[x].sel_filter = Int32.Parse(_source.GetValue("sel_filter"));
-                    if (_source.HasValue("show_settings_window")) beepsource_list[x].show_settings_window = Boolean.Parse(_source.GetValue("show_settings_window"));
-                    if (_source.HasValue("reverb_preset_index")) beepsource_list[x].reverb_preset_index = Int32.Parse(_source.GetValue("reverb_preset_index"));
-                    if (_source.HasValue("settings_window_pos_x")) beepsource_list[x].settings_window_pos.x = Single.Parse(_source.GetValue("settings_window_pos_x"));
-                    if (_source.HasValue("settings_window_pos_y")) beepsource_list[x].settings_window_pos.y = Single.Parse(_source.GetValue("settings_window_pos_y"));
-
-                    if (dict_probe_samples.Count > 0)
-                    {
-                        set_beep_clip(beepsource_list[x]);
-
-                        if (beepsource_list[x].precise == false && beepsource_list[x].loose_freq > 0) new_beep_loose_timer_limit(beepsource_list[x]);
-                    }
-
-                    foreach (ConfigNode _filter in _source.nodes)
-                    {
-                        if (_filter.name == "CHORUS")
-                        {
-                            if (_filter.HasValue("enabled"))
-                            {
-                                beepsource_list[x].chorus_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                                //if (debugging) Debug.Log("[CHATR] beepsource index: " + x.ToString() + " :: chorus_enabled = " + beepsource_list[x].chorus_filter.enabled);
-                            }
-                            if (_filter.HasValue("dry_mix")) beepsource_list[x].chorus_filter.dryMix = Single.Parse(_filter.GetValue("dry_mix"));
-                            if (_filter.HasValue("wet_mix_1")) beepsource_list[x].chorus_filter.wetMix1 = Single.Parse(_filter.GetValue("wet_mix_1"));
-                            if (_filter.HasValue("wet_mix_2")) beepsource_list[x].chorus_filter.wetMix2 = Single.Parse(_filter.GetValue("wet_mix_2"));
-                            if (_filter.HasValue("wet_mix_3")) beepsource_list[x].chorus_filter.wetMix3 = Single.Parse(_filter.GetValue("wet_mix_3"));
-                        }
-                        else if (_filter.name == "DISTORTION")
-                        {
-                            if (_filter.HasValue("enabled")) beepsource_list[x].distortion_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                            if (_filter.HasValue("distortion_level")) beepsource_list[x].distortion_filter.distortionLevel = Single.Parse(_filter.GetValue("distortion_level"));
-                        }
-                        else if (_filter.name == "ECHO")
-                        {
-                            if (_filter.HasValue("enabled")) beepsource_list[x].echo_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                            if (_filter.HasValue("delay")) beepsource_list[x].echo_filter.delay = Single.Parse(_filter.GetValue("delay"));
-                            if (_filter.HasValue("decay_ratio")) beepsource_list[x].echo_filter.decayRatio = Single.Parse(_filter.GetValue("decay_ratio"));
-                            if (_filter.HasValue("dry_mix")) beepsource_list[x].echo_filter.dryMix = Single.Parse(_filter.GetValue("dry_mix"));
-                            if (_filter.HasValue("wet_mix")) beepsource_list[x].echo_filter.wetMix = Single.Parse(_filter.GetValue("wet_mix"));
-                        }
-                        else if (_filter.name == "HIGHPASS")
-                        {
-                            if (_filter.HasValue("enabled")) beepsource_list[x].highpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                            if (_filter.HasValue("cutoff_freq")) beepsource_list[x].highpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                            if (_filter.HasValue("resonance_q")) beepsource_list[x].highpass_filter.highpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
-                        }
-                        else if (_filter.name == "LOWPASS")
-                        {
-                            if (_filter.HasValue("enabled")) beepsource_list[x].lowpass_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                            if (_filter.HasValue("cutoff_freq")) beepsource_list[x].lowpass_filter.cutoffFrequency = Single.Parse(_filter.GetValue("cutoff_freq"));
-                            if (_filter.HasValue("resonance_q")) beepsource_list[x].lowpass_filter.lowpassResonaceQ = Single.Parse(_filter.GetValue("resonance_q"));
-                        }
-                        else if (_filter.name == "REVERB")
-                        {
-                            if (_filter.HasValue("enabled")) beepsource_list[x].reverb_filter.enabled = Boolean.Parse(_filter.GetValue("enabled"));
-                            if (_filter.HasValue("reverb_preset")) beepsource_list[x].reverb_filter.reverbPreset = (AudioReverbPreset)Enum.Parse(typeof(AudioReverbPreset), _filter.GetValue("reverb_preset"));
-                            if (_filter.HasValue("dry_level")) beepsource_list[x].reverb_filter.dryLevel = Single.Parse(_filter.GetValue("dry_level"));
-                            if (_filter.HasValue("room")) beepsource_list[x].reverb_filter.room = Single.Parse(_filter.GetValue("room"));
-                            if (_filter.HasValue("room_hf")) beepsource_list[x].reverb_filter.roomHF = Single.Parse(_filter.GetValue("room_hf"));
-                            if (_filter.HasValue("room_lf")) beepsource_list[x].reverb_filter.roomLF = Single.Parse(_filter.GetValue("room_lf"));
-                            if (_filter.HasValue("room_rolloff")) beepsource_list[x].reverb_filter.roomRolloff = Single.Parse(_filter.GetValue("room_rolloff"));
-                            if (_filter.HasValue("decay_time")) beepsource_list[x].reverb_filter.decayTime = Single.Parse(_filter.GetValue("decay_time"));
-                            if (_filter.HasValue("decay_hf_ratio")) beepsource_list[x].reverb_filter.decayHFRatio = Single.Parse(_filter.GetValue("decay_hf_ratio"));
-                            if (_filter.HasValue("reflections_level")) beepsource_list[x].reverb_filter.reflectionsLevel = Single.Parse(_filter.GetValue("reflections_level"));
-                            if (_filter.HasValue("reflections_delay")) beepsource_list[x].reverb_filter.reflectionsDelay = Single.Parse(_filter.GetValue("reflections_delay"));
-                            if (_filter.HasValue("reverb_level")) beepsource_list[x].reverb_filter.reverbLevel = Single.Parse(_filter.GetValue("reverb_level"));
-                            if (_filter.HasValue("reverb_delay")) beepsource_list[x].reverb_filter.reverbDelay = Single.Parse(_filter.GetValue("reverb_delay"));
-                            if (_filter.HasValue("diffusion")) beepsource_list[x].reverb_filter.diffusion = Single.Parse(_filter.GetValue("diffusion"));
-                            if (_filter.HasValue("density")) beepsource_list[x].reverb_filter.density = Single.Parse(_filter.GetValue("density"));
-                            if (_filter.HasValue("hf_reference")) beepsource_list[x].reverb_filter.hfReference = Single.Parse(_filter.GetValue("hf_reference"));
-                            if (_filter.HasValue("lf_reference")) beepsource_list[x].reverb_filter.lFReference = Single.Parse(_filter.GetValue("lf_reference"));
-                        }
-                    }
-                }
-            }
-            if (debugging) Debug.Log("[CHATR] load_shared_settings() END");
-        }
-
-        //Check for a newer version
-        private void get_latest_version()
-        {
-            bool got_all_info = false;
-
-            WWWForm form = new WWWForm();
-            form.AddField("version", this_version);
-
-            WWW version = new WWW("http://rbri.co.nf/ksp/chatterer/get_latest_version.php", form.data);
-
-            while (got_all_info == false)
-            {
-                if (version.isDone)
-                {
-                    latest_version = version.text;
-                    got_all_info = true;
-                }
-            }
-            recvd_latest_version = true;
-            if (debugging) Debug.Log("[CHATR] recv'd latest version info: " + latest_version);
-        }
-
-        //determine whether the vessel has a part with ModuleRemoteTechSPU and load all relevant RemoteTech variables for the vessel
-        public void updateRemoteTechData()
-        {
-            //iterate through all vessel parts and look for a part containing ModuleRemoteTechSPU
-            foreach (Part p in vessel.parts)
-            {
-                if (p.Modules.Contains("ModuleRemoteTechSPU"))
-                {
-                    //create BaseEventData field
-                    BaseEventData data = new BaseEventData(BaseEventData.Sender.USER);
-
-                    //load data into the BaseEventData field using the RTinterface KSPEvent of ModuleRemoteTechSPU.
-                    p.Modules["ModuleRemoteTechSPU"].Events["RTinterface"].Invoke(data);
-
-                    //ModuleRemoteTechSPU was found, so the vessel has RemoteTech
-                    hasRemoteTech = true;
-
-                    //cache the loaded data to local fields.
-                    attitudeActive = data.Get<bool>("attitudeActive");
-                    //localControl = data.Get<bool>("localControl");
-                    inRadioContact = data.Get<bool>("inRadioContact");
-                    controlDelay = data.Get<double>("controlDelay");
-
-                    //end iteration and method
-                    return;
-                }
-
-                //if iteration didn't find any ModuleRemoteTechSPU the vessel doesn't have RemoteTech
-                hasRemoteTech = false;
-                inRadioContact = false;
-                controlDelay = 0;
-            }
-        }
+                
+        ////determine whether the vessel has a part with ModuleRemoteTechSPU and load all relevant RemoteTech variables for the vessel
+        //public void updateRemoteTechData()
+        //{
+        //    if (RT2Hook.Instance != null)
+        //    {
+        //        if (hasRemoteTech == false) hasRemoteTech = true;
+
+        //        //if (RT2Hook.Instance.HasAnyConnection(vessel.id))
+        //        //{
+        //        //    shortestcontrolDelay = RT2Hook.Instance.GetShortestSignalDelay(vessel.id);
+
+        //        //    if (inSatteliteRadioContact == false)
+        //        //    {
+        //        //        inSatteliteRadioContact = !inSatteliteRadioContact;
+
+        //        //        if (debugging) Debug.Log("[CHATR] Sattelite contact ! Signal delay =" + Convert.ToSingle(shortestcontrolDelay));
+        //        //    }
+        //        //}
+        //        //else if (!RT2Hook.Instance.HasAnyConnection(vessel.id))
+        //        //{
+        //        //    if (inSatteliteRadioContact == true)
+        //        //    {
+        //        //        inSatteliteRadioContact = !inSatteliteRadioContact;
+
+        //        //        shortestcontrolDelay = 0;
+        //        //        if (debugging) Debug.Log("[CHATR] No Sattelite contact ! Satt delay set to =" + Convert.ToSingle(shortestcontrolDelay));
+        //        //    }
+        //        //}
+
+        //        if (RT2Hook.Instance.HasConnectionToKSC(vessel.id))
+        //        {
+        //            controlDelay = RT2Hook.Instance.GetSignalDelayToKSC(vessel.id);
+
+        //            if (inRadioContact == false)
+        //            {
+        //                inRadioContact = !inRadioContact;
+
+        //                if (debugging) Debug.Log("[CHATR] Online ! Signal delay =" + Convert.ToSingle(controlDelay));
+        //            }
+        //        }
+        //        else if (!RT2Hook.Instance.HasConnectionToKSC(vessel.id))
+        //        {
+        //            if (inRadioContact == true)
+        //            {
+        //                inRadioContact = !inRadioContact;
+
+        //                controlDelay = 0;
+        //                if (debugging) Debug.Log("[CHATR] Offline ! Delay set to =" + Convert.ToSingle(controlDelay));
+
+        //                if (response_chatter.isPlaying == true) response_chatter.Stop();
+        //                if (sstv.isPlaying == true) sstv.Stop();
+        //            }
+        //        }
+        //    }
+        //    else if (hasRemoteTech == true) hasRemoteTech = false;
+        //}
 
         //Load audio functions
         private void load_quindar_audio()
         {
             //Create two AudioSources for quindar so PlayDelayed() can delay both beeps
-            if (debugging) Debug.Log("[CHATR] loading Quindar clip");
-            string path = "Chatterer/Sounds/chatter/quindar_01";
+            if (debugging) Debug.Log("[CHATR] loading quindar_01 clip");
+            string path1 = "Chatterer/Sounds/chatter/quindar_01";
 
-            if (GameDatabase.Instance.ExistsAudioClip(path))
+            if (GameDatabase.Instance.ExistsAudioClip(path1))
             {
-                quindar_clip = GameDatabase.Instance.GetAudioClip(path);
-                if (debugging) Debug.Log("CHATR] Quindar clip loaded");
+                quindar_01_clip = GameDatabase.Instance.GetAudioClip(path1);
+                if (debugging) Debug.Log("[CHATR] quindar_01 clip loaded");
             }
-            else Debug.LogWarning("[CHATR] Quindar audio file missing!");
+            else Debug.LogWarning("[CHATR] quindar_01 audio file missing!");
+
+            if (debugging) Debug.Log("[CHATR] loading quindar_02 clip");
+            string path2 = "Chatterer/Sounds/chatter/quindar_02";
+
+            if (GameDatabase.Instance.ExistsAudioClip(path2))
+            {
+                quindar_02_clip = GameDatabase.Instance.GetAudioClip(path2);
+                if (debugging) Debug.Log("[CHATR] quindar_02 clip loaded");
+            }
+            else Debug.LogWarning("[CHATR] quindar_02 audio file missing!");
+
+            if (debugging) Debug.Log("[CHATR] loading voidnoise clip");
+            string path3 = "Chatterer/Sounds/chatter/voidnoise";
+
+            if (GameDatabase.Instance.ExistsAudioClip(path3))
+            {
+                voidnoise_clip = GameDatabase.Instance.GetAudioClip(path3);
+                if (debugging) Debug.Log("[CHATR] voidnoise clip loaded");
+            }
+            else Debug.LogWarning("[CHATR] quindar_02 audio file missing!");
         }
 
         private void load_beep_audio()
@@ -3597,14 +2480,14 @@ namespace Chatterer
                             //GameDatabase won't load MP3
                             //try old method
                             string mp3_path = "file://" + AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/../../../Sounds/beeps/" + short_file_name + ".mp3";
-                            WWW www_chatter = new WWW(mp3_path);
-                            if (www_chatter != null)
-                            {
-                                dict_probe_samples.Add(short_file_name, www_chatter.GetAudioClip(false));
-                                dict_probe_samples2.Add(www_chatter.GetAudioClip(false), short_file_name);
-                                if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                            }
-                            else
+                            //WWW www_chatter = new WWW(mp3_path);
+                            //if (www_chatter != null)
+                            //{
+                            //    dict_probe_samples.Add(short_file_name, www_chatter.GetAudioClip(false));
+                            //    dict_probe_samples2.Add(www_chatter.GetAudioClip(false), short_file_name);
+                            //    if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                            //}
+                            //else
                             {
                                 Debug.LogWarning("[CHATR] " + mp3_path + " load FAIL");
                             }
@@ -3648,8 +2531,7 @@ namespace Chatterer
                     foreach (string file in st_array)
                     {
                         //if (debugging) Debug.Log("[CHATR] sstv file = " + file);
-                        //[CHATR] file = C:/KSP/ksp-win-0-21-1/KSP_win/GameData/RBR/Sounds/apollo11/capcom/capcom_16.ogg
-
+                        
                         //tear out the whole root + directory + st + one more for final slash
                         int start_pos = sstv_sounds_root.Length;
                         string file_name = file.Substring(start_pos);
@@ -3666,13 +2548,13 @@ namespace Chatterer
                             //GameDatabase won't load MP3
                             //try old method
                             string mp3_path = "file://" + AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/../../../Sounds/sstv/" + short_file_name + ".mp3";
-                            WWW www_chatter = new WWW(mp3_path);
-                            if (www_chatter != null)
-                            {
-                                all_sstv_clips.Add(www_chatter.GetAudioClip(false));
-                                if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                            }
-                            else
+                            //WWW www_chatter = new WWW(mp3_path);
+                            //if (www_chatter != null)
+                            //{
+                            //    all_sstv_clips.Add(www_chatter.GetAudioClip(false));
+                            //    if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                            //}
+                            //else
                             {
                                 Debug.LogWarning("[CHATR] " + mp3_path + " load FAIL");
                             }
@@ -3682,11 +2564,7 @@ namespace Chatterer
                             string gdb_path = "Chatterer/Sounds/sstv/" + short_file_name;
                             if (GameDatabase.Instance.ExistsAudioClip(gdb_path))
                             {
-                                //all_beep_clips.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
-                                //dict_probe_samples.Add(short_file_name, GameDatabase.Instance.GetAudioClip(gdb_path));
-                                //dict_probe_samples2.Add(GameDatabase.Instance.GetAudioClip(gdb_path), short_file_name);
                                 all_sstv_clips.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
-                                //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
                             }
                             else
                             {
@@ -3697,28 +2575,6 @@ namespace Chatterer
                     }
                 }
             }
-
-
-
-
-            /*
-            string path;
-            int i;
-
-            for (i = 1; i <= sstv_search_max; i++)
-            {
-                path = "RBR/Sounds/sstv_" + i.ToString("D2");
-                if (GameDatabase.Instance.ExistsAudioClip(path))
-                {
-                    all_sstv_clips.Add(GameDatabase.Instance.GetAudioClip(path));
-                    //print(path + " loaded OKAY");
-                }
-                //else
-                //{
-                //print(path + " load ERROR");
-                //}
-            }
-            */
             if (all_sstv_clips.Count == 0) Debug.LogWarning("[CHATR] No SSTV clips found");
         }
 
@@ -3730,7 +2586,7 @@ namespace Chatterer
             //if exists, run GetFiles() for each of the file extensions
 
 
-            string[] set_types = { "capcom", "capsule" };
+            string[] set_types = { "capcom", "capsule", "capsuleF" };
             string[] audio_file_ext = { "*.wav", "*.ogg", "*.aif", "*.aiff" };
             int k;
 
@@ -3751,14 +2607,15 @@ namespace Chatterer
                         //if (debugging) Debug.Log("[CHATR] directory [" + chatter_array[k].directory + "] found OK");
                         foreach (string st in set_types)
                         {
-                            //search through each set_type (capcom, capsule)
+                            //search through each set_type (capcom, capsule, capsuleF)
                             if (Directory.Exists(chatter_root + chatter_array[k].directory + "/" + st))
                             {
                                 //if (debugging) Debug.Log("[CHATR] directory [" + chatter_array[k].directory + "/" + st + "] found OK");
 
                                 //if (debugging) Debug.Log("[CHATR] clearing existing " + chatter_array[k].directory + "/" + st + " audio");
                                 if (st == "capcom") chatter_array[k].capcom.Clear();
-                                else if (st == "capsule") chatter_array[k].capsule.Clear();  //clear any existing audio
+                                else if (st == "capsule") chatter_array[k].capsule.Clear();
+                                else if (st == "capsuleF") chatter_array[k].capsuleF.Clear();//clear any existing audio
 
                                 string[] st_array;
                                 foreach (string ext in audio_file_ext)
@@ -3787,20 +2644,25 @@ namespace Chatterer
                                         {
                                             //try old method
                                             string mp3_path = "file://" + AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/../../../Sounds/chatter/" + chatter_array[k].directory + "/" + st + "/" + file_name + ".mp3";
-                                            WWW www_chatter = new WWW(mp3_path);
-                                            if (www_chatter != null)
-                                            {
-                                                if (st == "capcom")
-                                                {
-                                                    chatter_array[k].capcom.Add(www_chatter.GetAudioClip(false));
-                                                    //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                                                }
-                                                else if (st == "capsule")
-                                                {
-                                                    chatter_array[k].capsule.Add(www_chatter.GetAudioClip(false));
-                                                    //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
-                                                }
-                                            }
+                                            //WWW www_chatter = new WWW(mp3_path);
+                                            //if (www_chatter != null)
+                                            //{
+                                            //    if (st == "capcom")
+                                            //    {
+                                            //        chatter_array[k].capcom.Add(www_chatter.GetAudioClip(false));
+                                            //        //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                            //    }
+                                            //    else if (st == "capsule")
+                                            //    {
+                                            //        chatter_array[k].capsule.Add(www_chatter.GetAudioClip(false));
+                                            //        //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                            //    }
+                                            //    else if (st == "capsuleF")
+                                            //    {
+                                            //        chatter_array[k].capsuleF.Add(www_chatter.GetAudioClip(false));
+                                            //        //if (debugging) Debug.Log("[CHATR] " + mp3_path + " loaded OK");
+                                            //    }
+                                            //}
                                         }
                                         else
                                         {
@@ -3815,6 +2677,11 @@ namespace Chatterer
                                                 else if (st == "capsule")
                                                 {
                                                     chatter_array[k].capsule.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
+                                                    //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
+                                                }
+                                                else if (st == "capsuleF")
+                                                {
+                                                    chatter_array[k].capsuleF.Add(GameDatabase.Instance.GetAudioClip(gdb_path));
                                                     //if (debugging) Debug.Log("[CHATR] " + gdb_path + " loaded OK");
                                                 }
                                             }
@@ -3924,15 +2791,12 @@ namespace Chatterer
                         else
                         {
                             //no ExistsAudioClip == false
-                            Debug.LogWarning("[CHATR] Could not load audio " + gdb_path);
+                            Debug.LogWarning("[CHATR] Could not load audio " + gdb_path + " : Check installation path.");
                         }
                     }
                 }
             }
-            else
-            {
-                Debug.LogWarning("Directory '" + sounds_path + "' could not be found");
-            }
+            else if (debugging) Debug.Log("Directory '" + sounds_path + "' could not be found, skipping.");
         }
 
         //Timer functions
@@ -3971,6 +2835,7 @@ namespace Chatterer
             //load audio into current from sets that are toggled on
             current_capcom_chatter.Clear();
             current_capsule_chatter.Clear();
+            current_capsuleF_chatter.Clear();
 
             int i;
             for (i = 0; i < chatter_array.Count; i++)
@@ -3979,19 +2844,9 @@ namespace Chatterer
                 {
                     current_capcom_chatter.AddRange(chatter_array[i].capcom);
                     current_capsule_chatter.AddRange(chatter_array[i].capsule);
+                    current_capsuleF_chatter.AddRange(chatter_array[i].capsuleF);
                 }
             }
-
-            //toggle has changed so resave audiosets.cfg
-            //now done in write_settings()
-            // i = 0;
-            //foreach (ConfigNode _node in audiosets.nodes)
-            //{
-            //    _node.SetValue("is_active", chatter_array[i].is_active.ToString());
-            //    i++;
-            //}
-
-            //audiosets.Save(audiosets_path);
 
             if (debugging) Debug.Log("[CHATR] toggled sets loaded OK");
         }
@@ -4011,45 +2866,46 @@ namespace Chatterer
             //print("initialize_new_exchange()...");
             set_new_delay_between_exchanges();
             secs_since_last_exchange = 0;
-            secs_since_initial_chatter = 0;
+            
+            if (FlightGlobals.ActiveVessel != null) //Avoid EXP on first load where vessel isn't loaded yet
+            {
+                checkChatterGender(); //Check chatter gender to play female/male voice accordingly
+            }
+
             current_capcom_clip = rand.Next(0, current_capcom_chatter.Count); // select a new capcom clip to play
             current_capsule_clip = rand.Next(0, current_capsule_chatter.Count); // select a new capsule clip to play
+            current_capsuleF_clip = rand.Next(0, current_capsuleF_chatter.Count); // select a new capsuleF clip to play
+
             response_delay_secs = rand.Next(2, 5);  // select another random int to set response delay time
 
             if (pod_begins_exchange) initial_chatter_source = 1;    //pod_begins_exchange set true OnUpdate when staging and on event change
             else initial_chatter_source = rand.Next(0, 2);   //if i_c_s == 0, con sends first message; if i_c_S == 1, pod sends first message
+            pod_begins_exchange = false; // Reset so pod doesn't always being exchange.
 
             if (initial_chatter_source == 0)
             {
                 initial_chatter_set = current_capcom_chatter;
-                response_chatter_set = current_capsule_chatter;
+                if (chatter_is_female) response_chatter_set = current_capsuleF_chatter;
+                else response_chatter_set = current_capsule_chatter;
+
                 initial_chatter_index = current_capcom_clip;
-                response_chatter_index = current_capsule_clip;
+                if (chatter_is_female) response_chatter_index = current_capsuleF_clip;
+                else response_chatter_index = current_capsule_clip;
             }
             else
             {
-                initial_chatter_set = current_capsule_chatter;
+                if (chatter_is_female) initial_chatter_set = current_capsuleF_chatter;
+                else initial_chatter_set = current_capsule_chatter;
                 response_chatter_set = current_capcom_chatter;
-                initial_chatter_index = current_capsule_clip;
+
+                if (chatter_is_female) initial_chatter_index = current_capsuleF_clip;
+                else initial_chatter_index = current_capsule_clip;
                 response_chatter_index = current_capcom_clip;
             }
             if (initial_chatter_set.Count > 0) initial_chatter.clip = initial_chatter_set[initial_chatter_index];
             else Debug.LogWarning("[CHATR] Initial chatter set is empty");
             if (response_chatter_set.Count > 0) response_chatter.clip = response_chatter_set[response_chatter_index];
             else Debug.LogWarning("[CHATR] Response chatter set is empty");
-        }
-
-        private void play_quindar(float delay)
-        {
-            //play quindar after initial delay
-            //print("playing initial first quindar :: delay length = " + delay.ToString());
-            quindar1.PlayDelayed(delay);
-            // then play the initial chatter after a delay for quindar + initial delay
-            //print("playing initial chatter :: delay length = " + (delay + quindar.clip.length).ToString());
-            initial_chatter.PlayDelayed(delay + quindar1.clip.length);
-            //replay quindar once more with initial delay, quindar delay, and initial chatter delay
-            //print("playing initial second quindar :: delay length = " + (delay + quindar.clip.length + initial_chatter_set[initial_chatter_index].clip.length).ToString());
-            quindar2.PlayDelayed(delay + quindar1.clip.length + initial_chatter.clip.length);
         }
 
         private void load_radio()
@@ -4066,102 +2922,31 @@ namespace Chatterer
                 yep_yepsource.clip = GameDatabase.Instance.GetAudioClip(path);
                 yep_yep_loaded = true;
             }
-            else
-            {
-                //try www download
-                bool radio_loaded = false;
-                WWW www_yepyep = new WWW("http://rbri.co.nf/ksp/chatterer/radio2.ogg");
+            //else
+            //{
+            //    //try www download
+            //    bool radio_loaded = false;
+            //    WWW www_yepyep = new WWW("http://rbri.co.nf/ksp/chatterer/radio2.ogg");
 
-                while (radio_loaded == false)
-                {
-                    if (www_yepyep.isDone)
-                    {
-                        yep_yepsource.clip = www_yepyep.GetAudioClip(false);
-                        //SavWav.Save("radio2", yep_yepsource.clip);
-                        if (debugging) Debug.Log("[CHATR] radio_yep_yep loaded OK");
-                        radio_loaded = true;
-                        yep_yep_loaded = true;
-                    }
-                }
-            }
+            //    while (radio_loaded == false)
+            //    {
+            //        if (www_yepyep.isDone)
+            //        {
+            //            yep_yepsource.clip = www_yepyep.GetAudioClip(false);
+            //            //SavWav.Save("radio2", yep_yepsource.clip);
+            //            if (debugging) Debug.Log("[CHATR] radio_yep_yep loaded OK");
+            //            radio_loaded = true;
+            //            yep_yep_loaded = true;
+            //        }
+            //    }
+            //}
         }
 
         private void begin_exchange(float delay)
         {
-            exchange_playing = true;
-            initialize_new_exchange();
-
-            if (initial_chatter_source == 1)
+            if (chatter_exists && (vessel.GetCrewCount() > 0) && exchange_playing == false)
             {
-                //capsule starts the exchange
-                //Always play regardless of RT
-
-                //play initial capsule chatter
-                //initial_chatter_set[initial_chatter_index].PlayDelayed(delay);
-                if (initial_chatter_set.Count > 0)
-                {
-                    initial_chatter.PlayDelayed(delay);
-                }
-                else
-                {
-                    exchange_playing = false;
-                    Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
-                }
-
-                //add RT delay to response delay if enabled and in contact
-                if (remotetech_toggle && inRadioContact) response_delay_secs += Convert.ToInt32(controlDelay);
-
-                //if RT is enabled but not in radio contact, play no response
-                if (remotetech_toggle && inRadioContact == false) exchange_playing = false;
-            }
-
-            if (initial_chatter_source == 0)
-            {
-                //capcom starts the exchange
-                if (remotetech_toggle == false)
-                {
-                    //RT is off
-                    //always play initial capcom
-
-                    if (initial_chatter_set.Count > 0)
-                    {
-                        if (quindar_toggle)
-                        {
-                            play_quindar(delay);
-                        }
-                        else initial_chatter.PlayDelayed(delay); // play without quindar
-
-                        //initial_chatter.PlayDelayed(delay);
-                    }
-                    else
-                    {
-                        exchange_playing = false;
-                        Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
-                    }
-                }
-                if (remotetech_toggle && hasRemoteTech && inRadioContact)
-                {
-                    //RT is on and in radio contact
-                    //play initial capcom
-                    delay += Convert.ToSingle(controlDelay);    //add RT delay to any current delay
-                    if (initial_chatter_set.Count > 0)
-                    {
-                        //initial_chatter.PlayDelayed(delay);
-                        if (quindar_toggle) play_quindar(delay);    // play with quindar
-                        else initial_chatter.PlayDelayed(delay); // play without quindar
-                    }
-                    else
-                    {
-                        exchange_playing = false;
-                        Debug.LogWarning("[CHATR] initial_chatter_set has no audioclips, abandoning exchange");
-                    }
-                }
-                if (remotetech_toggle && inRadioContact == false)
-                {
-                    //RT is on but not in radio contact
-                    //play no initial chatter or response
-                    exchange_playing = false;
-                }
+                StartCoroutine(Exchange(delay));
             }
         }
 
@@ -4178,6 +2963,7 @@ namespace Chatterer
                 response_chatter.Stop();
                 quindar1.Stop();
                 quindar2.Stop();
+                sstv.Stop();
                 exchange_playing = false;
             }
             else if (audio_type == "beeps")
@@ -4189,78 +2975,12 @@ namespace Chatterer
                     bm.timer = 0;
                 }
             }
-        }
-
-        //Create filter defaults to use when reseting filters
-        private void create_filter_defaults_node()
-        {
-            filter_defaults = new ConfigNode();
-            filter_defaults.name = "FILTERS";
-
-            ConfigNode _filter;
-
-            _filter = new ConfigNode();
-            _filter.name = "CHORUS";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("dry_mix", 0.5f);
-            _filter.AddValue("wet_mix_1", 0.5f);
-            _filter.AddValue("wet_mix_2", 0.5f);
-            _filter.AddValue("wet_mix_3", 0.5f);
-            _filter.AddValue("delay", 40.0f);
-            _filter.AddValue("rate", 0.8f);
-            _filter.AddValue("depth", 0.03f);
-            _filter.AddValue("feedback", 0);
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "DISTORTION";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("distortion_level", 0.5f);
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "ECHO";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("delay", 500.0f);
-            _filter.AddValue("decay_ratio", 0.5f);
-            _filter.AddValue("dry_mix", 1.0f);
-            _filter.AddValue("wet_mix", 1.0f);
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "HIGHPASS";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("cutoff_freq", 5000.0f);
-            //_filter.AddValue("resonance_q", "");  //TODO default highpass resonance q missing from Unity Doc webpage.  figure it out
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "LOWPASS";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("cutoff_freq", 5000.0f);
-            //_filter.AddValue("resonance_q", "");  //TODO default lowpass resonance q missing from Unity Doc webpage.  figure it out
-            filter_defaults.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "REVERB";
-            //_filter.AddValue("enabled", false);
-            _filter.AddValue("reverb_preset", AudioReverbPreset.User);
-            _filter.AddValue("dry_level", 0);
-            _filter.AddValue("room", 0);
-            _filter.AddValue("room_hf", 0);
-            _filter.AddValue("room_lf", 0);
-            _filter.AddValue("room_rolloff", 10.0f);
-            _filter.AddValue("decay_time", 1.0f);
-            _filter.AddValue("decay_hf_ratio", 0.5f);
-            _filter.AddValue("reflections_level", -10000.0f);
-            _filter.AddValue("reflections_delay", 0);
-            _filter.AddValue("reverb_level", 0);
-            _filter.AddValue("reverb_delay", 0.04f);
-            _filter.AddValue("diffusion", 100.0f);
-            _filter.AddValue("density", 100.0f);
-            _filter.AddValue("hf_reference", 5000.0f);
-            _filter.AddValue("lf_reference", 250.0f);
-            filter_defaults.AddNode(_filter);
+            else if (audio_type == "chatter")
+            {
+                initial_chatter.Stop();
+                response_chatter.Stop();
+                exchange_playing = false;
+            }
         }
 
         //Copy/Paste beepsource
@@ -4313,14 +3033,14 @@ namespace Chatterer
             _filter.name = "HIGHPASS";
             _filter.AddValue("enabled", source.highpass_filter.enabled);
             _filter.AddValue("cutoff_freq", source.highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.highpass_filter.highpassResonaceQ);
+            _filter.AddValue("resonance_q", source.highpass_filter.highpassResonanceQ);
             beepsource_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
             _filter.name = "LOWPASS";
             _filter.AddValue("enabled", source.lowpass_filter.enabled);
             _filter.AddValue("cutoff_freq", source.lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonaceQ);
+            _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonanceQ);
             beepsource_clipboard.AddNode(_filter);
 
             _filter = new ConfigNode();
@@ -4331,7 +3051,6 @@ namespace Chatterer
             _filter.AddValue("room", source.reverb_filter.room);
             _filter.AddValue("room_hf", source.reverb_filter.roomHF);
             _filter.AddValue("room_lf", source.reverb_filter.roomLF);
-            _filter.AddValue("room_rolloff", source.reverb_filter.roomRolloff);
             _filter.AddValue("decay_time", source.reverb_filter.decayTime);
             _filter.AddValue("decay_hf_ratio", source.reverb_filter.decayHFRatio);
             _filter.AddValue("reflections_level", source.reverb_filter.reflectionsLevel);
@@ -4341,7 +3060,7 @@ namespace Chatterer
             _filter.AddValue("diffusion", source.reverb_filter.diffusion);
             _filter.AddValue("density", source.reverb_filter.density);
             _filter.AddValue("hf_reference", source.reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", source.reverb_filter.lFReference);
+            _filter.AddValue("lf_reference", source.reverb_filter.lfReference);
             beepsource_clipboard.AddNode(_filter);
 
             if (debugging) Debug.Log("[CHATR] single beepsource values copied to beepsource_clipboard");
@@ -4403,13 +3122,13 @@ namespace Chatterer
                 {
                     if (filter.HasValue("enabled")) source.highpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
                     if (filter.HasValue("cutoff_freq")) source.highpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) source.highpass_filter.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+                    if (filter.HasValue("resonance_q")) source.highpass_filter.highpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
                 }
                 else if (filter.name == "LOWPASS")
                 {
                     if (filter.HasValue("enabled")) source.lowpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
                     if (filter.HasValue("cutoff_freq")) source.lowpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) source.lowpass_filter.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
+                    if (filter.HasValue("resonance_q")) source.lowpass_filter.lowpassResonanceQ = Single.Parse(filter.GetValue("resonance_q"));
                 }
                 else if (filter.name == "REVERB")
                 {
@@ -4419,7 +3138,6 @@ namespace Chatterer
                     if (filter.HasValue("room")) source.reverb_filter.room = Single.Parse(filter.GetValue("room"));
                     if (filter.HasValue("room_hf")) source.reverb_filter.roomHF = Single.Parse(filter.GetValue("room_hf"));
                     if (filter.HasValue("room_lf")) source.reverb_filter.roomLF = Single.Parse(filter.GetValue("room_lf"));
-                    if (filter.HasValue("room_rolloff")) source.reverb_filter.roomRolloff = Single.Parse(filter.GetValue("room_rolloff"));
                     if (filter.HasValue("decay_time")) source.reverb_filter.decayTime = Single.Parse(filter.GetValue("decay_time"));
                     if (filter.HasValue("decay_hf_ratio")) source.reverb_filter.decayHFRatio = Single.Parse(filter.GetValue("decay_hf_ratio"));
                     if (filter.HasValue("reflections_level")) source.reverb_filter.reflectionsLevel = Single.Parse(filter.GetValue("reflections_level"));
@@ -4429,365 +3147,12 @@ namespace Chatterer
                     if (filter.HasValue("diffusion")) source.reverb_filter.diffusion = Single.Parse(filter.GetValue("diffusion"));
                     if (filter.HasValue("density")) source.reverb_filter.density = Single.Parse(filter.GetValue("density"));
                     if (filter.HasValue("hf_reference")) source.reverb_filter.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-                    if (filter.HasValue("lf_reference")) source.reverb_filter.lFReference = Single.Parse(filter.GetValue("lf_reference"));
+                    if (filter.HasValue("lf_reference")) source.reverb_filter.lfReference = Single.Parse(filter.GetValue("lf_reference"));
                 }
             }
             if (debugging) Debug.Log("[CHATR] single beepsource values pasted from beepsource_clipboard");
         }
-
-        //Functions for per-vessel settings
-        private void new_vessel_node(Vessel v)
-        {
-            //if (debugging) Debug.Log("[CHATR] new_vessel_node() START");
-            ConfigNode vessel_node = new ConfigNode();
-
-            //cn_vessel.name = v.id.ToString();
-            //temp_vessels_node = new ConfigNode();
-            vessel_node.name = "VESSEL";
-
-            vessel_node.AddValue("vessel_name", v.vesselName);
-            vessel_node.AddValue("vessel_id", v.id.ToString());
-
-            save_shared_settings(vessel_node);
-
-
-            /*
-            //
-            vessel_node.AddValue("main_window_pos_x", main_window_pos.x);
-            vessel_node.AddValue("main_window_pos_y", main_window_pos.y);
-            vessel_node.AddValue("ui_icon_pos_x", ui_icon_pos.x);
-            vessel_node.AddValue("ui_icon_pos_y", ui_icon_pos.y);
-            vessel_node.AddValue("main_gui_minimized", main_gui_minimized);
-            vessel_node.AddValue("skin_index", skin_index);
-            vessel_node.AddValue("active_menu", active_menu);
-            vessel_node.AddValue("remotetech_toggle", remotetech_toggle);
-
-            vessel_node.AddValue("chatter_freq", chatter_freq);
-            vessel_node.AddValue("chatter_vol_slider", chatter_vol_slider);
-            vessel_node.AddValue("chatter_sel_filter", chatter_sel_filter);
-            vessel_node.AddValue("show_chatter_filter_settings", show_chatter_filter_settings);
-            vessel_node.AddValue("show_sample_selector", show_sample_selector);
-            vessel_node.AddValue("chatter_reverb_preset_index", chatter_reverb_preset_index);
-            vessel_node.AddValue("chatter_filter_settings_window_pos_x", chatter_filter_settings_window_pos.x);
-            vessel_node.AddValue("chatter_filter_settings_window_pos_y", chatter_filter_settings_window_pos.y);
-
-            vessel_node.AddValue("quindar_toggle", quindar_toggle);
-            vessel_node.AddValue("quindar_vol_slider", quindar_vol_slider);
-            vessel_node.AddValue("sstv_freq", sstv_freq);
-            vessel_node.AddValue("sstv_vol_slider", sstv_vol_slider);
-
-            vessel_node.AddValue("sel_beep_src", sel_beep_src);
-            vessel_node.AddValue("sel_beep_page", sel_beep_page);
-
-
-            //Chatter sets
-            foreach (RBRAudioList chatter_set in chatter_array)
-            {
-                ConfigNode _set = new ConfigNode();
-                _set.name = "AUDIOSET";
-                _set.AddValue("directory", chatter_set.directory);
-                _set.AddValue("is_active", chatter_set.is_active);
-                vessel_node.AddNode(_set);
-            }
-
-            //filters
-            ConfigNode _filter;
-
-            _filter = new ConfigNode();
-            _filter.name = "CHORUS";
-            _filter.AddValue("enabled", chatter_chorus_filter.enabled);
-            _filter.AddValue("dry_mix", chatter_chorus_filter.dryMix);
-            _filter.AddValue("wet_mix_1", chatter_chorus_filter.wetMix1);
-            _filter.AddValue("wet_mix_2", chatter_chorus_filter.wetMix2);
-            _filter.AddValue("wet_mix_3", chatter_chorus_filter.wetMix3);
-            vessel_node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "DISTORTION";
-            _filter.AddValue("enabled", chatter_distortion_filter.enabled);
-            _filter.AddValue("distortion_level", chatter_distortion_filter.distortionLevel);
-            vessel_node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "ECHO";
-            _filter.AddValue("enabled", chatter_echo_filter.enabled);
-            _filter.AddValue("delay", chatter_echo_filter.delay);
-            _filter.AddValue("decay_ratio", chatter_echo_filter.decayRatio);
-            _filter.AddValue("dry_mix", chatter_echo_filter.dryMix);
-            _filter.AddValue("wet_mix", chatter_echo_filter.wetMix);
-            vessel_node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "HIGHPASS";
-            _filter.AddValue("enabled", chatter_highpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", chatter_highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_highpass_filter.highpassResonaceQ);
-            vessel_node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "LOWPASS";
-            _filter.AddValue("enabled", chatter_lowpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", chatter_lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_lowpass_filter.lowpassResonaceQ);
-            vessel_node.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "REVERB";
-            _filter.AddValue("enabled", chatter_reverb_filter.enabled);
-            _filter.AddValue("reverb_preset", chatter_reverb_filter.reverbPreset);
-            _filter.AddValue("dry_level", chatter_reverb_filter.dryLevel);
-            _filter.AddValue("room", chatter_reverb_filter.room);
-            _filter.AddValue("room_hf", chatter_reverb_filter.roomHF);
-            _filter.AddValue("room_lf", chatter_reverb_filter.roomLF);
-            _filter.AddValue("room_rolloff", chatter_reverb_filter.roomRolloff);
-            _filter.AddValue("decay_time", chatter_reverb_filter.decayTime);
-            _filter.AddValue("decay_hf_ratio", chatter_reverb_filter.decayHFRatio);
-            _filter.AddValue("reflections_level", chatter_reverb_filter.reflectionsLevel);
-            _filter.AddValue("reflections_delay", chatter_reverb_filter.reflectionsDelay);
-            _filter.AddValue("reverb_level", chatter_reverb_filter.reverbLevel);
-            _filter.AddValue("reverb_delay", chatter_reverb_filter.reverbDelay);
-            _filter.AddValue("diffusion", chatter_reverb_filter.diffusion);
-            _filter.AddValue("density", chatter_reverb_filter.density);
-            _filter.AddValue("hf_reference", chatter_reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", chatter_reverb_filter.lFReference);
-            vessel_node.AddNode(_filter);
-
-
-
-
-            foreach (RBRBeepSource source in beepsource_list)
-            {
-                ConfigNode beep_settings = new ConfigNode();
-                beep_settings.name = "BEEPSOURCE";
-
-                beep_settings.AddValue("precise", source.precise);
-                beep_settings.AddValue("precise_freq", source.precise_freq);
-                beep_settings.AddValue("loose_freq", source.loose_freq);
-                beep_settings.AddValue("volume", source.audiosource.volume);
-                beep_settings.AddValue("pitch", source.audiosource.pitch);
-                beep_settings.AddValue("current_clip", source.current_clip);
-                beep_settings.AddValue("sel_filter", source.sel_filter);
-                beep_settings.AddValue("show_settings_window", source.show_settings_window);
-                beep_settings.AddValue("reverb_preset_index", source.reverb_preset_index);
-                beep_settings.AddValue("settings_window_pos_x", source.settings_window_pos.x);
-                beep_settings.AddValue("settings_window_pos_y", source.settings_window_pos.y);
-
-                //filters
-                //ConfigNode _filter;
-
-                _filter = new ConfigNode();
-                _filter.name = "CHORUS";
-                _filter.AddValue("enabled", source.chorus_filter.enabled);
-                _filter.AddValue("dry_mix", source.chorus_filter.dryMix);
-                _filter.AddValue("wet_mix_1", source.chorus_filter.wetMix1);
-                _filter.AddValue("wet_mix_2", source.chorus_filter.wetMix2);
-                _filter.AddValue("wet_mix_3", source.chorus_filter.wetMix3);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "DISTORTION";
-                _filter.AddValue("enabled", source.distortion_filter.enabled);
-                _filter.AddValue("distortion_level", source.distortion_filter.distortionLevel);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "ECHO";
-                _filter.AddValue("enabled", source.echo_filter.enabled);
-                _filter.AddValue("delay", source.echo_filter.delay);
-                _filter.AddValue("decay_ratio", source.echo_filter.decayRatio);
-                _filter.AddValue("dry_mix", source.echo_filter.dryMix);
-                _filter.AddValue("wet_mix", source.echo_filter.wetMix);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "HIGHPASS";
-                _filter.AddValue("enabled", source.highpass_filter.enabled);
-                _filter.AddValue("cutoff_freq", source.highpass_filter.cutoffFrequency);
-                _filter.AddValue("resonance_q", source.highpass_filter.highpassResonaceQ);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "LOWPASS";
-                _filter.AddValue("enabled", source.lowpass_filter.enabled);
-                _filter.AddValue("cutoff_freq", source.lowpass_filter.cutoffFrequency);
-                _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonaceQ);
-                beep_settings.AddNode(_filter);
-
-                _filter = new ConfigNode();
-                _filter.name = "REVERB";
-                _filter.AddValue("enabled", source.reverb_filter.enabled);
-                _filter.AddValue("reverb_preset", source.reverb_filter.reverbPreset);
-                _filter.AddValue("dry_level", source.reverb_filter.dryLevel);
-                _filter.AddValue("room", source.reverb_filter.room);
-                _filter.AddValue("room_hf", source.reverb_filter.roomHF);
-                _filter.AddValue("room_lf", source.reverb_filter.roomLF);
-                _filter.AddValue("room_rolloff", source.reverb_filter.roomRolloff);
-                _filter.AddValue("decay_time", source.reverb_filter.decayTime);
-                _filter.AddValue("decay_hf_ratio", source.reverb_filter.decayHFRatio);
-                _filter.AddValue("reflections_level", source.reverb_filter.reflectionsLevel);
-                _filter.AddValue("reflections_delay", source.reverb_filter.reflectionsDelay);
-                _filter.AddValue("reverb_level", source.reverb_filter.reverbLevel);
-                _filter.AddValue("reverb_delay", source.reverb_filter.reverbDelay);
-                _filter.AddValue("diffusion", source.reverb_filter.diffusion);
-                _filter.AddValue("density", source.reverb_filter.density);
-                _filter.AddValue("hf_reference", source.reverb_filter.hfReference);
-                _filter.AddValue("lf_reference", source.reverb_filter.lFReference);
-                beep_settings.AddNode(_filter);
-
-                vessel_node.AddNode(beep_settings);
-            }
-            */
-            vessel_settings_node.AddNode(vessel_node);
-            vessel_settings_node.Save(settings_path + "vessels.cfg");
-
-
-            //if (debugging) Debug.Log("[CHATR] new_vessel_node() :: vessel_node added to vessel_settings_node");
-        }
-
-        private void load_vessel_settings_node()
-        {
-            //if (debugging) Debug.Log("[CHATR] START load_vessel_settings_node()");
-            vessel_settings_node = ConfigNode.Load(settings_path + "vessels.cfg");
-
-            if (vessel_settings_node != null)
-            {
-                if (debugging) Debug.Log("[CHATR] load_vessel_settings_node() :: vessel_settings.cfg loaded OK");
-                //now search for a matching vessel_id
-                //search_vessel_settings_node();
-            }
-            else
-            {
-                if (debugging) Debug.LogWarning("[CHATR] load_vessel_settings_node() :: vessel_settings.cfg is null, creating a new one");
-                vessel_settings_node = new ConfigNode();
-                vessel_settings_node.name = "FLIGHTS";
-                new_vessel_node(vessel);  //add current vessel to vessel_settings_node
-                //save_vessel_settings_node();
-                //if (debugging) Debug.Log("[CHATR] load_vessel_settings_node() :: current vessel node saved to vessel_settings.cfg");
-            }
-
-        }
-
-        private void load_vessel_node(ConfigNode node)
-        {
-            if (debugging) Debug.Log("[CHATR] load_vessel_node() :: loading vessel settings for this vessel from node");
-
-            //destroy_all_beep_players();
-            //destroy_all_background_players();
-
-            load_shared_settings(node);
-
-            if (chatter_array.Count == 0)
-            {
-                if (debugging) Debug.Log("[CHATR] No audiosets found in config, adding defaults");
-                add_default_audiosets();
-            }
-
-            if (beepsource_list.Count == 0)
-            {
-                if (debugging) Debug.LogWarning("[CHATR] beepsource_list.Count == 0, adding default 3");
-                add_default_beepsources();
-            }
-
-            if (backgroundsource_list.Count == 0)
-            {
-                if (debugging) Debug.LogWarning("[CHATR] backgroundsource_list.Count == 0, adding default 2");
-                add_default_backgroundsources();
-            }
-
-            if (debugging) Debug.Log("[CHATR] load_vessel_node() :: vessel settings loaded OK : total beep sources = " + beepsource_list.Count);
-        }
-
-        private void search_vessel_settings_node()
-        {
-            if (debugging) Debug.Log("[CHATR] START search_vessel_settings_node()");
-
-            bool no_match = true;
-
-            if (debugging) Debug.Log("[CHATR] active vessel id = " + vessel.id.ToString());
-
-            foreach (ConfigNode n in vessel_settings_node.nodes)
-            {
-                string val = n.GetValue("vessel_id");
-                if (debugging) Debug.Log("[CHATR] n.GetValue(\"vessel_id\") = " + n.GetValue("vessel_id"));
-                if (val == vessel.id.ToString())
-                {
-                    if (debugging) Debug.Log("[CHATR] search_vessel_settings_node() :: vessel_id match");
-                    load_vessel_node(n);    //load vals
-                    no_match = false;
-                    break;
-                }
-                else if (debugging) Debug.Log("[CHATR] no match, continuing search...");
-            }
-            if (no_match)
-            {
-                if (debugging) Debug.Log("[CHATR] finished search, no vessel_id match :: creating new node for this vessel");
-                //temp_vessels_node = new ConfigNode();
-                new_vessel_node(vessel);
-                //save_vessel_settings_node();  //done in new_vessel_node
-                if (debugging) Debug.Log("[CHATR] new vessel node created and saved");
-                load_chatter_audio();   //load audio in case there is none
-                //return;
-            }
-
-            //save_vessel_settings_node();
-        }
-
-        private void write_vessel_settings()
-        {
-            //update vessel_settings.cfg here also
-            //get all nodes from vessel_settings_node that are not the active vessel and put them into a list all_but_curr
-            //set vessel_settings_node = all_but_curr
-            //create a new node for the active vessel with its current settings
-            //add new node to vessel_settings_node
-            //save vessel_settings_node to .cfg
-            //if (debugging) Debug.Log("[CHATR] writing vessel_settings node to disk");
-
-
-
-            ConfigNode all_but_curr_vessel = new ConfigNode();
-
-            //if (debugging) Debug.Log("[CHATR] active vessel.id = " + vessel.id.ToString());
-            foreach (ConfigNode cn in vessel_settings_node.nodes)
-            {
-                //
-                if (cn.HasValue("vessel_id"))
-                {
-                    string val = cn.GetValue("vessel_id");
-                    //if (debugging) Debug.Log("[CHATR] node vessel_id = " + val);
-
-                    if (val != vessel.id.ToString())
-                    {
-                        //found an id that is not the current vessel
-                        //add it to the list
-
-                        all_but_curr_vessel.AddNode(cn);
-                        //if (debugging) Debug.Log("[CHATR] write_vessel_settings() :: node vessel_id != vessel.id :: node vessel added to all_but_curr_vessel");
-                    }
-                    //else
-                    //{
-                    //    all_but_prev_vessel.AddNode(cn);
-                    //}
-                }
-            }
-            //foreach (ConfigNode cn in vessel_settings_node.nodes)
-            //{
-            //vessel_settings_node.RemoveNodes("");
-            //    if (debugging) Debug.Log("[CHATR] old nodes removed");
-            //}
-
-            vessel_settings_node = all_but_curr_vessel;
-            //if (debugging) Debug.Log("[CHATR] write_vessel_settings() :: vessel_settings node = all_but_curr_vessel");
-
-            new_vessel_node(vessel);
-            //if (debugging) Debug.Log("[CHATR] write_vessel_settings() :: new node created using vessel and added to vessel_settings node");
-
-            //save_vessel_settings_node();
-            vessel_settings_node.Save(settings_path + "vessels.cfg");
-            //if (debugging) Debug.Log("[CHATR] write_vessel_settings() END :: vessel_settings node saved to vessel_settings.cfg");
-            //end func
-            //if (debugging) Debug.Log("[CHATR] vessel_settings node saved to disk :: vessel node count = " + vessel_settings_node.nodes.Count);
-        }
-
+        
         //Set some default stuff
         private void add_default_audiosets()
         {
@@ -4802,6 +3167,10 @@ namespace Chatterer
             chatter_array.Add(new ChatterAudioList());
             chatter_array[2].directory = "russian";
             chatter_array[2].is_active = true;
+
+            chatter_array.Add(new ChatterAudioList());
+            chatter_array[3].directory = "valentina";
+            chatter_array[3].is_active = true;
 
             if (debugging) Debug.Log("[CHATR] audioset defaults added :: new count = " + chatter_array.Count);
         }
@@ -4832,25 +3201,30 @@ namespace Chatterer
                 {
                     //but things aren't muted
                     //mute them
-                    initial_chatter.mute = true;
-                    response_chatter.mute = true;
-                    quindar1.mute = true;
-                    quindar2.mute = true;
+                    if (chatter_exists)
+                    {
+                        initial_chatter.mute = true;
+                        response_chatter.mute = true;
+                        quindar1.mute = true;
+                        quindar2.mute = true;
+                    }
 
                     foreach (BackgroundSource src in backgroundsource_list)
                     {
                         src.audiosource.mute = true;
                     }
 
-                    aae_breathing.mute = true;
-                    aae_soundscape.mute = true;
-                    aae_wind.mute = true;
+                    if (aae_breathing_exist) aae_breathing.mute = true;
+                    if (aae_soundscapes_exist) aae_soundscape.mute = true;
+                    if (aae_breathing_exist) aae_wind.mute = true;
+                    if (aae_airlock_exist) aae_airlock.mute = true;
 
                     foreach (BeepSource source in beepsource_list)
                     {
                         source.audiosource.mute = true;
                     }
-                    sstv.mute = true;
+                    
+                    if (sstv_exists) sstv.mute = true;
 
                     all_muted = true;   //and change flag
                 }
@@ -4862,25 +3236,30 @@ namespace Chatterer
                 {
                     //but things are muted
                     //unmute them
-                    initial_chatter.mute = false;
-                    response_chatter.mute = false;
-                    quindar1.mute = false;
-                    quindar2.mute = false;
+                    if (chatter_exists)
+                    {
+                        initial_chatter.mute = false;
+                        response_chatter.mute = false;
+                        quindar1.mute = false;
+                        quindar2.mute = false;
+                    }
 
                     foreach (BackgroundSource src in backgroundsource_list)
                     {
                         src.audiosource.mute = false;
                     }
 
-                    aae_breathing.mute = false;
-                    aae_soundscape.mute = false;
-                    aae_wind.mute = false;
+                    if (aae_breathing_exist) aae_breathing.mute = false;
+                    if (aae_soundscapes_exist) aae_soundscape.mute = false;
+                    if (aae_wind_exist) aae_wind.mute = false;
+                    if (aae_airlock_exist) aae_airlock.mute = false;
 
                     foreach (BeepSource source in beepsource_list)
                     {
                         source.audiosource.mute = false;
                     }
-                    sstv.mute = false;
+                    
+                    if (sstv_exists) sstv.mute = false;
 
                     all_muted = false;   //and change flag
                 }
@@ -4889,10 +3268,16 @@ namespace Chatterer
 
         private void radio_check()
         {
+            if (yep_yep == null)
+            {
+                Debug.Log("radio_check, yep_yep is null");
+                yep_yep = "";
+            }
             foreach (char c in Input.inputString)
             {
                 //backspace char
-                if (c == "\b"[0])
+                //if (c == "\b"[0])
+                if (c == '\b')
                 {
                     if (yep_yep.Length != 0)
                     {
@@ -4931,388 +3316,39 @@ namespace Chatterer
             }
         }
 
-        //RemoteTech
+        //Tooltips
         private void tooltips(Rect pos)
         {
             if (show_tooltips && GUI.tooltip != "")
             {
                 float w = 5.5f * GUI.tooltip.Length;
                 float x = (Event.current.mousePosition.x < pos.width / 2) ? Event.current.mousePosition.x + 10 : Event.current.mousePosition.x - 10 - w;
-                GUI.Box(new Rect(x, Event.current.mousePosition.y, w, 25f), GUI.tooltip, gs_tooltip);
+                float h = 25f;
+                float t = Event.current.mousePosition.y - (h / 4);
+                GUI.Box(new Rect(x, t, w, h), GUI.tooltip, gs_tooltip);
             }
         }
-
-        //Reset filter
-        private void reset_chorus_filter(AudioChorusFilter acf)
-        {
-            //reset chorus filter to default
-            foreach (ConfigNode filter in filter_defaults.nodes)
-            {
-                if (filter.name == "CHORUS")
-                {
-                    if (filter.HasValue("dry_mix")) acf.dryMix = Single.Parse(filter.GetValue("dry_mix"));
-                    if (filter.HasValue("wet_mix_1")) acf.wetMix1 = Single.Parse(filter.GetValue("wet_mix_1"));
-                    if (filter.HasValue("wet_mix_2")) acf.wetMix2 = Single.Parse(filter.GetValue("wet_mix_2"));
-                    if (filter.HasValue("wet_mix_3")) acf.wetMix3 = Single.Parse(filter.GetValue("wet_mix_3"));
-                    if (filter.HasValue("delay")) acf.delay = Single.Parse(filter.GetValue("delay"));
-                    if (filter.HasValue("rate")) acf.rate = Single.Parse(filter.GetValue("rate"));
-                    if (filter.HasValue("depth")) acf.depth = Single.Parse(filter.GetValue("depth"));
-                    //if (filter.HasValue("feedback")) acf.feedback = Single.Parse(filter.GetValue("feedback"));
-                }
-            }
-        }
-
-        private void reset_distortion_filter(AudioDistortionFilter adf)
-        {
-            //reset distortion filter to default
-            foreach (ConfigNode filter in filter_defaults.nodes)
-            {
-                if (filter.name == "DISTORTION")
-                {
-                    if (filter.HasValue("distortion_level")) adf.distortionLevel = Single.Parse(filter.GetValue("distortion_level"));
-                }
-            }
-        }
-
-        private void reset_echo_filter(AudioEchoFilter aef)
-        {
-            //reset echo filter to default
-            foreach (ConfigNode filter in filter_defaults.nodes)
-            {
-                if (filter.name == "ECHO")
-                {
-                    if (filter.HasValue("delay")) aef.delay = Single.Parse(filter.GetValue("delay"));
-                    if (filter.HasValue("decay_ratio")) aef.decayRatio = Single.Parse(filter.GetValue("decay_ratio"));
-                    if (filter.HasValue("dry_mix")) aef.dryMix = Single.Parse(filter.GetValue("dry_mix"));
-                    if (filter.HasValue("wet_mix")) aef.wetMix = Single.Parse(filter.GetValue("wet_mix"));
-                }
-            }
-        }
-
-        private void reset_highpass_filter(AudioHighPassFilter ahpf)
-        {
-            //reset highpass filter to default
-            foreach (ConfigNode filter in filter_defaults.nodes)
-            {
-                if (filter.name == "HIGHPASS")
-                {
-                    if (filter.HasValue("cutoff_freq")) ahpf.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) ahpf.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
-                }
-            }
-        }
-
-        private void reset_lowpass_filter(AudioLowPassFilter alpf)
-        {
-            //reset lowpass filter to default
-            foreach (ConfigNode filter in filter_defaults.nodes)
-            {
-                if (filter.name == "LOWPASS")
-                {
-                    if (filter.HasValue("cutoff_freq")) alpf.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-                    if (filter.HasValue("resonance_q")) alpf.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
-                }
-            }
-        }
-
-        private void reset_reverb_filter(AudioReverbFilter arf)
-        {
-            //reset reverb filter to default
-            foreach (ConfigNode filter in filter_defaults.nodes)
-            {
-                if (filter.name == "REVERB")
-                {
-                    if (filter.HasValue("reverb_preset")) arf.reverbPreset = (AudioReverbPreset)Enum.Parse(typeof(AudioReverbPreset), filter.GetValue("reverb_preset"));
-                    if (filter.HasValue("dry_level")) arf.dryLevel = Single.Parse(filter.GetValue("dry_level"));
-                    if (filter.HasValue("room")) arf.room = Single.Parse(filter.GetValue("room"));
-                    if (filter.HasValue("room_hf")) arf.roomHF = Single.Parse(filter.GetValue("room_hf"));
-                    if (filter.HasValue("room_lf")) arf.roomLF = Single.Parse(filter.GetValue("room_lf"));
-                    if (filter.HasValue("room_rolloff")) arf.roomRolloff = Single.Parse(filter.GetValue("room_rolloff"));
-                    if (filter.HasValue("decay_time")) arf.decayTime = Single.Parse(filter.GetValue("decay_time"));
-                    if (filter.HasValue("decay_hf_ratio")) arf.decayHFRatio = Single.Parse(filter.GetValue("decay_hf_ratio"));
-                    if (filter.HasValue("reflections_level")) arf.reflectionsLevel = Single.Parse(filter.GetValue("reflections_level"));
-                    if (filter.HasValue("reflections_delay")) arf.reflectionsDelay = Single.Parse(filter.GetValue("reflections_delay"));
-                    if (filter.HasValue("reverb_level")) arf.reverbLevel = Single.Parse(filter.GetValue("reverb_level"));
-                    if (filter.HasValue("reverb_delay")) arf.reverbDelay = Single.Parse(filter.GetValue("reverb_delay"));
-                    if (filter.HasValue("diffusion")) arf.diffusion = Single.Parse(filter.GetValue("diffusion"));
-                    if (filter.HasValue("density")) arf.density = Single.Parse(filter.GetValue("density"));
-                    if (filter.HasValue("hf_reference")) arf.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-                    if (filter.HasValue("lf_reference")) arf.lFReference = Single.Parse(filter.GetValue("lf_reference"));
-                }
-            }
-        }
-
-        //Copy/Paste chatter filters
-        private void copy_all_chatter_filters()
-        {
-            //copy all chatter filter settings to a temp clipboard ConfigNode
-
-            filters_clipboard = new ConfigNode();
-
-            ConfigNode _filter;
-
-            _filter = new ConfigNode();
-            _filter.name = "CHORUS";
-            _filter.AddValue("enabled", chatter_chorus_filter.enabled);
-            _filter.AddValue("dry_mix", chatter_chorus_filter.dryMix);
-            _filter.AddValue("wet_mix_1", chatter_chorus_filter.wetMix1);
-            _filter.AddValue("wet_mix_2", chatter_chorus_filter.wetMix2);
-            _filter.AddValue("wet_mix_3", chatter_chorus_filter.wetMix3);
-            _filter.AddValue("delay", chatter_chorus_filter.delay);
-            _filter.AddValue("rate", chatter_chorus_filter.rate);
-            _filter.AddValue("depth", chatter_chorus_filter.depth);
-            //_filter.AddValue("feedback", chatter_chorus_filter.feedback);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "DISTORTION";
-            _filter.AddValue("enabled", chatter_distortion_filter.enabled);
-            _filter.AddValue("distortion_level", chatter_distortion_filter.distortionLevel);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "ECHO";
-            _filter.AddValue("enabled", chatter_echo_filter.enabled);
-            _filter.AddValue("delay", chatter_echo_filter.delay);
-            _filter.AddValue("decay_ratio", chatter_echo_filter.decayRatio);
-            _filter.AddValue("dry_mix", chatter_echo_filter.dryMix);
-            _filter.AddValue("wet_mix", chatter_echo_filter.wetMix);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "HIGHPASS";
-            _filter.AddValue("enabled", chatter_highpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", chatter_highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_highpass_filter.highpassResonaceQ);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "LOWPASS";
-            _filter.AddValue("enabled", chatter_lowpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", chatter_lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", chatter_lowpass_filter.lowpassResonaceQ);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "REVERB";
-            _filter.AddValue("enabled", chatter_reverb_filter.enabled);
-            _filter.AddValue("reverb_preset", chatter_reverb_filter.reverbPreset);
-            _filter.AddValue("dry_level", chatter_reverb_filter.dryLevel);
-            _filter.AddValue("room", chatter_reverb_filter.room);
-            _filter.AddValue("room_hf", chatter_reverb_filter.roomHF);
-            _filter.AddValue("room_lf", chatter_reverb_filter.roomLF);
-            _filter.AddValue("room_rolloff", chatter_reverb_filter.roomRolloff);
-            _filter.AddValue("decay_time", chatter_reverb_filter.decayTime);
-            _filter.AddValue("decay_hf_ratio", chatter_reverb_filter.decayHFRatio);
-            _filter.AddValue("reflections_level", chatter_reverb_filter.reflectionsLevel);
-            _filter.AddValue("reflections_delay", chatter_reverb_filter.reflectionsDelay);
-            _filter.AddValue("reverb_level", chatter_reverb_filter.reverbLevel);
-            _filter.AddValue("reverb_delay", chatter_reverb_filter.reverbDelay);
-            _filter.AddValue("diffusion", chatter_reverb_filter.diffusion);
-            _filter.AddValue("density", chatter_reverb_filter.density);
-            _filter.AddValue("hf_reference", chatter_reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", chatter_reverb_filter.lFReference);
-            filters_clipboard.AddNode(_filter);
-
-            if (debugging) Debug.Log("[CHATR] all chatter filter values copied to filters_clipboard");
-        }
-
-        private void paste_all_chatter_filters()
-        {
-            ConfigNode filter = new ConfigNode();
-
-            filter = filters_clipboard.GetNode("CHORUS");
-            if (filter.HasValue("enabled")) chatter_chorus_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("dry_mix")) chatter_chorus_filter.dryMix = Single.Parse(filter.GetValue("dry_mix"));
-            if (filter.HasValue("wet_mix_1")) chatter_chorus_filter.wetMix1 = Single.Parse(filter.GetValue("wet_mix_1"));
-            if (filter.HasValue("wet_mix_2")) chatter_chorus_filter.wetMix2 = Single.Parse(filter.GetValue("wet_mix_2"));
-            if (filter.HasValue("wet_mix_3")) chatter_chorus_filter.wetMix3 = Single.Parse(filter.GetValue("wet_mix_3"));
-            if (filter.HasValue("delay")) chatter_chorus_filter.delay = Single.Parse(filter.GetValue("delay"));
-            if (filter.HasValue("rate")) chatter_chorus_filter.rate = Single.Parse(filter.GetValue("rate"));
-            if (filter.HasValue("depth")) chatter_chorus_filter.depth = Single.Parse(filter.GetValue("depth"));
-            //if (filter.HasValue("feedback")) chatter_chorus_filter.feedback = Single.Parse(filter.GetValue("feedback"));
-
-            filter = filters_clipboard.GetNode("DISTORTION");
-            if (filter.HasValue("enabled")) chatter_distortion_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("distortion_level")) chatter_distortion_filter.distortionLevel = Single.Parse(filter.GetValue("distortion_level"));
-
-            filter = filters_clipboard.GetNode("ECHO");
-            if (filter.HasValue("enabled")) chatter_echo_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("delay")) chatter_echo_filter.delay = Single.Parse(filter.GetValue("delay"));
-            if (filter.HasValue("decay_ratio")) chatter_echo_filter.decayRatio = Single.Parse(filter.GetValue("decay_ratio"));
-            if (filter.HasValue("dry_mix")) chatter_echo_filter.dryMix = Single.Parse(filter.GetValue("dry_mix"));
-            if (filter.HasValue("wet_mix")) chatter_echo_filter.wetMix = Single.Parse(filter.GetValue("wet_mix"));
-
-            filter = filters_clipboard.GetNode("HIGHPASS");
-            if (filter.HasValue("enabled")) chatter_highpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("cutoff_freq")) chatter_highpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) chatter_highpass_filter.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
-
-            filter = filters_clipboard.GetNode("LOWPASS");
-            if (filter.HasValue("enabled")) chatter_lowpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("cutoff_freq")) chatter_lowpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) chatter_lowpass_filter.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
-
-            filter = filters_clipboard.GetNode("REVERB");
-            if (filter.HasValue("enabled")) chatter_reverb_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("reverb_preset")) chatter_reverb_filter.reverbPreset = (AudioReverbPreset)Enum.Parse(typeof(AudioReverbPreset), filter.GetValue("reverb_preset"));
-            if (filter.HasValue("dry_level")) chatter_reverb_filter.dryLevel = Single.Parse(filter.GetValue("dry_level"));
-            if (filter.HasValue("room")) chatter_reverb_filter.room = Single.Parse(filter.GetValue("room"));
-            if (filter.HasValue("room_hf")) chatter_reverb_filter.roomHF = Single.Parse(filter.GetValue("room_hf"));
-            if (filter.HasValue("room_lf")) chatter_reverb_filter.roomLF = Single.Parse(filter.GetValue("room_lf"));
-            if (filter.HasValue("room_rolloff")) chatter_reverb_filter.roomRolloff = Single.Parse(filter.GetValue("room_rolloff"));
-            if (filter.HasValue("decay_time")) chatter_reverb_filter.decayTime = Single.Parse(filter.GetValue("decay_time"));
-            if (filter.HasValue("decay_hf_ratio")) chatter_reverb_filter.decayHFRatio = Single.Parse(filter.GetValue("decay_hf_ratio"));
-            if (filter.HasValue("reflections_level")) chatter_reverb_filter.reflectionsLevel = Single.Parse(filter.GetValue("reflections_level"));
-            if (filter.HasValue("reflections_delay")) chatter_reverb_filter.reflectionsDelay = Single.Parse(filter.GetValue("reflections_delay"));
-            if (filter.HasValue("reverb_level")) chatter_reverb_filter.reverbLevel = Single.Parse(filter.GetValue("reverb_level"));
-            if (filter.HasValue("reverb_delay")) chatter_reverb_filter.reverbDelay = Single.Parse(filter.GetValue("reverb_delay"));
-            if (filter.HasValue("diffusion")) chatter_reverb_filter.diffusion = Single.Parse(filter.GetValue("diffusion"));
-            if (filter.HasValue("density")) chatter_reverb_filter.density = Single.Parse(filter.GetValue("density"));
-            if (filter.HasValue("hf_reference")) chatter_reverb_filter.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-            if (filter.HasValue("lf_reference")) chatter_reverb_filter.lFReference = Single.Parse(filter.GetValue("lf_reference"));
-
-            if (debugging) Debug.Log("[CHATR] all chatter filter values pasted from filters_clipboard");
-        }
-
-        //Copy/Paste beep filters
-        private void copy_all_beep_filters(BeepSource source)
-        {
-            filters_clipboard = new ConfigNode();
-            ConfigNode _filter;
-
-            _filter = new ConfigNode();
-            _filter.name = "CHORUS";
-            _filter.AddValue("enabled", source.chorus_filter.enabled);
-            _filter.AddValue("dry_mix", source.chorus_filter.dryMix);
-            _filter.AddValue("wet_mix_1", source.chorus_filter.wetMix1);
-            _filter.AddValue("wet_mix_2", source.chorus_filter.wetMix2);
-            _filter.AddValue("wet_mix_3", source.chorus_filter.wetMix3);
-            _filter.AddValue("delay", source.chorus_filter.delay);
-            _filter.AddValue("rate", source.chorus_filter.rate);
-            _filter.AddValue("depth", source.chorus_filter.depth);
-            //_filter.AddValue("feedback", source.chorus_filter.feedback);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "DISTORTION";
-            _filter.AddValue("enabled", source.distortion_filter.enabled);
-            _filter.AddValue("distortion_level", source.distortion_filter.distortionLevel);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "ECHO";
-            _filter.AddValue("enabled", source.echo_filter.enabled);
-            _filter.AddValue("delay", source.echo_filter.delay);
-            _filter.AddValue("decay_ratio", source.echo_filter.decayRatio);
-            _filter.AddValue("dry_mix", source.echo_filter.dryMix);
-            _filter.AddValue("wet_mix", source.echo_filter.wetMix);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "HIGHPASS";
-            _filter.AddValue("enabled", source.highpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", source.highpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.highpass_filter.highpassResonaceQ);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "LOWPASS";
-            _filter.AddValue("enabled", source.lowpass_filter.enabled);
-            _filter.AddValue("cutoff_freq", source.lowpass_filter.cutoffFrequency);
-            _filter.AddValue("resonance_q", source.lowpass_filter.lowpassResonaceQ);
-            filters_clipboard.AddNode(_filter);
-
-            _filter = new ConfigNode();
-            _filter.name = "REVERB";
-            _filter.AddValue("enabled", source.reverb_filter.enabled);
-            _filter.AddValue("reverb_preset", source.reverb_filter.reverbPreset);
-            _filter.AddValue("dry_level", source.reverb_filter.dryLevel);
-            _filter.AddValue("room", source.reverb_filter.room);
-            _filter.AddValue("room_hf", source.reverb_filter.roomHF);
-            _filter.AddValue("room_lf", source.reverb_filter.roomLF);
-            _filter.AddValue("room_rolloff", source.reverb_filter.roomRolloff);
-            _filter.AddValue("decay_time", source.reverb_filter.decayTime);
-            _filter.AddValue("decay_hf_ratio", source.reverb_filter.decayHFRatio);
-            _filter.AddValue("reflections_level", source.reverb_filter.reflectionsLevel);
-            _filter.AddValue("reflections_delay", source.reverb_filter.reflectionsDelay);
-            _filter.AddValue("reverb_level", source.reverb_filter.reverbLevel);
-            _filter.AddValue("reverb_delay", source.reverb_filter.reverbDelay);
-            _filter.AddValue("diffusion", source.reverb_filter.diffusion);
-            _filter.AddValue("density", source.reverb_filter.density);
-            _filter.AddValue("hf_reference", source.reverb_filter.hfReference);
-            _filter.AddValue("lf_reference", source.reverb_filter.lFReference);
-            filters_clipboard.AddNode(_filter);
-
-            if (debugging) Debug.Log("[CHATR] all beep filter values copied to filters_clipboard");
-        }
-
-        private void paste_all_beep_filters(BeepSource source)
-        {
-            ConfigNode filter = new ConfigNode();
-
-            filter = filters_clipboard.GetNode("CHORUS");
-            if (filter.HasValue("enabled")) source.chorus_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("dry_mix")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("dry_mix"));
-            if (filter.HasValue("wet_mix_1")) source.chorus_filter.wetMix1 = Single.Parse(filter.GetValue("wet_mix_1"));
-            if (filter.HasValue("wet_mix_2")) source.chorus_filter.wetMix2 = Single.Parse(filter.GetValue("wet_mix_2"));
-            if (filter.HasValue("wet_mix_3")) source.chorus_filter.wetMix3 = Single.Parse(filter.GetValue("wet_mix_3"));
-            if (filter.HasValue("delay")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("delay"));
-            if (filter.HasValue("rate")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("rate"));
-            if (filter.HasValue("depth")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("depth"));
-            if (filter.HasValue("feedback")) source.chorus_filter.dryMix = Single.Parse(filter.GetValue("feedback"));
-
-            filter = filters_clipboard.GetNode("DISTORTION");
-            if (filter.HasValue("enabled")) source.distortion_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("distortion_level")) source.distortion_filter.distortionLevel = Single.Parse(filter.GetValue("distortion_level"));
-
-            filter = filters_clipboard.GetNode("ECHO");
-            if (filter.HasValue("enabled")) source.echo_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("delay")) source.echo_filter.delay = Single.Parse(filter.GetValue("delay"));
-            if (filter.HasValue("decay_ratio")) source.echo_filter.decayRatio = Single.Parse(filter.GetValue("decay_ratio"));
-            if (filter.HasValue("dry_mix")) source.echo_filter.dryMix = Single.Parse(filter.GetValue("dry_mix"));
-            if (filter.HasValue("wet_mix")) source.echo_filter.wetMix = Single.Parse(filter.GetValue("wet_mix"));
-
-            filter = filters_clipboard.GetNode("HIGHPASS");
-            if (filter.HasValue("enabled")) source.highpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("cutoff_freq")) source.highpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) source.highpass_filter.highpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
-
-            filter = filters_clipboard.GetNode("LOWPASS");
-            if (filter.HasValue("enabled")) source.lowpass_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("cutoff_freq")) source.lowpass_filter.cutoffFrequency = Single.Parse(filter.GetValue("cutoff_freq"));
-            if (filter.HasValue("resonance_q")) source.lowpass_filter.lowpassResonaceQ = Single.Parse(filter.GetValue("resonance_q"));
-
-            filter = filters_clipboard.GetNode("REVERB");
-            if (filter.HasValue("enabled")) source.reverb_filter.enabled = Boolean.Parse(filter.GetValue("enabled"));
-            if (filter.HasValue("reverb_preset")) source.reverb_filter.reverbPreset = (AudioReverbPreset)Enum.Parse(typeof(AudioReverbPreset), filter.GetValue("reverb_preset"));
-            if (filter.HasValue("dry_level")) source.reverb_filter.dryLevel = Single.Parse(filter.GetValue("dry_level"));
-            if (filter.HasValue("room")) source.reverb_filter.room = Single.Parse(filter.GetValue("room"));
-            if (filter.HasValue("room_hf")) source.reverb_filter.roomHF = Single.Parse(filter.GetValue("room_hf"));
-            if (filter.HasValue("room_lf")) source.reverb_filter.roomLF = Single.Parse(filter.GetValue("room_lf"));
-            if (filter.HasValue("room_rolloff")) source.reverb_filter.roomRolloff = Single.Parse(filter.GetValue("room_rolloff"));
-            if (filter.HasValue("decay_time")) source.reverb_filter.decayTime = Single.Parse(filter.GetValue("decay_time"));
-            if (filter.HasValue("decay_hf_ratio")) source.reverb_filter.decayHFRatio = Single.Parse(filter.GetValue("decay_hf_ratio"));
-            if (filter.HasValue("reflections_level")) source.reverb_filter.reflectionsLevel = Single.Parse(filter.GetValue("reflections_level"));
-            if (filter.HasValue("reflections_delay")) source.reverb_filter.reflectionsDelay = Single.Parse(filter.GetValue("reflections_delay"));
-            if (filter.HasValue("reverb_level")) source.reverb_filter.reverbLevel = Single.Parse(filter.GetValue("reverb_level"));
-            if (filter.HasValue("reverb_delay")) source.reverb_filter.reverbDelay = Single.Parse(filter.GetValue("reverb_delay"));
-            if (filter.HasValue("diffusion")) source.reverb_filter.diffusion = Single.Parse(filter.GetValue("diffusion"));
-            if (filter.HasValue("density")) source.reverb_filter.density = Single.Parse(filter.GetValue("density"));
-            if (filter.HasValue("hf_reference")) source.reverb_filter.hfReference = Single.Parse(filter.GetValue("hf_reference"));
-            if (filter.HasValue("lf_reference")) source.reverb_filter.lFReference = Single.Parse(filter.GetValue("lf_reference"));
-
-            if (debugging) Debug.Log("[CHATR] all beep filter values pasted from filters_clipboard");
-        }
-
+        
         //Main
         public void Awake()
         {
             if (debugging) Debug.Log("[CHATR] Awake() starting...");
 
-            // Setup & callbacks for KSP Application Launcher
-            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
-            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
+            chatter_player = new GameObject();
+            sstv_player = new GameObject();
+            aae_soundscape_player = new GameObject();
+            aae_ambient_player = new GameObject();
+
+            chatterer_button_TX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_TX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_RX = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_RX_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_SSTV = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_SSTV_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_idle = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_idle_muted = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            chatterer_button_disabled = new Texture2D(38, 38, TextureFormat.ARGB32, false);
+            line_512x4 = new Texture2D(512, 8, TextureFormat.ARGB32, false);
 
             //set a path to save/load settings
             settings_path = AssemblyLoader.loadedAssemblies.GetPathByType(typeof(chatterer)) + "/"; //returns "X:/full/path/to/GameData/Chatterer/Plugins/PluginData/chatterer"
@@ -5332,10 +3368,16 @@ namespace Chatterer
             chatter_player.name = "rbr_chatter_player";
             initial_chatter = chatter_player.AddComponent<AudioSource>();
             initial_chatter.volume = chatter_vol_slider;
-            initial_chatter.panLevel = 0;   //set as 2D audio
+            initial_chatter.spatialBlend = 0.0f;   //set as 2D audio
             response_chatter = chatter_player.AddComponent<AudioSource>();
             response_chatter.volume = chatter_vol_slider;
-            response_chatter.panLevel = 0;
+            response_chatter.spatialBlend = 0.0f;
+            quindar1 = chatter_player.AddComponent<AudioSource>();
+            quindar1.volume = quindar_vol_slider;
+            quindar1.spatialBlend = 0.0f;
+            quindar2 = chatter_player.AddComponent<AudioSource>();
+            quindar2.volume = quindar_vol_slider;
+            quindar2.spatialBlend = 0.0f;
             chatter_chorus_filter = chatter_player.AddComponent<AudioChorusFilter>();
             chatter_chorus_filter.enabled = false;
             chatter_distortion_filter = chatter_player.AddComponent<AudioDistortionFilter>();
@@ -5357,7 +3399,7 @@ namespace Chatterer
             if (aae_soundscapes_exist)
             {
                 aae_soundscape = aae_soundscape_player.AddComponent<AudioSource>();
-                aae_soundscape.panLevel = 0;
+                aae_soundscape.spatialBlend = 0.0f;
                 aae_soundscape.volume = 0.3f;
                 set_soundscape_clip();
                 new_soundscape_loose_timer_limit();
@@ -5365,7 +3407,7 @@ namespace Chatterer
 
             //AAE EVA breathing
             aae_breathing = aae_ambient_player.AddComponent<AudioSource>();
-            aae_breathing.panLevel = 0;
+            aae_breathing.spatialBlend = 0.0f;
             aae_breathing.volume = 1.0f;
             aae_breathing.loop = true;
             string breathing_path = "Chatterer/Sounds/AAE/effect/breathing";
@@ -5382,7 +3424,7 @@ namespace Chatterer
 
             //AAE airlock
             aae_airlock = aae_ambient_player.AddComponent<AudioSource>();
-            aae_airlock.panLevel = 0;
+            aae_airlock.spatialBlend = 0.0f;
             aae_airlock.volume = 1.0f;
             string airlock_path = "Chatterer/Sounds/AAE/effect/airlock";
             if (GameDatabase.Instance.ExistsAudioClip(airlock_path))
@@ -5398,7 +3440,7 @@ namespace Chatterer
 
             //AAE wind
             aae_wind = aae_ambient_player.AddComponent<AudioSource>();
-            aae_wind.panLevel = 0;
+            aae_wind.spatialBlend = 0.0f;
             aae_wind.volume = 1.0f;
             string wind_path = "Chatterer/Sounds/AAE/wind/mario1298__weak-wind";
             if (GameDatabase.Instance.ExistsAudioClip(wind_path))
@@ -5414,12 +3456,12 @@ namespace Chatterer
 
             //yepyep
             yep_yepsource = aae_ambient_player.AddComponent<AudioSource>();
-            yep_yepsource.panLevel = 0;
+            yep_yepsource.spatialBlend = 0.0f;
             yep_yepsource.volume = 1.0f;
 
             //AAE landing
             landingsource = aae_ambient_player.AddComponent<AudioSource>();
-            landingsource.panLevel = 0;
+            landingsource.spatialBlend = 0.0f;
             landingsource.volume = 0.5f;
             string landing_path = "Chatterer/Sounds/AAE/loop/suspense1";
             if (GameDatabase.Instance.ExistsAudioClip(landing_path))
@@ -5439,21 +3481,24 @@ namespace Chatterer
             if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/line_512x4")) line_512x4 = GameDatabase.Instance.GetTexture("Chatterer/Textures/line_512x4", false);
             else Debug.LogWarning("Texture 'line_512x4' is missing!");
 
+            // initialise launcherButton textures
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX")) chatterer_button_TX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_TX_muted")) chatterer_button_TX_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_TX_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX")) chatterer_button_RX = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_RX_muted")) chatterer_button_RX_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_RX_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV")) chatterer_button_SSTV = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_SSTV_muted")) chatterer_button_SSTV_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_SSTV_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle")) chatterer_button_idle = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_idle_muted")) chatterer_button_idle_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_idle_muted", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled")) chatterer_button_disabled = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled", false);
+            if (GameDatabase.Instance.ExistsTexture("Chatterer/Textures/chatterer_button_disabled_muted")) chatterer_button_disabled_muted = GameDatabase.Instance.GetTexture("Chatterer/Textures/chatterer_button_disabled_muted", false);
 
             load_plugin_settings();
 
 
-            if (http_update_check) get_latest_version();
-
             load_quindar_audio();
-            quindar1 = chatter_player.AddComponent<AudioSource>();
-            quindar1.volume = quindar_vol_slider;
-            quindar1.panLevel = 0;
-            quindar1.clip = quindar_clip;
-            quindar2 = chatter_player.AddComponent<AudioSource>();
-            quindar2.volume = quindar_vol_slider;
-            quindar2.panLevel = 0;
-            quindar2.clip = quindar_clip;
+            quindar1.clip = quindar_01_clip;
+            quindar2.clip = quindar_02_clip;
 
             initialize_new_exchange();
 
@@ -5461,7 +3506,7 @@ namespace Chatterer
             sstv_player.name = "rbr_sstv_player";
             sstv = sstv_player.AddComponent<AudioSource>();
             sstv.volume = sstv_vol_slider;
-            sstv.panLevel = 0;
+            sstv.spatialBlend = 0.0f;
 
             new_sstv_loose_timer_limit();
 
@@ -5469,7 +3514,44 @@ namespace Chatterer
 
             build_skin_list();
 
+            // Setup & callbacks
+            //
+            
+            //for KSP Application Launcher
+            GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);
+            GameEvents.onGameSceneLoadRequested.Add(OnSceneChangeRequest);
+
+            //to trigger Chatter
+            GameEvents.onCrewOnEva.Add(OnCrewOnEVA);
+            GameEvents.onCrewBoardVessel.Add(OnCrewBoard);
+            GameEvents.onVesselChange.Add(OnVesselChange);
+            GameEvents.onStageSeparation.Add(OnStageSeparation);
+            GameEvents.onVesselSituationChange.Add(OnVesselSituationChange);
+            GameEvents.onVesselSOIChanged.Add(OnVesselSOIChanged);
+
+            //to trigger SSTV on science tx
+            GameEvents.OnScienceChanged.Add(OnScienceChanged);
+
+            // for CommNet management
+            GameEvents.CommNet.OnCommHomeStatusChange.Add(OnCommHomeStatusChange);
+
+            // for whatnot
+            GameEvents.onGamePause.Add(OnGamePause);
+            GameEvents.onGameUnpause.Add(OnGameUnpause);
+
             if (debugging) Debug.Log("[CHATR] Awake() has finished...");
+            Debug.Log("[CHATR] Chatterer (v." + this_version + ") loaded.");
+        }
+
+        private void Start()
+        {
+            if (launcherButton == null)
+            {
+                OnGUIApplicationLauncherReady();
+            }
+
+            if (debugging) Debug.Log("[CHATR] Starting an exchange : Hello !");
+            begin_exchange(0); // Trigger an exchange on Start to say hello
         }
 
         public void Update()
@@ -5478,17 +3560,12 @@ namespace Chatterer
             if (insta_chatter_key_just_changed && Input.GetKeyUp(insta_chatter_key)) insta_chatter_key_just_changed = false;
             if (insta_sstv_key_just_changed && Input.GetKeyUp(insta_sstv_key)) insta_sstv_key_just_changed = false;
 
-            ////Icon relocation
-            //if (changing_icon_pos && Input.GetMouseButtonDown(0))
-            //{
-            //    ui_icon_pos = new Rect(Input.mousePosition.x - 15f, Screen.height - Input.mousePosition.y - 15f, 30f, 30f);
-            //    changing_icon_pos = false;
-            //}
-            
             mute_check();
 
             radio_check();
 
+            launcherButtonTexture_check();
+            
             if (FlightGlobals.ActiveVessel != null)
             {
                 vessel = FlightGlobals.ActiveVessel;
@@ -5509,211 +3586,54 @@ namespace Chatterer
                     //set_beep_clip(OTP_source);
                 }
 
-                //RUN-ONCE
-                if (run_once)
-                {
-                    //get null refs trying to set these in Awake() so do them once here
-
-
-                    prev_vessel = vessel;
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    vessel_part_count = vessel.parts.Count;
-                    run_once = false;
-
-                    if (use_vessel_settings)
-                    {
-                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling load_vessel_settings_node()");
-                        load_vessel_settings_node(); //load and search for settings for this vessel
-                        if (debugging) Debug.Log("[CHATR] Update() run-once :: calling search_vessel_settings_node()");
-                        search_vessel_settings_node();
-                    }
-                }
-
-                if (vessel != prev_vessel)
-                {
-                    //active vessel has changed
-                    if (debugging) Debug.Log("[CHATR] ActiveVessel has changed::prev = " + prev_vessel.vesselName + ", curr = " + vessel.vesselName);
-
-                    //stop_audio("all");
-
-
-                    //play a new clip any time vessel changes and new vessel has crew or is EVA
-                    //if (((power_available && vessel.GetCrewCount() > 0) || vessel.vesselType == VesselType.EVA) && chatter_freq > 0)
-                    //{
-                    //new active vessel has crew onboard or is EVA
-                    //play an auto clip
-                    //pod_begins_exchange = true;
-                    //begin_exchange(0);
-                    //}
-
-
-
-                    if (use_vessel_settings)
-                    {
-
-                        ConfigNode all_but_prev_vessel = new ConfigNode();
-
-                        //if (debugging) Debug.Log("[CHATR] Update() :: checking each vessel_id in vessel_settings_node");
-                        //if (debugging) Debug.Log("[CHATR] prev_vessel.id = " + prev_vessel.id.ToString());
-                        foreach (ConfigNode _vessel in vessel_settings_node.nodes)
-                        {
-
-
-                            //search for previous vessel id
-                            if (_vessel.HasValue("vessel_id"))
-                            {
-                                string val = _vessel.GetValue("vessel_id");
-
-                                //if (debugging) Debug.Log("[CHATR] node vessel_id = " + val);
-
-                                if (val != prev_vessel.id.ToString())
-                                {
-                                    //vessel_settings_node.RemoveNode(prev_vessel.id.ToString());
-                                    //if (debugging) Debug.Log("[CHATR] prev_vessel old node removed");
-                                    //temp_vessels_string = prev_vessel.id.ToString();
-                                    all_but_prev_vessel.AddNode(_vessel);
-                                    //if (debugging) Debug.Log("[CHATR] Update() :: node vessel_id != prev_vessel.id :: node vessel added to all_but_prev_vessel");
-                                }
-                                //else
-                                //{
-                                //    all_but_prev_vessel.AddNode(cn);
-                                //}
-                            }
-                        }
-                        //foreach (ConfigNode cn in vessel_settings_node.nodes)
-                        //{
-                        //vessel_settings_node.RemoveNodes("");
-                        //    if (debugging) Debug.Log("[CHATR] old nodes removed");
-                        //}
-
-                        vessel_settings_node = all_but_prev_vessel;
-                        //if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node = all_but_prev_vessel");
-
-                        new_vessel_node(prev_vessel);
-                        //if (debugging) Debug.Log("[CHATR] Update() :: new node created using prev_vessel and added to vessel_settings node");
-
-                        //save_vessel_settings_node();
-                        vessel_settings_node.Save(settings_path + "vessels.cfg");
-                        //if (debugging) Debug.Log("[CHATR] Update() :: vessel_settings node saved to vessel_settings.cfg");
-
-
-                        load_vessel_settings_node();    //reload with current vessel settings
-                        search_vessel_settings_node();  //search for current vessel
-                    }
-
-
-
-
-                    vessel_prev_sit = vessel.situation;
-                    vessel_prev_stage = vessel.currentStage;
-                    //don't update vessel_part_count here!
-
-                    if (vessel != prev_vessel && prev_vessel.vesselType == VesselType.EVA && (vessel.vesselType == VesselType.Ship || vessel.vesselType == VesselType.Lander || vessel.vesselType == VesselType.Station || vessel.vesselType == VesselType.Base))
-                    {
-                        if (aae_airlock_exist)
-                        {
-                            aae_airlock.Play();
-                            if (debugging) Debug.Log("[CHATR] Returning from EVA, playing Airlock sound...");
-                        }
-
-                    }
-                    
-                    // prev_vessel = vessel;
-
-
-                    //airlock sound
-                    //todo fix airlock sound here
-                    //sound plays after naut is already outside
-                    if (vessel != prev_vessel && vessel.vesselType == VesselType.EVA && (prev_vessel.vesselType == VesselType.Ship || prev_vessel.vesselType == VesselType.Lander || prev_vessel.vesselType == VesselType.Station || prev_vessel.vesselType == VesselType.Base))
-                    {
-                        if (aae_airlock_exist)
-                        {
-                            aae_airlock.Play();
-                            if (debugging) Debug.Log("[CHATR] Going on EVA, playing Airlock sound...");
-                        }
-                        
-                    }
-
-                    prev_vessel = vessel;
-                }
-
-                if (gui_running == false) start_GUI();
-
-                //write settings every x seconds
-                cfg_update_timer += Time.deltaTime;
-                if (cfg_update_timer >= 7f)
-                {
-                    cfg_update_timer = 0;
-                    //DEBUG
-                    //if (debugging) Debug.Log("[CHATR] searching all GameObjects for 'rbr'...");
-                    //int x = 0;
-                    //var allSources = FindObjectsOfType(typeof(GameObject)) as GameObject[];
-
-                    //foreach (var source in allSources)
-                    //{
-                    //    if (source.name.Length > 3)
-                    //    {
-                    //        if (source.name.Substring(0, 3) == "rbr")
-                    //        {
-                    //            if (debugging) Debug.Log("[CHATR] source.name = " + source.name);
-                    //            x++;
-                    //        }
-                    //    }
-                    //}
-                    //if (debugging) Debug.Log("[CHATR] " + x.ToString() + " rbr GameObjects exist");
-
-
-                    save_plugin_settings();
-
-                    if (use_vessel_settings) write_vessel_settings();    //update vessel_settings.cfg
-
-                    //cfg_update_timer = 0;
-                }
-
-                //update remotetech info if needed
-                if (remotetech_toggle)
-                {
-                    rt_update_timer += Time.deltaTime;
-                    if (rt_update_timer > 2f)
-                    {
-                        updateRemoteTechData();
-                        rt_update_timer = 0;
-                    }
-                }
-
-                //consume_resources();    //try to use a little ElectricCharge
-
-
-                ///////////////////////
-                ///////////////////////
-
-                //Do AAE
-
-                //if (AAE_exists)
+                ////update remotetech info if needed
+                //if (remotetech_toggle)
                 //{
+                //    rt_update_timer += Time.deltaTime;
+                //    if (rt_update_timer > 2f)
+                //    {
+                //        updateRemoteTechData();
+                //        rt_update_timer = 0;
+                //    }
+                //}
+
+                ///////////////////////
+                ///////////////////////
+                //Do AAE
 
                 //BACKGROUND
                 if (aae_backgrounds_exist)
                 {
-                    //if EVA, stop background audio
-                    if (vessel.vesselType == VesselType.EVA)
+                    //if vessel not qualified to have onboard noises, stop background audio
+                    if (vessel.GetCrewCapacity() < 1 || vessel.vesselType != VesselType.Ship && vessel.vesselType != VesselType.Station && vessel.vesselType != VesselType.Base && vessel.vesselType != VesselType.Lander)
                     {
                         foreach (BackgroundSource src in backgroundsource_list)
                         {
-                            src.audiosource.Stop();
+                            if (src.audiosource.isPlaying == true)
+                            {
+                                src.audiosource.Stop();
+                            }
                         }
                     }
-                    else
+                    //check if user chose to have only background when on IVA, and then check if in IVA 
+                    else if ((aae_backgrounds_onlyinIVA && (CameraManager.Instance.currentCameraMode == CameraManager.CameraMode.IVA || CameraManager.Instance.currentCameraMode == CameraManager.CameraMode.Internal)) || !aae_backgrounds_onlyinIVA)
                     {
-                        //else play background audio
-
                         foreach (BackgroundSource src in backgroundsource_list)
                         {
                             if (src.audiosource.isPlaying == false)
                             {
                                 src.audiosource.loop = true;
                                 src.audiosource.Play();
+                            }
+                        }
+                    }
+                    else //else stop background audio
+                    {
+                        foreach (BackgroundSource src in backgroundsource_list)
+                        {
+                            if (src.audiosource.isPlaying == true)
+                            {
+                                src.audiosource.Stop();
                             }
                         }
                     }
@@ -5782,7 +3702,7 @@ namespace Chatterer
                 if (aae_wind_exist)
                 {
                     //check that body has atmosphere, vessel is within it
-                    if (vessel.mainBody.atmosphere && vessel.altitude < vessel.mainBody.maxAtmosphereAltitude)
+                    if (vessel.mainBody.atmosphere && vessel.atmDensity > 0 && (CameraManager.Instance.currentCameraMode != CameraManager.CameraMode.IVA && CameraManager.Instance.currentCameraMode != CameraManager.CameraMode.Internal))
                     {
                         //set volume according to atmosphere density
                         aae_wind.volume = aae_wind_vol_slider * Math.Min((float)vessel.atmDensity, 1);
@@ -5805,22 +3725,6 @@ namespace Chatterer
                     }
                 }
 
-
-                //add the suspenseful music track on loop
-                //conditions?
-                //vessel.situation == suborbital, true alt <= 10000m, descent speed > 10m/s
-                if (vessel.situation == Vessel.Situations.SUB_ORBITAL && vessel.heightFromTerrain < 10000f && vessel.verticalSpeed < -10f)
-                {
-                    //start suspense loop
-                    //todo add suspense loop
-                    //landingsource.loop = true;
-                    //landingsource.Play();
-                }
-
-                //}
-
-
-
                 //END AAE
                 /////////////////////////////////////////////
                 /////////////////////////////////////////////
@@ -5831,7 +3735,7 @@ namespace Chatterer
                 if (sstv_exists)
                 {
                     //insta-sstv activated
-                    if (insta_sstv_key_just_changed == false && Input.GetKeyDown(insta_sstv_key) && sstv.isPlaying == false)
+                    if ((inRadioContact) && (insta_sstv_key_just_changed == false && Input.GetKeyDown(insta_sstv_key) && sstv.isPlaying == false))
                     {
                         if (debugging) Debug.Log("[CHATR] beginning exchange,insta-SSTV");
                         if (exchange_playing)
@@ -5853,10 +3757,10 @@ namespace Chatterer
                         else Debug.LogWarning("[CHATR] No SSTV clips to play");
                     }
 
-                    //timed sstv
+                    //timed/on science sstv
                     if (all_sstv_clips.Count > 0)
                     {
-                        //if clips exist, do things
+                        //timed : if clips exist, do things
                         if (sstv_freq > 0)
                         {
                             sstv_timer += Time.deltaTime;
@@ -5864,7 +3768,7 @@ namespace Chatterer
                             {
                                 sstv_timer = 0;
                                 new_sstv_loose_timer_limit();
-                                if (sstv.isPlaying == false)
+                                if (sstv.isPlaying == false && inRadioContact)
                                 {
 
                                     //get a random one and play
@@ -5883,6 +3787,33 @@ namespace Chatterer
                                 }
                             }
                         }
+
+                        //on science transmitted
+                        if (all_sstv_clips.Count > 0 && sstv_on_science_toggle == true)
+                        {
+                            if (science_transmitted == true) 
+                            {
+                                if (sstv.isPlaying == false && (inRadioContact))
+                                {
+                                    //stop and reset any currently playing chatter
+                                    if (exchange_playing)
+                                    {
+                                        exchange_playing = false;
+                                        initial_chatter.Stop();
+                                        response_chatter.Stop();
+                                        initialize_new_exchange();
+                                    }
+
+                                    //get a random one and play
+                                    sstv.clip = all_sstv_clips[rand.Next(0, all_sstv_clips.Count)];
+                                    sstv.Play();
+
+                                    if (debugging) Debug.Log("[CHATR] beginning exchange,science-SSTV...");
+                                }
+
+                                science_transmitted = false;
+                            }
+                        }
                     }
                 }
 
@@ -5894,7 +3825,7 @@ namespace Chatterer
                 //do beeps
                 if (beeps_exists)
                 {
-                    if (dict_probe_samples.Count > 0 && OTP_playing == false)   //don't do any beeps here while OTP is playing
+                    if (dict_probe_samples.Count > 0 && OTP_playing == false && (inRadioContact))   //don't do any beeps here while OTP is playing
                     {
                         foreach (BeepSource bm in beepsource_list)
                         {
@@ -5919,7 +3850,11 @@ namespace Chatterer
                                     else
                                     {
                                         bm.audiosource.loop = true;
-                                        if (bm.audiosource.isPlaying == false) bm.audiosource.Play();
+                                        if (bm.audiosource.isPlaying == false)
+                                        {
+                                            bm.audiosource.Play();
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                                        }
                                     }
                                 }
                                 else
@@ -5937,18 +3872,18 @@ namespace Chatterer
                                     {
                                         bm.timer = 0;
                                         //randomize beep if set to random (0)
-                                        if (bm.current_clip == "Random")
+                                        if (bm.randomizeBeep)
                                         {
-                                            //bm.audiosource.clip = all_beep_clips[rand.Next(0, all_beep_clips.Count)];
+                                            bm.current_clip = "Random";
                                             set_beep_clip(bm);
                                         }
                                         //play beep unless disable == true && exchange_playing == true
                                         if (sstv.isPlaying || ((initial_chatter.isPlaying || response_chatter.isPlaying) && disable_beeps_during_chatter)) return;   //no beep under these conditions
-                                        //if (disable_beeps_during_chatter == false || (disable_beeps_during_chatter == true && exchange_playing == false))
                                         else
                                         {
                                             //if (debugging) Debug.Log("[CHATR] timer limit reached, playing source " + bm.beep_name);
                                             bm.audiosource.Play();  //else beep
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
                                         }
                                     }
                                 }
@@ -5975,15 +3910,18 @@ namespace Chatterer
                                         bm.timer = 0;   //reset timer
                                         new_beep_loose_timer_limit(bm);    //set a new loose limit
                                         //randomize beep if set to random (0)
-                                        if (bm.current_clip == "Random")
+                                        if (bm.randomizeBeep)
                                         {
-                                            //bm.audiosource.clip = all_beep_clips[rand.Next(0, all_beep_clips.Count)];
+                                            bm.current_clip = "Random";
                                             set_beep_clip(bm);
                                         }
                                         if (sstv.isPlaying || ((initial_chatter.isPlaying || response_chatter.isPlaying) && disable_beeps_during_chatter)) return;   //no beep under these conditions
-                                        //if (disable_beeps_during_chatter == false || (disable_beeps_during_chatter == true && exchange_playing == false) || sstv.isPlaying == false)
-                                        else bm.audiosource.Play();  //else beep
-
+                                        
+                                        else
+                                        {
+                                            bm.audiosource.Play();  //else beep
+                                            SetAppLauncherButtonTexture(chatterer_button_SSTV);
+                                        }
                                     }
                                 }
                             }
@@ -5996,114 +3934,31 @@ namespace Chatterer
                 /////////////////////////////////////////////
                 //START CHATTER
 
-                //do chatter
-                if (chatter_exists)
+                //do insta-chatter if insta-chatter chatter key is pressed
+                if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key))
                 {
-                    if (vessel.GetCrewCount() > 0)
+                    if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
+
+                    if (exchange_playing == true)
                     {
-                        //Has crew onboard
-                        //do insta-chatter if chatter is off
-                        if (insta_chatter_key_just_changed == false && Input.GetKeyDown(insta_chatter_key) && exchange_playing == false && sstv.isPlaying == false)
-                        {
-                            //no chatter or sstv playing, play insta-chatter
-                            if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
-                            begin_exchange(0);
-                        }
-
-                        //exchange_playing check added because insta-chatter response was blocked when chatter is turned off
-                        if (chatter_freq > 0 || exchange_playing)
-                        {
-                            //Chatter is on
-                            //consume_resources();
-                            if (exchange_playing)
-                            {
-                                //Exchange in progress
-                                if (initial_chatter.isPlaying == false)
-                                {
-                                    //initial chatter has finished playing
-                                    //wait some seconds and respond
-                                    secs_since_initial_chatter += Time.deltaTime;
-                                    if (secs_since_initial_chatter > response_delay_secs)
-                                    {
-                                        //if (debugging) Debug.Log("[CHATR] response delay has elapsed...");
-                                        if (response_chatter.isPlaying == false)
-                                        {
-                                            //play response clip if not already playing
-                                            //print("response not currently playing...");
-
-                                            if (response_chatter_started)
-                                            {
-                                                //has started flag is tripped but no chatter playing
-                                                //response has ended
-                                                if (debugging) Debug.Log("[CHATR] response has finished");
-                                                exchange_playing = false;
-                                                response_chatter_started = false;
-                                                return;
-                                            }
-
-                                            if (response_chatter_set.Count > 0)
-                                            {
-                                                if (debugging) Debug.Log("[CHATR] playing response");
-                                                response_chatter_started = true;
-                                                if (initial_chatter_source == 1 && quindar_toggle)
-                                                {
-                                                    quindar1.Play();
-                                                    //print("playing response first quindar");
-                                                    response_chatter.PlayDelayed(quindar1.clip.length);
-                                                    //print("playing response chatter");
-                                                    quindar2.PlayDelayed(quindar1.clip.length + response_chatter.clip.length);
-                                                    //print("playing response second quindar");
-                                                }
-                                                else response_chatter.Play();
-                                            }
-                                            else
-                                            {
-                                                if (debugging) Debug.LogWarning("[CHATR] response_chatter_set has no audioclips, abandoning exchange");
-                                                exchange_playing = false;   //exchange is over
-                                            }
-                                            //print("playing response chatter...");
-                                            //exchange_playing = false;   //exchange is over
-                                        }
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                //No exchange currently playing
-                                secs_since_last_exchange += Time.deltaTime;
-
-                                if (secs_since_last_exchange > secs_between_exchanges && sstv.isPlaying == false)
-                                {
-                                    if (debugging) Debug.Log("[CHATR] beginning exchange,auto");
-                                    begin_exchange(0);
-                                }
-
-                                if (vessel.parts.Count != vessel_part_count || vessel_prev_stage != vessel.currentStage && sstv.isPlaying == false)
-                                {
-                                    //IMPROVE this so it doesn't chatter every vessel switch
-                                    //part count or stage has changed
-                                    if (debugging) Debug.Log("[CHATR] beginning exchange,parts/staging");
-                                    pod_begins_exchange = true;
-                                    begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
-                                }
-
-                                if (vessel.vesselType != VesselType.EVA && vessel.situation != vessel_prev_sit && sstv.isPlaying == false)
-                                {
-                                    //situation (lander, orbiting, etc) has changed
-                                    if (debugging) Debug.Log("[CHATR] beginning exchange,event::prev = " + vessel_prev_sit + " ::new = " + vessel.situation.ToString());
-                                    pod_begins_exchange = true;
-                                    begin_exchange(rand.Next(0, 3));  //delay Play for 0-2 seconds for randomness
-                                }
-                            }
-                        }
+                        if (debugging) Debug.Log("[CHATR] insta-chatter : exchange already playing, be patient ...");
+                        
                     }
+                    else begin_exchange(0);
                 }
 
+                // Run timer to allow auto exchange to trigger if needed
+                if (chatter_exists && vessel.GetCrewCount() > 0 && exchange_playing == false)
+                {
+                    //No exchange currently playing
+                    secs_since_last_exchange += Time.deltaTime;
 
-                vessel_prev_sit = vessel.situation;
-                vessel_prev_stage = vessel.currentStage;
-                vessel_part_count = vessel.parts.Count;
-
+                    if (secs_since_last_exchange > secs_between_exchanges && chatter_freq > 0 && sstv.isPlaying == false)
+                    {
+                        if (debugging) Debug.Log("[CHATR] beginning exchange,auto");
+                        begin_exchange(0);
+                    }
+                }
             }
             else
             {
@@ -6112,18 +3967,55 @@ namespace Chatterer
             }
         }
 
-        //private void consume_resources()
-        //{
-        //    if (TimeWarp.deltaTime == 0) return;    //do nothing if paused
-        //    if (vessel.vesselType == VesselType.EVA || disable_power_usage) power_available = true;    //power always available when EVA
-        //    else if (chatter_freq > 0 || sstv_freq > 0 || (beepsource_list[0].precise && beepsource_list[0].precise_freq > -1) || (beepsource_list[1].precise && beepsource_list[1].precise_freq > -1) || (beepsource_list[2].precise && beepsource_list[2].precise_freq > -1) || (beepsource_list[0].precise == false && beepsource_list[0].loose_freq > 0) || (beepsource_list[1].precise == false && beepsource_list[1].loose_freq > 0) || (beepsource_list[2].precise == false && beepsource_list[2].loose_freq > 0))
-        //    {
-        //        //else if anything is set to play a sound at some time, request ElectricCharge to determine power availability
-        //        float recvd_amount = vessel.rootPart.RequestResource("ElectricCharge", 0.01f * TimeWarp.fixedDeltaTime);
-        //        if (recvd_amount > 0) power_available = true;    // doesn't always send 100% of demand so as long as it sends something
-        //        else power_available = false;
-        //    }
-        //}
+        // Returns true when the pod is speaking to CapCom, or the pods is
+        // transmitting SSTV data.
+        public bool VesselIsTransmitting()
+        {
+            if (sstv.isPlaying)
+            {
+                return true;
+            }
+            else
+            {
+                if (exchange_playing)
+                {
+                    bool podInitiatedExchange = (initial_chatter_source == 1);
+                    return (podInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
 
+        // Returns true when CapCom is speaking to the capsule.
+        public bool VesselIsReceiving()
+        {
+            if (exchange_playing)
+            {
+                bool capcomInitiatedExchange = (initial_chatter_source == 0);
+                return (capcomInitiatedExchange) ? initial_chatter.isPlaying : response_chatter.isPlaying;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        // Initiate insta-chatter as if the player pressed the insta-chatter
+        // button.  Treat it as always pod-initiated. like a crewmember
+        // decided to talk to mission control.
+        public void InitiateChatter()
+        {
+            if (insta_chatter_key_just_changed == false && exchange_playing == false && sstv.isPlaying == false)
+            {
+                //no chatter or sstv playing, play insta-chatter
+                if (debugging) Debug.Log("[CHATR] beginning exchange,insta-chatter");
+
+                pod_begins_exchange = true;
+                begin_exchange(0);
+            }
+        }
     }
 }
